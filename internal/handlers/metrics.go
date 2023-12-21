@@ -2,91 +2,60 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/homeylab/tdarr-exporter/internal/config"
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/zap"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog/log"
 )
 
-var METRIC_NAMESPACE = "tdarr"
+const METRIC_NAMESPACE = "tdarr"
 
-type wrappedResponseWriter struct {
-	inner http.ResponseWriter
-	code  int
-}
+// Log internal request
+func RequestLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		t := time.Now()
+		c.Next()
+		duration := time.Since(t)
 
-func (w *wrappedResponseWriter) Header() http.Header {
-	return w.inner.Header()
-}
-
-func (w *wrappedResponseWriter) Write(b []byte) (int, error) {
-	return w.inner.Write(b)
-}
-
-func (w *wrappedResponseWriter) WriteHeader(code int) {
-	w.code = code
-	w.inner.WriteHeader(code)
-}
-
-func (w *wrappedResponseWriter) Code() int {
-	if w.code == 0 {
-		return http.StatusOK
+		log.Info().
+			Str("method", c.Request.Method).
+			Str("request_uri", c.Request.RequestURI).
+			Str("proto", c.Request.Proto).
+			Interface("duration", duration).
+			Msg("Incoming request")
 	}
-	return w.code
 }
 
-// Log internal request to stdout
-func LogHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ww := &wrappedResponseWriter{inner: w}
-		defer func() {
-			zap.S().Debugw("Request Received",
-				"remote_addr", r.RemoteAddr,
-				"status", ww.Code(),
-				"method", r.Method,
-				"url", r.URL)
-		}()
-		handler.ServeHTTP(w, r)
-	})
-}
-
-func RecoveryHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				zap.S().Errorw("panic recovered", "error", err)
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
-func MetricsHandler(conf config.Config, reg *prometheus.Registry, next http.Handler) http.Handler {
+func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts) gin.HandlerFunc {
+	// static metrics always present
 	var (
+		// use promAuto to auto register with existing registry
 		scrapDuration = promauto.With(reg).NewGauge(prometheus.GaugeOpts{
-			Namespace:   METRIC_NAMESPACE,
-			Name:        "scrape_duration_seconds",
-			Help:        "Duration of the last scrape of metrics from Exportarr.",
-			ConstLabels: prometheus.Labels{"url": conf.Url},
+			Namespace: METRIC_NAMESPACE,
+			Name:      "scrape_duration_seconds",
+			Help:      "Duration of the last scrape of metrics from exporter.",
+			// ConstLabels: prometheus.Labels{"url": conf.URL},
 		})
 		requestCount = promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Namespace:   METRIC_NAMESPACE,
-			Name:        "scrape_requests_total",
-			Help:        "Total number of HTTP requests made.",
-			ConstLabels: prometheus.Labels{"url": conf.Url},
+			Namespace: METRIC_NAMESPACE,
+			Name:      "scrape_requests_total",
+			Help:      "Total number of HTTP requests made.",
+			// ConstLabels: prometheus.Labels{"url": conf.URL},
 		}, []string{"code"})
 	)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		ww := &wrappedResponseWriter{inner: w}
+
+	h := promhttp.HandlerFor(reg, opts)
+
+	return func(c *gin.Context) {
 		defer func() {
+			start := time.Now()
 			scrapDuration.Set(time.Since(start).Seconds())
-			requestCount.WithLabelValues(fmt.Sprintf("%d", ww.Code())).Inc()
+			requestCount.WithLabelValues(fmt.Sprintf("%d", c.Writer.Status())).Inc()
 		}()
-		next.ServeHTTP(ww, r)
-	})
+		// promhttp serves back response
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }

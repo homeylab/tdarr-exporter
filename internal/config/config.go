@@ -25,11 +25,12 @@ type Config struct {
 	PrometheusPort     string
 	PrometheusPath     string
 	HttpTimeoutSeconds int
+	TdarrMetricsPath   string
 }
 
-func setLoggerDefaults() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-}
+// func setLoggerDefaults() {
+// 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+// }
 
 func setLoggerLevel(logLevel string) {
 	// set up global log level for zap
@@ -96,6 +97,7 @@ func NewConfig() Config {
 		log.Fatal().
 			Msg("A valid url needs to be provided!")
 	}
+
 	setLoggerLevel(*logLevel)
 	return Config{
 		Url:                *url,
@@ -104,9 +106,10 @@ func NewConfig() Config {
 		PrometheusPath:     *promPath,
 		LogLevel:           *logLevel,
 		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
+		TdarrMetricsPath:   defaults.TdarrMetricsPath,
 	}
 }
 
-func init() {
-	setLoggerDefaults()
-}
+// func init() {
+// 	setLoggerDefaults()
+// }

@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// ArrTransport is a http.RoundTripper that adds authentication to requests
+// Set up as http.RoundTripper that can retry, add auth in future, etc.
 type TdarrTransport struct {
 	inner http.RoundTripper
 }
@@ -16,6 +16,7 @@ func NewTdarrTransport(inner http.RoundTripper) *TdarrTransport {
 	}
 }
 
+// middleware for http to handle retries
 func (t *TdarrTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {

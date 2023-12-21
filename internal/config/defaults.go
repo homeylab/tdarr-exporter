@@ -7,5 +7,6 @@ func GetDefaults() Config {
 		PrometheusPort:     "9090",
 		PrometheusPath:     "/metrics",
 		HttpTimeoutSeconds: 10,
+		TdarrMetricsPath:   "/api/v2/cruddb",
 	}
 }

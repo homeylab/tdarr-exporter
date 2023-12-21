@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +73,7 @@ func (c *Client) unmarshalBody(b io.Reader, target interface{}) (err error) {
 }
 
 // DoRequest - Take a HTTP Request and return Unmarshaled data
-func (c *Client) DoRequest(endpoint string, target interface{}, queryParams ...QueryParams) error {
+func (c *Client) DoRequest(path string, target interface{}, queryParams ...QueryParams) error {
 	values := c.URL.Query()
 
 	// merge all query params
@@ -83,7 +85,7 @@ func (c *Client) DoRequest(endpoint string, target interface{}, queryParams ...Q
 		}
 	}
 
-	url := c.URL.JoinPath(endpoint)
+	url := c.URL.JoinPath(path)
 	url.RawQuery = values.Encode()
 	zap.S().Infow("Sending HTTP request",
 		"url", url)
@@ -96,6 +98,25 @@ func (c *Client) DoRequest(endpoint string, target interface{}, queryParams ...Q
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
 	}
+	defer resp.Body.Close()
+	return c.unmarshalBody(resp.Body, target)
+}
+
+// DoRequest - Take a HTTP Request and return Unmarshaled data
+func (c *Client) DoPostRequest(path string, target interface{}, payload []byte) error {
+	url := c.URL.JoinPath(path)
+	fmt.Println(url.String())
+	log.Info().Str("url", url.Host).Msg("Sending HTTP POST request")
+
+	req, err := http.NewRequest(http.MethodPost, url.String(), bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
+	}
+	fmt.Println(resp)
 	defer resp.Body.Close()
 	return c.unmarshalBody(resp.Body, target)
 }

@@ -4,74 +4,72 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
+	"sync"
 	"time"
 
-	"github.com/homeylab/tdarr-exporter/internal/config"
+	"github.com/gin-gonic/gin"
 	"github.com/homeylab/tdarr-exporter/internal/handlers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 )
 
-var GRACEFUL_TIMEOUT = 30 * time.Second
+type HttpServerConfig struct {
+	ListenAddress   string
+	PrometheusPort  string
+	PrometheusPath  string
+	GracefulTimeout time.Duration
+}
 
-type registerFunc func(registry prometheus.Registerer)
+func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool) {
+	defer wg.Done()
+	router := gin.New()
+	// Recovery returns a middleware that recovers from any panics and writes a 500 if there was one.
+	router.Use(gin.Recovery())
+	router.NoRoute(func(c *gin.Context) {
+		log.Warn().
+			Str("route", c.Request.URL.Path).
+			Msg("Route Not Found")
+		c.JSON(404, gin.H{"error": "Route Not Found: Try /metrics"})
+	})
 
-func ServeHttp(fn registerFunc, runConfig config.Config) {
-	var srv http.Server
-
-	idleConnsClosed := make(chan struct{})
-	go func() {
-		sigchan := make(chan os.Signal, 1)
-		signal.Notify(sigchan, os.Interrupt)
-		signal.Notify(sigchan, syscall.SIGTERM)
-		sig := <-sigchan
-		log.Info().
-			Interface("signal", sig).
-			Msg("Shutting down due to signal")
-
-		ctx, cancel := context.WithTimeout(context.Background(), GRACEFUL_TIMEOUT)
-		defer cancel()
-
-		if err := srv.Shutdown(ctx); err != nil {
-			log.Fatal().
-				Err(err).
-				Msg("Server shutdown failed")
-		}
-		close(idleConnsClosed)
-	}()
-
-	registry := prometheus.NewRegistry()
-	fn(registry)
-
-	mux := http.NewServeMux()
-	mux.Handle(runConfig.PrometheusPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	mux.HandleFunc("/", handlers.IndexHandler)
-	mux.HandleFunc("/healthz", handlers.HealthzHandler)
-
-	listenAddress := "0.0.0.0"
+	// add middleware
+	router.Use(handlers.RequestLogger())
+	// add handlers
+	router.GET(runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{}))
+	router.GET("/", handlers.IndexHandler())
+	router.GET("/healthz", handlers.HealthzHandler())
 
 	log.Info().
-		Str("interface", listenAddress).
+		Str("interface", runConfig.ListenAddress).
 		Str("port", runConfig.PrometheusPort).
 		Msg("Starting HTTP Server")
-	srv.Addr = fmt.Sprintf("%s:%s", listenAddress, runConfig.PrometheusPort)
 
-	wrappedMux := handlers.RecoveryHandler(mux)
-	wrappedMux = handlers.MetricsHandler(runConfig, registry, wrappedMux)
-	wrappedMux = handlers.LogHandler(wrappedMux)
+	srv := http.Server{
+		Addr:    fmt.Sprintf("%s:%s", runConfig.ListenAddress, runConfig.PrometheusPort),
+		Handler: router,
+	}
 
-	srv.Handler = wrappedMux
+	go func() {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal().
+				Err(err).
+				Msg("Failed to start HTTP Server")
+		}
+	}()
+	log.Info().Msg("HTTP Server started")
 
-	fmt.Println("here")
+	// stop server
+	<-stopChan
+	log.Info().Msg("Shutting down HTTP Server")
 
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+	ctx, cancel := context.WithTimeout(context.Background(), runConfig.GracefulTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal().
 			Err(err).
-			Msg("Failed to start HTTP Server")
+			Msg("Server shutdown failed")
 	}
-	<-idleConnsClosed
+	log.Info().Msg("HTTP Server shutdown gracefully")
 }
