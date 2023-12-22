@@ -112,6 +112,8 @@ func (c *Client) DoPostRequest(path string, target interface{}, payload []byte) 
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
+	// json content
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)

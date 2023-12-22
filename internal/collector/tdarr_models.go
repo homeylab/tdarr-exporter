@@ -43,7 +43,11 @@ type TdarrPie struct {
 }
 
 type TdarrDataResponse struct {
-	Pies             [][]interface{} `json:"pies"`
-	TdarrScore       string          `json:"tdarrScore"`
-	HealthCheckScore string          `json:"healthCheckScore"`
+	TotalFileCount        int             `json:"totalFileCount"`
+	TotalTranscodeCount   int             `json:"totalTranscodeCount"`
+	TotalHealthCheckCount int             `json:"totalHealthCheckCount"`
+	SizeDiff              float64         `json:"sizeDiff"`
+	Pies                  [][]interface{} `json:"pies"`
+	TdarrScore            string          `json:"tdarrScore"`
+	HealthCheckScore      string          `json:"healthCheckScore"`
 }
