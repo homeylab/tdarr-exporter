@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // Set up as http.RoundTripper that can retry, add auth in future, etc.
@@ -21,11 +22,13 @@ func (t *TdarrTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
 		retries := 2
+		httpBackOff := []time.Duration{1 * time.Second, 3 * time.Second}
 		for i := 0; i < retries; i++ {
 			resp, err = t.inner.RoundTrip(req)
 			if err == nil && resp.StatusCode < 500 {
 				return resp, nil
 			}
+			time.Sleep(httpBackOff[i])
 		}
 		if err != nil {
 			return nil, fmt.Errorf("error sending HTTP Request: %w", err)

@@ -2,7 +2,6 @@ package collector
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -21,7 +20,7 @@ type TdarrCollector struct {
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 	return &TdarrCollector{
 		config:  runConfig,
-		payload: getMetricRequest(),
+		payload: getRequestPayload(),
 		totalFilesMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "total_files"),
 			"Tdarr totalFileCount",
@@ -41,26 +40,25 @@ func (collector *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		log.Fatal().
 			Err(err)
 	}
-	fmt.Println(collector.payload)
+	log.Debug().Interface("payload", collector.payload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(collector.payload)
 	if err != nil {
 		log.Fatal().
 			Err(err)
 	}
-	fmt.Println(string(payload))
 	responseData := &TdarrDataResponse{}
 	httpErr := httpClient.DoPostRequest(collector.config.TdarrMetricsPath, responseData, payload)
-	log.Info().Interface("test", responseData).Msg("Output")
 	if httpErr != nil {
 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
 		return
 	}
+	log.Info().Interface("response", responseData).Msg("Output")
 	ch <- prometheus.MustNewConstMetric(collector.totalFilesMetric, prometheus.GaugeValue, 12.221)
 	// time.Sleep(50 * time.Second)
 }
 
-func getMetricRequest() TdarrMetricRequest {
+func getRequestPayload() TdarrMetricRequest {
 	return TdarrMetricRequest{
 		Data: TdarrDataRequest{
 			Collection: "StatisticsJSONDB",
@@ -69,3 +67,17 @@ func getMetricRequest() TdarrMetricRequest {
 		},
 	}
 }
+
+// func getRootPieMetrics() map{
+// 	return {
+
+// 	}
+// }
+
+// func getPieParseMap() map[int]func() {
+// 	return {
+// 		0: getTranscodeMetrics(),
+// 		1: getHealthCheckMetrics(),
+// 		2: getVideoCodesMetrics(),
+// 	}
+// }
