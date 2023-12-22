@@ -4,31 +4,38 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Set up as http.RoundTripper that can retry, add auth in future, etc.
-type TdarrTransport struct {
-	inner http.RoundTripper
+type ClientTransport struct {
+	inner   http.RoundTripper
+	retries int
+	backoff []time.Duration
 }
 
-func NewTdarrTransport(inner http.RoundTripper) *TdarrTransport {
-	return &TdarrTransport{
-		inner: inner,
+func NewClientTransport(inner http.RoundTripper) *ClientTransport {
+	return &ClientTransport{
+		inner:   inner,
+		retries: 2,
+		backoff: []time.Duration{1 * time.Second, 3 * time.Second},
 	}
 }
 
 // middleware for http to handle retries
-func (t *TdarrTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
-		retries := 2
-		httpBackOff := []time.Duration{1 * time.Second, 3 * time.Second}
-		for i := 0; i < retries; i++ {
+		for i := 0; i < t.retries; i++ {
+			log.Debug().Int("retry_count", i).Int("status_code", resp.StatusCode).
+				Interface("backoff_seconds", t.backoff[i]).Msgf("Retrying HTTP Request: %s", req.URL.String())
+			// first try already failed so wait before retrying
+			time.Sleep(t.backoff[i])
 			resp, err = t.inner.RoundTrip(req)
 			if err == nil && resp.StatusCode < 500 {
 				return resp, nil
 			}
-			time.Sleep(httpBackOff[i])
 		}
 		if err != nil {
 			return nil, fmt.Errorf("error sending HTTP Request: %w", err)
@@ -37,9 +44,11 @@ func (t *TdarrTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode <= 499 {
-		return nil, fmt.Errorf("received Client Error Status Code: %d", resp.StatusCode)
+		log.Error().Int("status_code", resp.StatusCode).Str("url", req.URL.String()).Msgf("Received 40X Status Code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("received 40x Status Code: %d", resp.StatusCode)
 	}
 	if resp.StatusCode >= 300 && resp.StatusCode <= 399 {
+		log.Debug().Int("status_code", resp.StatusCode).Str("url", req.URL.String()).Msgf("Received 30X Status Code: %d", resp.StatusCode)
 		if location, err := resp.Location(); err == nil {
 			return nil, fmt.Errorf("received Redirect Status Code: %d, Location: %s", resp.StatusCode, location.String())
 		} else {

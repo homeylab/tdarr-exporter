@@ -10,39 +10,27 @@ type TdarrDataRequest struct {
 	DocId      string `json:"docID"`
 }
 
-type TdarrPieItem struct {
+type TdarrPieSlice struct {
 	Name  string `json:"name"`
 	Value int    `json:"value"`
 }
 
-// type TdarrTranscodePie struct {
-// 	TranscodeSuccess int
-// 	NotRequired      int
-// 	TranscodeError   int
-// }
-
-// type TdarrHealthPie struct {
-// 	Queued  int
-// 	Success int
-// 	Error   int
-// 	Ignored int
-// }
-
 type TdarrPie struct {
-	LibraryName           string
-	LibraryId             string
-	NumFiles              int
-	NumTranscodes         int
-	SpaceSavedGB          float64
-	NumHealthChecks       int
-	TdarrTranscodePie     []TdarrPieItem
-	TdarrHealthPie        []TdarrPieItem
-	TdarrVideoCodecs      []TdarrPieItem
-	TdarrVideoContainers  []TdarrPieItem
-	TdarrVideoResolutions []TdarrPieItem
+	LibraryName              string //label
+	LibraryId                string //label
+	NumFiles                 int
+	NumTranscodes            int
+	NumHealthChecks          int
+	SpaceSavedGB             float64
+	TdarrTranscodePie        []TdarrPieSlice
+	TdarrHealthPie           []TdarrPieSlice
+	TdarrVideoCodecsPie      []TdarrPieSlice
+	TdarrVideoContainersPie  []TdarrPieSlice
+	TdarrVideoResolutionsPie []TdarrPieSlice
 }
 
-type TdarrDataResponse struct {
+// core metrics
+type TdarrMetric struct {
 	TotalFileCount        int             `json:"totalFileCount"`
 	TotalTranscodeCount   int             `json:"totalTranscodeCount"`
 	TotalHealthCheckCount int             `json:"totalHealthCheckCount"`
