@@ -33,7 +33,7 @@ type Config struct {
 // }
 
 func setLoggerLevel(logLevel string) {
-	// set up global log level for zap
+	// set up global log level for zerolog
 	level := strings.ToLower(logLevel)
 	switch level {
 	case "trace":
