@@ -167,13 +167,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, httpErr)
 		return
 	}
-	log.Info().Interface("response", metric).Msg("Output")
+	log.Debug().Interface("response", metric).Msg("Output")
 	var (
 		pieData         []TdarrPie
 		score           float64
 		healthScore     float64
 		floatConvertErr error
-		// pieMetricsErr   error
 	)
 
 	score, floatConvertErr = strconv.ParseFloat(metric.TdarrScore, 64)
