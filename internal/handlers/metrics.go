@@ -24,7 +24,7 @@ func RequestLogger() gin.HandlerFunc {
 			Str("method", c.Request.Method).
 			Str("request_uri", c.Request.RequestURI).
 			Str("proto", c.Request.Proto).
-			Interface("duration", duration).
+			Interface("duration_seconds", duration.Seconds()).
 			Msg("Incoming request")
 	}
 }

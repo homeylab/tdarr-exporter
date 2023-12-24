@@ -21,7 +21,8 @@
                     "extensions": [
                             "streetsidesoftware.code-spell-checker",
                             "golang.go",
-                            "ms-azuretools.vscode-docker"
+                            "ms-azuretools.vscode-docker",
+                            "GitHub.copilot"
                     ]
             }
     }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -18,14 +17,14 @@ import (
 )
 
 func main() {
+	defer os.Exit(0)
 	userConfig := config.NewConfig()
-	fmt.Println(userConfig)
-	log.Info().
-		Interface("config", userConfig)
+	log.Info().Interface("config", userConfig).Msg("Using generated configuration")
 
 	// prometheus set up
 	tdarrCollector := collector.NewTdarrCollector(userConfig)
 	registry := prometheus.NewRegistry()
+	// registering a collector uses JIT? and first scrape will be slower
 	registry.MustRegister(tdarrCollector)
 
 	// http server
@@ -59,7 +58,6 @@ func main() {
 	stopHttpChan <- true
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")
-	os.Exit(0)
 }
 
 func init() {

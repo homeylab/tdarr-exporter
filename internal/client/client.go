@@ -11,19 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"go.uber.org/zap"
 )
 
 // Client struct is an *Arr client.
-type Client struct {
+type RequestClient struct {
 	httpClient http.Client
 	URL        url.URL
 }
 
 type QueryParams = url.Values
 
-func NewClient(baseUrl string, insecureSkipVerify bool, httpTimeoutSeconds int) (*Client, error) {
+func NewRequestClient(baseUrl string, insecureSkipVerify bool) (*RequestClient, error) {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL(%s): %w", baseUrl, err)
@@ -31,8 +31,11 @@ func NewClient(baseUrl string, insecureSkipVerify bool, httpTimeoutSeconds int) 
 
 	baseTransport := http.DefaultTransport
 	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
-
-	return &Client{
+	// add default scheme if not present
+	if u.Scheme == "" {
+		u.Scheme = "https"
+	}
+	return &RequestClient{
 		httpClient: http.Client{
 			// If CheckRedirect is nil, the Client uses its default policy,
 			// which is to stop after 10 consecutive requests.
@@ -41,42 +44,40 @@ func NewClient(baseUrl string, insecureSkipVerify bool, httpTimeoutSeconds int) 
 			// 	return http.ErrUseLastResponse
 			// },
 			// TdarrTransport implements `RoundTrip`
-			Transport: NewTdarrTransport(baseTransport),
-			Timeout:   time.Duration(time.Duration(httpTimeoutSeconds) * time.Second),
+			Transport: NewClientTransport(baseTransport),
+			Timeout:   time.Duration(time.Duration(15) * time.Second),
 		},
 		URL: *u,
 	}, nil
 }
 
-func (c *Client) unmarshalBody(b io.Reader, target interface{}) (err error) {
+func (c *RequestClient) unmarshalBody(body io.Reader, target interface{}) (err error) {
+	// return error instead of panic
 	defer func() {
 		if r := recover(); r != nil {
-			// return recovered panic as error
 			err = fmt.Errorf("recovered from panic: %s", r)
-
-			log := zap.S()
-			if zap.S().Level() == zap.DebugLevel {
+			// if debug, log body
+			if log.Logger.GetLevel() == zerolog.DebugLevel {
+				// try to copy io.Reader to string for troubleshooting
 				s := new(strings.Builder)
-				_, copyErr := io.Copy(s, b)
+				_, copyErr := io.Copy(s, body)
 				if copyErr != nil {
-					zap.S().Errorw("Failed to copy body to string in recover",
-						"error", err, "recover", r)
+					log.Error().Err(copyErr).Interface("recover", r).Msg("Failed to copy body to string in recover for troubleshooting")
 				}
-				log = log.With("body", s.String())
+				log.Error().Str("body", s.String()).Msg("Problem body")
 			}
-			log.Errorw("Recovered while unmarshalling response", "error", r)
-
+			log.Error().Err(err).Interface("recover", r).Msg("Recovered while unmarshalling response")
 		}
 	}()
-	err = json.NewDecoder(b).Decode(target)
+	// read body into target
+	err = json.NewDecoder(body).Decode(target)
 	return
 }
 
 // DoRequest - Take a HTTP Request and return Unmarshaled data
-func (c *Client) DoRequest(path string, target interface{}, queryParams ...QueryParams) error {
+func (c *RequestClient) DoRequest(path string, target interface{}, queryParams ...QueryParams) error {
 	values := c.URL.Query()
-
-	// merge all query params
+	// add query params
 	for _, m := range queryParams {
 		for key, vals := range m {
 			for _, val := range vals {
@@ -84,41 +85,40 @@ func (c *Client) DoRequest(path string, target interface{}, queryParams ...Query
 			}
 		}
 	}
-
 	url := c.URL.JoinPath(path)
 	url.RawQuery = values.Encode()
-	zap.S().Infow("Sending HTTP request",
-		"url", url)
 
-	req, err := http.NewRequest("GET", url.String(), nil)
+	log.Info().Str("url", url.String()).Msg("Sending HTTP request")
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
+		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
 	}
+
 	defer resp.Body.Close()
 	return c.unmarshalBody(resp.Body, target)
 }
 
 // DoRequest - Take a HTTP Request and return Unmarshaled data
-func (c *Client) DoPostRequest(path string, target interface{}, payload []byte) error {
+func (c *RequestClient) DoPostRequest(path string, target interface{}, payload []byte) error {
 	url := c.URL.JoinPath(path)
-	fmt.Println(url.String())
-	log.Info().Str("url", url.Host).Msg("Sending HTTP POST request")
-
+	log.Debug().Str("url", url.String()).Msg("Sending HTTP POST request")
 	req, err := http.NewRequest(http.MethodPost, url.String(), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
+
 	// json content
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
 	}
-	fmt.Println(resp)
 	defer resp.Body.Close()
 	return c.unmarshalBody(resp.Body, target)
 }
