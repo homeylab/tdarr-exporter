@@ -37,6 +37,7 @@ FROM ${RUN_IMAGE}:${RUN_IMAGE_TAG}
 # OCI labels
 LABEL \
     org.opencontainers.image.title="tdarr-exporter" \
+    org.opencontainers.image.description="Prometheus exporter for tdarr" \
     org.opencontainers.image.source="https://github.com/homeylab/tdarr-exporter"
 USER nonroot:nonroot
 COPY --from=builder --chown=nonroot:nonroot /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

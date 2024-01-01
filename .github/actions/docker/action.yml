@@ -56,12 +56,15 @@ runs:
   - name: Build Docker Image
     if: github.event_name != 'pull_request'
     uses: docker/build-push-action@v5
+    env:
+      IMAGE_TAGS: ${{ ${{ steps.meta.outputs.tags }} || 'dev' }}
     with:
       context: .
       file: ./Dockerfile
       platforms: linux/amd64,linux/arm64
       push: ${{ fromJSON(inputs.push) }}
-      tags: ${{ steps.meta.outputs.tags }}
+      # tags: ${{ steps.meta.outputs.tags }}
+      tags: ${{ env.IMAGE_TAGS }}
       labels: ${{ steps.meta.outputs.labels }}
       build-args: |
         VERSION=${{ steps.meta.outputs.version }}
