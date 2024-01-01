@@ -5,10 +5,12 @@ description: Creates a Docker image
 inputs:
   dockerhub_username:
     description: Dockerhub username
+    type: string
     required: false
     default: ${{ secrets.DOCKERHUB_USERNAME }}
   dockerhub_token:
     description: Dockerhub token
+    type: string
     required: false
     default: ${{ secrets.DOCKERHUB_TOKEN }}
   push:
