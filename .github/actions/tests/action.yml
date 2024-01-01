@@ -2,26 +2,21 @@
 name: Run go tests
 description: Runs actions to test go code
 
-inputs:
-  go_version:
-    description: go version to use
-    type: string
-    required: true
-  golangci_version:
-    description: golangci_version to use
-    type: string
-    required: true
+
 
 runs:
   using: "composite" # allows inputs/outputs to be passed between steps
+  matrix:
+    go-version: ["1.21.5"]
+    golangci-version: ["v1.51.2"]
   steps:
     - uses: actions/checkout@v3
     # https://github.com/actions/runner/issues/2238
     # use `fromJSON`
-    - name: Set up Go ${{ fromJSON(inputs.go_version) }}
+    - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: ${{ fromJSON(inputs.go_version) }} # The Go version to download (if necessary) and use.
+        go-version: '1.21.5' # The Go version to download (if necessary) and use.
     # get version
     # format with go fmt to check against go styling
     # check for diff and exit with non-zero if there is a diff meaning we need to format our code
@@ -42,6 +37,6 @@ runs:
     - name: Lint code
       uses: golangci/golangci-lint-action@v2
       with:
-        version: ${{ fromJSON(inputs.golangci_version) }}
+        version: latest
         args: --timeout 5m
     # add tests in future
