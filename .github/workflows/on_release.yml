@@ -15,12 +15,12 @@ jobs:
         golangci-version: ["v1.51.2"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Tests
         uses: ./.github/actions/tests
         with:
-          go_version: "${{ matrix.go-version }}"
-          golangci_version: "${{ matrix.golangci-version }}"
+          go_version: '${{ matrix.go-version }}'
+          golangci_version: '${{ matrix.golangci-version }}'
   # build and push docker image
   release-docker:
     runs-on: ubuntu-latest
@@ -28,7 +28,7 @@ jobs:
     environment: 'Dockerhub' 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         uses: ./.github/actions/docker
         # with:
         #   dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -40,9 +40,9 @@ jobs:
     needs: tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Release
         uses: ./.github/actions/go
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
-          go_version: "${{ matrix.go-version }}"
+          go_version: '${{ matrix.go-version }}'
