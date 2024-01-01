@@ -7,12 +7,12 @@ inputs:
     description: Dockerhub username
     type: string
     required: false
-    default: ${{ secrets.DOCKERHUB_USERNAME }}
+    default: none
   dockerhub_token:
     description: Dockerhub token
     type: string
     required: false
-    default: ${{ secrets.DOCKERHUB_TOKEN }}
+    default: none
   push:
     description: Push Images to docker hub
     type: boolean
@@ -70,7 +70,7 @@ runs:
 
   - name: Update Dockerhub Documentation
     uses: peter-evans/dockerhub-description@v3
-    if: latest == true && github.event_name != 'pull_request'
+    if: ${{ fromJSON(inputs.latest) }} == true && github.event_name != 'pull_request'
     with:
       username: ${{ secrets.DOCKERHUB_USERNAME }}
       password: ${{ secrets.DOCKERHUB_TOKEN }}
