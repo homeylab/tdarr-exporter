@@ -11,6 +11,7 @@ FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} as builder
 # TARGETARCH = GOARCH (Go Architecture) target
 # TARGETVARIANT = GOARM (Go ARM) target if using `TARGETARCH=arm` (https://github.com/goreleaser/goreleaser/issues/36)
 # - without it, you should specify `TARGETARCH/GOARCH` as `arm64`
+# below are populated by `buildx` command with `--platform` option
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT=""
@@ -30,7 +31,7 @@ COPY . .
 # - I do not believe this is needed if you have `CGO_ENABLED=0`
 # ldlflags: `-w -s` disable debugging and `pprof` for minimal binary, 
 # `-extldflags '-static'` means do not link against shared libraries
-RUN go build -a -ldflags "-w -s -extldflags '-static'" -o exporter /build/cmd/exporter/.
+RUN go build -a -ldflags "-w -s -extldflags '-static'  -X main.version=${VERSION} -X main.buildTime=${BUILDTIME} -X main.revision=${REVISION}" -o exporter /build/cmd/exporter/.
 
 FROM ${RUN_IMAGE}:${RUN_IMAGE_TAG}
 # OCI labels

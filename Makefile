@@ -10,7 +10,7 @@ BASE_IMAGE_TAG=1.21.5-alpine
 RUN_IMAGE=gcr.io/distroless/static
 RUN_IMAGE_TAG=nonroot
 
-IMAGE_NAME=homeylab/tdarr-exporter
+IMAGE_NAME=docker.homeylab.org/tdarr-exporter
 IMAGE_TAG=0.0.1
 
 IMAGE_ARCH=amd64
@@ -19,10 +19,15 @@ IMAGE_ARCH_ARM=arm64
 # Golang
 GOOS=linux
 GOARCH_ARM=arm64
-GOARM=7
+GOARM=""
 
 tidy:
 	go mod tidy
+
+# Gofmt formats Go programs. It uses tabs for indentation and blanks for alignment.
+# Alignment assumes that an editor is using a fixed-width font.
+fmt:
+	go fmt ./...
 
 update_dep:
 	go get -u ./...
@@ -38,21 +43,22 @@ local_docker_build:
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
 	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
 	--build-arg TARGETOS=${GOOS} \
-	-t ${IMAGE_NAME}:test \
+	-t ${IMAGE_NAME}:${IMAGE_TAG} \
 	--no-cache .
 
 local_docker_run:
-	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${IMAGE_NAME}:test
+	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${IMAGE_NAME}:0.0.1
 
 docker_build:
 	@docker buildx create --use --name=crossplat --node=crossplat && \
 	docker buildx build \
 	--platform linux/amd64,linux/arm64 \
-	-output "type=image,push=true" \
+	--output "type=image,push=true" \
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
 	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
+	--build-arg TARGETOS=${GOOS} \
 	-t ${IMAGE_NAME}:${IMAGE_TAG} \
 	--no-cache .
 

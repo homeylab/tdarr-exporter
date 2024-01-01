@@ -1,0 +1,27 @@
+---
+name: Create Go Binaries
+description: Runs Go Releaser Action
+
+inputs:
+  token:
+    description: Github token
+    required: true
+  go_version:
+    description: go version to use
+    type: string
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ fromJSON(inputs.go_version) }}"
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
