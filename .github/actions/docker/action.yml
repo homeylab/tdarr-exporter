@@ -34,15 +34,17 @@ runs:
       images: docker.io/${{ github.repository }}
       flavor: |
         latest=${{ fromJSON(inputs.latest) }}
-      # labels: |
-      #   org.opencontainers.image.description=Prometheus exporter for tdarr
+      # for some reason can't get this to show up from docker image labels
+      # placing here for now
+      labels: |
+        org.opencontainers.image.description=Prometheus exporter for tdarr
       tags: |
-        # add the event types that should be added as tags
-        # on merge to master - update `main` tag for testing before release
+        ## add the event types that should be added as tags
+        ## on merge to master - update `main` tag for testing before release
         type=ref,event=branch
-        # on pr to test change - image not pushed
-        type=ref,event=pr
-        # on release - for use by users
+        ## on pr to test change - image not pushed
+        # type=ref,event=pr
+        ## on release - for use by users
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
 

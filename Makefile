@@ -10,8 +10,9 @@ BASE_IMAGE_TAG=1.21.5-alpine
 RUN_IMAGE=gcr.io/distroless/static
 RUN_IMAGE_TAG=nonroot
 
-IMAGE_NAME=docker.homeylab.org/tdarr-exporter
-IMAGE_TAG=0.0.1
+# for test - do not try to use externally
+TEST_IMAGE_NAME=docker.homeylab.org/tdarr-exporter
+TEST_IMAGE_TAG=0.0.1
 
 IMAGE_ARCH=amd64
 IMAGE_ARCH_ARM=arm64
@@ -43,23 +44,23 @@ local_docker_build:
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
 	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
 	--build-arg TARGETOS=${GOOS} \
-	-t ${IMAGE_NAME}:${IMAGE_TAG} \
+	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	--no-cache .
 
 local_docker_run:
-	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${IMAGE_NAME}:0.0.1
+	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG}
 
 docker_build:
 	@docker buildx create --use --name=crossplat --node=crossplat && \
 	docker buildx build \
 	--platform linux/amd64,linux/arm64 \
-	--output "type=image,push=true" \
+	--output "type=image,push=false" \
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
 	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
 	--build-arg TARGETOS=${GOOS} \
-	-t ${IMAGE_NAME}:${IMAGE_TAG} \
+	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	--no-cache .
 
 docker_build_latest:
@@ -72,8 +73,8 @@ docker_build_latest:
 	--build-arg DOCKER_WORK_DIR=${DOCKER_WORK_DIR} \
 	--build-arg DOCKER_CONFIG_DIR=${DOCKER_CONFIG_DIR} \
 	--build-arg DOCKER_EXPORT_DIR=${DOCKER_EXPORT_DIR} \
-	-t ${IMAGE_NAME}:${IMAGE_TAG} \
-	-t ${IMAGE_NAME}:latest \
+	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
+	-t ${TEST_IMAGE_NAME}:latest \
 	--no-cache .
 
 docker_cleanup:
