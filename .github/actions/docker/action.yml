@@ -37,8 +37,12 @@ runs:
       # labels: |
       #   org.opencontainers.image.description=Prometheus exporter for tdarr
       tags: |
+        # add the event types that should be added as tags
+        # on merge to master - update `main` tag for testing before release
         type=ref,event=branch
+        # on pr to test change - image not pushed
         type=ref,event=pr
+        # on release - for use by users
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
 
@@ -73,7 +77,7 @@ runs:
 
   - name: Update Dockerhub Documentation
     uses: peter-evans/dockerhub-description@v3
-    if: ${{ fromJSON(inputs.latest) }} == true && github.event_name != 'pull_request'
+    if: ${{ (fromJSON(inputs.latest) == true) && (github.event_name != 'pull_request') }}
     with:
       username: ${{ fromJSON(inputs.dockerhub_username) }}
       password: ${{ fromJSON(inputs.dockerhub_token) }}
