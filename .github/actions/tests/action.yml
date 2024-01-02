@@ -1,0 +1,39 @@
+---
+name: Run go tests
+description: Runs actions to test go code
+
+
+
+runs:
+  using: "composite" # allows inputs/outputs to be passed between steps
+  steps:
+    - uses: actions/checkout@v3
+    # https://github.com/actions/runner/issues/2238
+    # use `fromJSON`
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21.5' # The Go version to download (if necessary) and use.
+    # get version
+    # format with go fmt to check against go styling
+    # check for diff and exit with non-zero if there is a diff meaning we need to format our code
+    - name: Check Go Fmt
+      shell: bash
+      run: |
+        go version
+        go fmt ./...
+        git diff --exit-code
+    # ensure our current change does not have any unplanned/saved changes to our go.mod file
+    - name: Check Go Mod
+      shell: bash
+      run: |
+        go version
+        go mod tidy
+        git diff --exit-code
+    # lint our code
+    - name: Lint code
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: latest
+        args: --timeout 5m
+    # add tests in future
