@@ -1,6 +1,6 @@
 # needs: [tests]  # require tests to pass before deploy runs
 
-name: Build and Push
+name: Create Current Main Image
 
 # on:
 #   push:
@@ -11,7 +11,7 @@ name: Build and Push
 on:
   push:
     branches:
-      - master
+      - main
 
 # maybe trigger build/push on release tags?
 # but this also works for my use case
