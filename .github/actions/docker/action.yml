@@ -34,10 +34,11 @@ runs:
       images: docker.io/${{ github.repository }}
       flavor: |
         latest=${{ fromJSON(inputs.latest) }}
-      labels: |
-        org.opencontainers.image.description=Prometheus exporter for tdarr
+      # labels: |
+      #   org.opencontainers.image.description=Prometheus exporter for tdarr
       tags: |
         type=ref,event=branch
+        type=ref,event=pr
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
 
