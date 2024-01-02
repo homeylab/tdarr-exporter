@@ -2,6 +2,10 @@
 name: Docker image
 description: Creates a Docker image
 
+# note inputs have some weird behavior: https://github.com/actions/runner/issues/1483
+# for string type, don't wrap in JSON
+# for boolean type, wrap in JSON
+
 inputs:
   dockerhub_username:
     description: Dockerhub username

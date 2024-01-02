@@ -31,6 +31,7 @@ func main() {
 	stopHttpChan := make(chan bool)
 	httpWg := &sync.WaitGroup{}
 	httpServerConfig := server.HttpServerConfig{
+		TdarrUrl:        userConfig.Url,
 		PrometheusPort:  userConfig.PrometheusPort,
 		PrometheusPath:  userConfig.PrometheusPath,
 		ListenAddress:   "0.0.0.0",
