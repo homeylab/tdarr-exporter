@@ -20,7 +20,7 @@ func RequestLogger() gin.HandlerFunc {
 		c.Next()
 		duration := time.Since(t)
 
-		log.Info().
+		log.Debug().
 			Str("method", c.Request.Method).
 			Str("request_uri", c.Request.RequestURI).
 			Str("proto", c.Request.Proto).
@@ -29,21 +29,21 @@ func RequestLogger() gin.HandlerFunc {
 	}
 }
 
-func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts) gin.HandlerFunc {
+func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, url string) gin.HandlerFunc {
 	// static metrics always present
 	var (
 		// use promAuto to auto register with existing registry
 		scrapDuration = promauto.With(reg).NewGauge(prometheus.GaugeOpts{
-			Namespace: METRIC_NAMESPACE,
-			Name:      "scrape_duration_seconds",
-			Help:      "Duration of the last scrape of metrics from exporter.",
-			// ConstLabels: prometheus.Labels{"url": conf.URL},
+			Namespace:   METRIC_NAMESPACE,
+			Name:        "scrape_duration_seconds",
+			Help:        "Duration of the last scrape of metrics from exporter.",
+			ConstLabels: prometheus.Labels{"tdarr_instance": url},
 		})
 		requestCount = promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Namespace: METRIC_NAMESPACE,
-			Name:      "scrape_requests_total",
-			Help:      "Total number of HTTP requests made.",
-			// ConstLabels: prometheus.Labels{"url": conf.URL},
+			Namespace:   METRIC_NAMESPACE,
+			Name:        "scrape_requests_total",
+			Help:        "Total number of HTTP requests made.",
+			ConstLabels: prometheus.Labels{"tdarr_instance": url},
 		}, []string{"code"})
 	)
 

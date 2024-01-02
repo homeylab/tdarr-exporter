@@ -2,13 +2,13 @@
 name: Create Go Binaries
 description: Runs Go Releaser Action
 
+# note inputs have some weird behavior: https://github.com/actions/runner/issues/1483
+# for string type, don't wrap in JSON
+# for boolean type, wrap in JSON
+
 inputs:
   token:
     description: Github token
-    required: true
-  go_version:
-    description: go version to use
-    type: string
     required: true
 
 runs:
