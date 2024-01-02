@@ -1,5 +1,5 @@
 ---
-name: Versioned Release
+name: Create Official Release and Push Artifacts
 
 on:
   push:
