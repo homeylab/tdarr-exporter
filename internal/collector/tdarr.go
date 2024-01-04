@@ -33,6 +33,8 @@ type TdarrCollector struct {
 	pieVideoCodecs        *prometheus.Desc
 	pieVideoContainers    *prometheus.Desc
 	pieVideoResolutions   *prometheus.Desc
+	pieAudioCodecs        *prometheus.Desc
+	pieAudioContainers    *prometheus.Desc
 	errorMetric           *prometheus.Desc // Error Description for use with InvalidMetric
 }
 
@@ -130,6 +132,18 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "resolution"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
+		pieAudioCodecs: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "library_audio_codecs"),
+			"Tdarr audio codecs for library by type",
+			[]string{"library_name", "library_id", "codec"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		pieAudioContainers: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "library_audio_containers"),
+			"Tdarr video containers for library by type",
+			[]string{"library_name", "library_id", "container_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
 			"Error while collecting metrics",
@@ -141,6 +155,22 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 
 func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.totalFilesMetric
+	ch <- c.totalTranscodeCount
+	ch <- c.totalHealthCheckCount
+	ch <- c.sizeDiff
+	ch <- c.tdarrScore
+	ch <- c.healthCheckScore
+	ch <- c.pieNumFiles
+	ch <- c.pieNumTranscodes
+	ch <- c.pieNumHealthChecks
+	ch <- c.pieSizeDiff
+	ch <- c.pieTranscodes
+	ch <- c.pieHealthChecks
+	ch <- c.pieVideoCodecs
+	ch <- c.pieVideoContainers
+	ch <- c.pieVideoResolutions
+	ch <- c.pieAudioCodecs
+	ch <- c.pieAudioContainers
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
@@ -167,7 +197,8 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, httpErr)
 		return
 	}
-	log.Debug().Interface("response", metric).Msg("Output")
+	log.Debug().Interface("response", metric).Msg("Metrics Api Response")
+	// get metrics data
 	var (
 		pieData         []TdarrPie
 		score           float64
@@ -196,6 +227,8 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			videoCodecsPie      []TdarrPieSlice
 			videoContainersPie  []TdarrPieSlice
 			videoResolutionsPie []TdarrPieSlice
+			audioCodecsPie      []TdarrPieSlice
+			audioContainersPie  []TdarrPieSlice
 			pieMetricsErr       error
 		)
 		if transcodePie, pieMetricsErr = getPieMetricsFields(pie[6].([]interface{})); pieMetricsErr != nil {
@@ -218,20 +251,32 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			log.Error().Interface("rawData", pie[10].([]interface{})).Msg("Failed to get video resolutions pie metrics")
 			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
 		}
+		if audioCodecsPie, pieMetricsErr = getPieMetricsFields(pie[11].([]interface{})); pieMetricsErr != nil {
+			log.Error().Interface("rawData", pie[11].([]interface{})).Msg("Failed to get audio codecs pie metrics")
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+		}
+		if audioContainersPie, pieMetricsErr = getPieMetricsFields(pie[12].([]interface{})); pieMetricsErr != nil {
+			log.Error().Interface("rawData", pie[12].([]interface{})).Msg("Failed to get audio containers pie metrics")
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+		}
 		pieData = append(pieData, TdarrPie{
 			LibraryName:              pie[0].(string),
 			LibraryId:                pie[1].(string),
-			NumFiles:                 int(pie[2].(float64)),
-			NumTranscodes:            int(pie[3].(float64)),
+			NumFiles:                 pie[2].(int),
+			NumTranscodes:            pie[3].(int),
 			SpaceSavedGB:             pie[4].(float64),
-			NumHealthChecks:          int(pie[5].(float64)),
+			NumHealthChecks:          pie[5].(int),
 			TdarrTranscodePie:        transcodePie,
 			TdarrHealthPie:           healthPie,
 			TdarrVideoCodecsPie:      videoCodecsPie,
 			TdarrVideoContainersPie:  videoContainersPie,
 			TdarrVideoResolutionsPie: videoResolutionsPie,
+			TdarrAudioCodecsPie:      audioCodecsPie,
+			TdarrAudioContainersPie:  audioContainersPie,
 		})
 	}
+
+	// add metrics to collector
 	ch <- prometheus.MustNewConstMetric(c.totalFilesMetric, prometheus.GaugeValue, float64(metric.TotalFileCount))
 	ch <- prometheus.MustNewConstMetric(c.totalTranscodeCount, prometheus.GaugeValue, float64(metric.TotalTranscodeCount))
 	ch <- prometheus.MustNewConstMetric(c.totalHealthCheckCount, prometheus.GaugeValue, float64(metric.TotalHealthCheckCount))
@@ -240,6 +285,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.healthCheckScore, prometheus.GaugeValue, healthScore)
 	for _, pie := range pieData {
 		libraryId := pie.LibraryId
+		// if we don't change, it errors with duplicate label value in single metric with `library_name` label
 		if strings.ToLower(libraryId) == "all" {
 			libraryId = "all_libraries"
 		}
@@ -273,6 +319,14 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		for _, pieSlice := range pie.TdarrVideoResolutionsPie {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoResolutions, prometheus.GaugeValue, float64(pieSlice.Value),
+				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+		}
+		for _, pieSlice := range pie.TdarrAudioCodecsPie {
+			ch <- prometheus.MustNewConstMetric(c.pieAudioCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
+				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+		}
+		for _, pieSlice := range pie.TdarrAudioContainersPie {
+			ch <- prometheus.MustNewConstMetric(c.pieAudioContainers, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
 		}
 	}

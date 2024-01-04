@@ -8,5 +8,6 @@ func GetDefaults() Config {
 		PrometheusPath:     "/metrics",
 		HttpTimeoutSeconds: 10,
 		TdarrMetricsPath:   "/api/v2/cruddb",
+		TdarrNodePath:      "/api/v2/get-nodes",
 	}
 }
