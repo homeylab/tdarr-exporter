@@ -5,9 +5,10 @@ type TdarrMetricRequest struct {
 }
 
 type TdarrDataRequest struct {
-	Collection string `json:"collection"`
-	Mode       string `json:"mode"`
-	DocId      string `json:"docID"`
+	Collection string                 `json:"collection"`
+	Mode       string                 `json:"mode"`
+	DocId      string                 `json:"docID"`
+	Obj        map[string]interface{} `json:"obj"`
 }
 
 type TdarrPieSlice struct {
@@ -18,9 +19,9 @@ type TdarrPieSlice struct {
 type TdarrPie struct {
 	LibraryName              string //label
 	LibraryId                string //label
-	NumFiles                 int
-	NumTranscodes            int
-	NumHealthChecks          int
+	NumFiles                 float64
+	NumTranscodes            float64
+	NumHealthChecks          float64
 	SpaceSavedGB             float64
 	TdarrTranscodePie        []TdarrPieSlice
 	TdarrHealthPie           []TdarrPieSlice
@@ -43,13 +44,14 @@ type TdarrMetric struct {
 	HealthCheckScore      string           `json:"healthCheckScore"`
 	AvgNumStreams         float64          `json:"avgNumberOfStreamsInVideo"`
 	StreamStats           TdarrStreamStats `json:"streamStats"`
-	HoldQueue             int              `json:"table0Count"`
-	TranscodeQueue        int              `json:"table1Count"`
-	TranscodeSuccess      int              `json:"table2Count"`
-	TranscodeFailed       int              `json:"table3Count"`
-	HealthCheckQueue      int              `json:"table4Count"`
-	HealthCheckSuccess    int              `json:"table5Count"`
-	HealthCheckFailed     int              `json:"table6Count"`
+	// appears we can get below in other places and may not be necessary
+	// HoldQueue             int              `json:"table0Count"`
+	// TranscodeQueue        int              `json:"table1Count"`
+	// TranscodeSuccess      int              `json:"table2Count"`
+	// TranscodeFailed       int              `json:"table3Count"`
+	// HealthCheckQueue      int              `json:"table4Count"`
+	// HealthCheckSuccess    int              `json:"table5Count"`
+	// HealthCheckFailed     int              `json:"table6Count"`
 }
 
 type TdarrStreamStatsObj struct {
@@ -66,14 +68,14 @@ type TdarrStreamStats struct {
 
 type TdarrResourceStats struct {
 	Process struct {
-		Uptime      int64   `json:"uptime"`
-		HeapUsedMb  float64 `json:"heapUsedMB"`
-		HeapTotalMb float64 `json:"heapTotalMB"`
+		Uptime      int64  `json:"uptime"`
+		HeapUsedMb  string `json:"heapUsedMB"`
+		HeapTotalMb string `json:"heapTotalMB"`
 	} `json:"process"`
 	Os struct {
-		CpuPercent float64 `json:"cpuPerc"`
-		MemUsedGb  float64 `json:"memUsedGB"`
-		MemTotalGb float64 `json:"memTotalGB"`
+		CpuPercent string `json:"cpuPerc"`
+		MemUsedGb  string `json:"memUsedGB"`
+		MemTotalGb string `json:"memTotalGB"`
 	} `json:"os"`
 }
 

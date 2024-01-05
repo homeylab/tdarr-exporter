@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,10 @@ type TdarrCollector struct {
 	sizeDiff              *prometheus.Desc
 	tdarrScore            *prometheus.Desc
 	healthCheckScore      *prometheus.Desc
+	avgNumStreams         *prometheus.Desc
+	streamStatsDuration   *prometheus.Desc
+	streamStatsBitRate    *prometheus.Desc
+	streamStatsNumFrames  *prometheus.Desc
 	pieNumFiles           *prometheus.Desc
 	pieNumTranscodes      *prometheus.Desc
 	pieNumHealthChecks    *prometheus.Desc
@@ -35,7 +40,18 @@ type TdarrCollector struct {
 	pieVideoResolutions   *prometheus.Desc
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
-	errorMetric           *prometheus.Desc // Error Description for use with InvalidMetric
+	// node data
+	nodeWorkerLimit *prometheus.Desc
+	nodePaused      *prometheus.Desc
+	nodePriority    *prometheus.Desc
+	nodeUptime      *prometheus.Desc
+	nodeHeapUsedMb  *prometheus.Desc
+	nodeHeapTotalMb *prometheus.Desc
+	nodeCpuPercent  *prometheus.Desc
+	nodeMemUsedGb   *prometheus.Desc
+	nodeMemTotalGb  *prometheus.Desc
+	nodeQueueLength *prometheus.Desc
+	errorMetric     *prometheus.Desc // Error Description for use with InvalidMetric
 }
 
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
@@ -76,6 +92,30 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			prometheus.BuildFQName(METRIC_PREFIX, "", "health_check_score_pct"),
 			"Tdarr health check score percentage - how much of your library is has been health checked by tdarr",
 			nil,
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		avgNumStreams: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "avg_num_streams"),
+			"Tdarr average number of streams in video",
+			nil,
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		streamStatsDuration: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_duration"),
+			"Tdarr stream stats duration",
+			[]string{"stat_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		streamStatsBitRate: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_bit_rate"),
+			"Tdarr stream stats bit rate",
+			[]string{"stat_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		streamStatsNumFrames: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_num_frames"),
+			"Tdarr stream stats number of frames",
+			[]string{"stat_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
 		pieNumFiles: prometheus.NewDesc(
@@ -144,6 +184,66 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "container_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
+		nodeWorkerLimit: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
+			"Tdarr node health check cpu limit",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodePaused: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
+			"Tdarr node paused, 1 = paused, 0 = no",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodePriority: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
+			"Tdarr node priority",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeUptime: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
+			"Tdarr node uptime in seconds",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeHeapUsedMb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
+			"Tdarr node heap used in MB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeHeapTotalMb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
+			"Tdarr node heap total in MB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeCpuPercent: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
+			"Tdarr node cpu percent used",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeMemUsedGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
+			"Tdarr node memory used in GB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeMemTotalGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
+			"Tdarr node memory total in GB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeQueueLength: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
+			"Tdarr node queue length for a given worker type",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
 			"Error while collecting metrics",
@@ -166,19 +266,32 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.pieSizeDiff
 	ch <- c.pieTranscodes
 	ch <- c.pieHealthChecks
+	ch <- c.avgNumStreams
+	ch <- c.streamStatsDuration
+	ch <- c.streamStatsBitRate
 	ch <- c.pieVideoCodecs
 	ch <- c.pieVideoContainers
 	ch <- c.pieVideoResolutions
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
+	ch <- c.nodeWorkerLimit
+	ch <- c.nodePaused
+	ch <- c.nodePriority
+	ch <- c.nodeUptime
+	ch <- c.nodeHeapUsedMb
+	ch <- c.nodeHeapTotalMb
+	ch <- c.nodeCpuPercent
+	ch <- c.nodeMemUsedGb
+	ch <- c.nodeMemTotalGb
+	ch <- c.nodeQueueLength
 }
 
-func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
 	httpClient, err := client.NewRequestClient(c.config.Url, c.config.VerifySsl)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		return nil, err
 	}
 	log.Debug().Interface("payload", c.payload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
@@ -186,7 +299,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		log.Error().Err(err).Interface("payload", c.payload).
 			Msg("Failed to marshal payload for statistics request")
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		return nil, err
 	}
 	// get the post request payload to use
 	metric := &TdarrMetric{}
@@ -194,10 +307,45 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	httpErr := httpClient.DoPostRequest(c.config.TdarrMetricsPath, metric, payload)
 	if httpErr != nil {
 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, httpErr)
-		return
+		return nil, httpErr
 	}
 	log.Debug().Interface("response", metric).Msg("Metrics Api Response")
+	return metric, nil
+}
+
+func (c *TdarrCollector) getNodeData() (map[string]TdarrNode, error) {
+	httpClient, err := client.NewRequestClient(c.config.Url, c.config.VerifySsl)
+	if err != nil {
+		log.Error().
+			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
+		return nil, err
+	}
+	// get node data
+	nodeData := map[string]TdarrNode{}
+	nodeHttpErr := httpClient.DoRequest(c.config.TdarrNodePath, &nodeData)
+	if nodeHttpErr != nil {
+		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
+		return nil, nodeHttpErr
+	}
+	log.Info().Interface("response", nodeData).Msg("Node Api Response")
+	return nodeData, nil
+}
+
+func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
+	// get server metrics
+	metric, err := c.getMetricsResponse()
+	if err != nil {
+		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		return
+	}
+
+	// get all nodes and their metrics
+	nodeData, err := c.getNodeData()
+	if err != nil {
+		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		return
+	}
+	fmt.Println(nodeData)
 	// get metrics data
 	var (
 		pieData         []TdarrPie
@@ -262,10 +410,10 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		pieData = append(pieData, TdarrPie{
 			LibraryName:              pie[0].(string),
 			LibraryId:                pie[1].(string),
-			NumFiles:                 pie[2].(int),
-			NumTranscodes:            pie[3].(int),
+			NumFiles:                 pie[2].(float64),
+			NumTranscodes:            pie[3].(float64),
 			SpaceSavedGB:             pie[4].(float64),
-			NumHealthChecks:          pie[5].(int),
+			NumHealthChecks:          pie[5].(float64),
 			TdarrTranscodePie:        transcodePie,
 			TdarrHealthPie:           healthPie,
 			TdarrVideoCodecsPie:      videoCodecsPie,
@@ -283,15 +431,25 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.sizeDiff, prometheus.GaugeValue, metric.SizeDiff)
 	ch <- prometheus.MustNewConstMetric(c.tdarrScore, prometheus.GaugeValue, score)
 	ch <- prometheus.MustNewConstMetric(c.healthCheckScore, prometheus.GaugeValue, healthScore)
+	ch <- prometheus.MustNewConstMetric(c.avgNumStreams, prometheus.GaugeValue, metric.AvgNumStreams)
+	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Average), "average")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Highest), "highest")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Total), "total")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Average), "average")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Highest), "highest")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Total), "total")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Average), "average")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Highest), "highest")
+	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Total), "total")
 	for _, pie := range pieData {
 		libraryId := pie.LibraryId
 		// if we don't change, it errors with duplicate label value in single metric with `library_name` label
 		if strings.ToLower(libraryId) == "all" {
 			libraryId = "all_libraries"
 		}
-		ch <- prometheus.MustNewConstMetric(c.pieNumFiles, prometheus.GaugeValue, float64(pie.NumFiles), pie.LibraryName, libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, float64(pie.NumTranscodes), pie.LibraryName, libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, float64(pie.NumHealthChecks), pie.LibraryName, libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieNumFiles, prometheus.GaugeValue, pie.NumFiles, pie.LibraryName, libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, pie.NumTranscodes, pie.LibraryName, libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, pie.NumHealthChecks, pie.LibraryName, libraryId)
 		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.SpaceSavedGB, pie.LibraryName, libraryId)
 		for _, pieSlice := range pie.TdarrTranscodePie {
 			var labelName string
@@ -330,6 +488,11 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
 		}
 	}
+	// node data parsing
+	for _, node := range nodeData {
+		ch <- prometheus.MustNewConstMetric(c.nodeWorkerLimit, prometheus.GaugeValue, float64(node.WorkerLimits.HealthCheckCpu),
+			node.Id, node.Name, node.RemoteAddress, node.Config.ServerIp, node.Config.ServerPort, node.GpuSelect, "healthcheckcpu")
+	}
 }
 
 func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err error) {
@@ -367,6 +530,7 @@ func getRequestPayload() TdarrMetricRequest {
 			Collection: "StatisticsJSONDB",
 			Mode:       "getById",
 			DocId:      "statistics",
+			Obj:        map[string]interface{}{},
 		},
 	}
 }
