@@ -41,17 +41,174 @@ type TdarrCollector struct {
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
 	// node data
-	nodeWorkerLimit *prometheus.Desc
-	nodePaused      *prometheus.Desc
-	nodePriority    *prometheus.Desc
-	nodeUptime      *prometheus.Desc
-	nodeHeapUsedMb  *prometheus.Desc
-	nodeHeapTotalMb *prometheus.Desc
-	nodeCpuPercent  *prometheus.Desc
-	nodeMemUsedGb   *prometheus.Desc
-	nodeMemTotalGb  *prometheus.Desc
-	nodeQueueLength *prometheus.Desc
-	errorMetric     *prometheus.Desc // Error Description for use with InvalidMetric
+	nodeMetrics *TdarrNodeMetrics
+	// nodeWorkerLimit *prometheus.Desc
+	// nodePaused      *prometheus.Desc
+	// nodePriority    *prometheus.Desc
+	// nodeUptime      *prometheus.Desc
+	// nodeHeapUsedMb  *prometheus.Desc
+	// nodeHeapTotalMb *prometheus.Desc
+	// nodeCpuPercent  *prometheus.Desc
+	// nodeMemUsedGb   *prometheus.Desc
+	// nodeMemTotalGb  *prometheus.Desc
+	// nodeQueueLength *prometheus.Desc
+	errorMetric *prometheus.Desc // Error Description for use with InvalidMetric
+}
+
+type TdarrNodeMetrics struct {
+	// node data
+	nodeWorkerLimit                *prometheus.Desc
+	nodePaused                     *prometheus.Desc
+	nodePriority                   *prometheus.Desc
+	nodeUptime                     *prometheus.Desc
+	nodeHeapUsedMb                 *prometheus.Desc
+	nodeHeapTotalMb                *prometheus.Desc
+	nodeCpuPercent                 *prometheus.Desc
+	nodeMemUsedGb                  *prometheus.Desc
+	nodeMemTotalGb                 *prometheus.Desc
+	nodeQueueLength                *prometheus.Desc
+	workerFps                      *prometheus.Desc
+	workerIdle                     *prometheus.Desc
+	workerOriginalFileSizeGb       *prometheus.Desc
+	workerPercentage               *prometheus.Desc
+	workerEta                      *prometheus.Desc
+	workerStartTime                *prometheus.Desc
+	workerProcessStartTime         *prometheus.Desc
+	workerProcessPluginPosition    *prometheus.Desc
+	workerProcessPluginPositionMax *prometheus.Desc
+	workerProcessOutputSizeGb      *prometheus.Desc
+	workerProcessEstSizeGb         *prometheus.Desc
+}
+
+func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
+	return &TdarrNodeMetrics{
+		nodeWorkerLimit: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
+			"Tdarr node health check cpu limit",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodePaused: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
+			"Tdarr node paused: 1 = paused, 0 = not paused",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodePriority: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
+			"Tdarr node priority",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeUptime: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
+			"Tdarr node uptime in seconds",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeHeapUsedMb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
+			"Tdarr node heap used in MB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeHeapTotalMb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
+			"Tdarr node heap total in MB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeCpuPercent: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
+			"Tdarr node cpu percent used",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeMemUsedGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
+			"Tdarr node memory used in GB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeMemTotalGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
+			"Tdarr node memory total in GB",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		nodeQueueLength: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
+			"Tdarr node queue length for a given worker type",
+			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerFps: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_fps"),
+			"Tdarr worker fps for job running on node",
+			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerIdle: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_idle"),
+			"Tdarr worker idle status on node: 1 = idle, 0 = not idle",
+			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerOriginalFileSizeGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_original_file_size_gb"),
+			"The original file size, in GB, for the worker job running on node",
+			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerPercentage: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_percentage"),
+			"The percentage completed for the worker job running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerEta: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_eta"),
+			"The estimated time remaining (unix timestamp) for the worker job running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerStartTime: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_start_time"),
+			"The start time (unix timestamp) for the worker job running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerProcessStartTime: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_start_time"),
+			"The start time (unix timestamp) for the worker job process running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerProcessPluginPosition: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_plugin_position"),
+			"The position number for the worker job process running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerProcessPluginPositionMax: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_plugin_position_max"),
+			"The position max for the worker job process running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerProcessOutputSizeGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_output_size_gb"),
+			"The output size in GB for the worker job process running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+		workerProcessEstSizeGb: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_est_size_gb"),
+			"The estimated size in GB for the worker job process running on node",
+			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
+			prometheus.Labels{"tdarr_instance": runConfig.Url},
+		),
+	}
 }
 
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
@@ -184,66 +341,67 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "container_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
-		nodeWorkerLimit: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
-			"Tdarr node health check cpu limit",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodePaused: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
-			"Tdarr node paused, 1 = paused, 0 = no",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodePriority: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
-			"Tdarr node priority",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeUptime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
-			"Tdarr node uptime in seconds",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeHeapUsedMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
-			"Tdarr node heap used in MB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeHeapTotalMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
-			"Tdarr node heap total in MB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeCpuPercent: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
-			"Tdarr node cpu percent used",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeMemUsedGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
-			"Tdarr node memory used in GB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeMemTotalGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
-			"Tdarr node memory total in GB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeQueueLength: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
-			"Tdarr node queue length for a given worker type",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
+		nodeMetrics: NewTdarrNodeMetrics(runConfig),
+		// nodeWorkerLimit: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
+		// 	"Tdarr node health check cpu limit",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodePaused: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
+		// 	"Tdarr node paused, 1 = paused, 0 = no",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodePriority: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
+		// 	"Tdarr node priority",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeUptime: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
+		// 	"Tdarr node uptime in seconds",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeHeapUsedMb: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
+		// 	"Tdarr node heap used in MB",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeHeapTotalMb: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
+		// 	"Tdarr node heap total in MB",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeCpuPercent: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
+		// 	"Tdarr node cpu percent used",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeMemUsedGb: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
+		// 	"Tdarr node memory used in GB",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeMemTotalGb: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
+		// 	"Tdarr node memory total in GB",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
+		// nodeQueueLength: prometheus.NewDesc(
+		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
+		// 	"Tdarr node queue length for a given worker type",
+		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
+		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
+		// ),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
 			"Error while collecting metrics",
@@ -274,16 +432,26 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.pieVideoResolutions
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
-	ch <- c.nodeWorkerLimit
-	ch <- c.nodePaused
-	ch <- c.nodePriority
-	ch <- c.nodeUptime
-	ch <- c.nodeHeapUsedMb
-	ch <- c.nodeHeapTotalMb
-	ch <- c.nodeCpuPercent
-	ch <- c.nodeMemUsedGb
-	ch <- c.nodeMemTotalGb
-	ch <- c.nodeQueueLength
+	ch <- c.nodeMetrics.nodeWorkerLimit
+	ch <- c.nodeMetrics.nodePaused
+	ch <- c.nodeMetrics.nodePriority
+	ch <- c.nodeMetrics.nodeUptime
+	ch <- c.nodeMetrics.nodeHeapUsedMb
+	ch <- c.nodeMetrics.nodeHeapTotalMb
+	ch <- c.nodeMetrics.nodeCpuPercent
+	ch <- c.nodeMetrics.nodeMemUsedGb
+	ch <- c.nodeMetrics.nodeMemTotalGb
+	ch <- c.nodeMetrics.nodeQueueLength
+	// ch <- c.nodeWorkerLimit
+	// ch <- c.nodePaused
+	// ch <- c.nodePriority
+	// ch <- c.nodeUptime
+	// ch <- c.nodeHeapUsedMb
+	// ch <- c.nodeHeapTotalMb
+	// ch <- c.nodeCpuPercent
+	// ch <- c.nodeMemUsedGb
+	// ch <- c.nodeMemTotalGb
+	// ch <- c.nodeQueueLength
 }
 
 func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
@@ -490,9 +658,10 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	// node data parsing
 	for _, node := range nodeData {
-		ch <- prometheus.MustNewConstMetric(c.nodeWorkerLimit, prometheus.GaugeValue, float64(node.WorkerLimits.HealthCheckCpu),
+		ch <- prometheus.MustNewConstMetric(c.nodeMetrics.nodeWorkerLimit, prometheus.GaugeValue, float64(node.WorkerLimits.HealthCheckCpu),
 			node.Id, node.Name, node.RemoteAddress, node.Config.ServerIp, node.Config.ServerPort, node.GpuSelect, "healthcheckcpu")
 	}
+
 }
 
 func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err error) {

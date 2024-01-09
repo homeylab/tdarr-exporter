@@ -80,16 +80,17 @@ type TdarrResourceStats struct {
 }
 
 type TdarrNode struct {
-	Id            string             `json:"_id"`
-	Name          string             `json:"nodeName"`
-	RemoteAddress string             `json:"remoteAddress"`
-	Config        TdarrNodeConfig    `json:"config"`
-	WorkerLimits  TdarrNodeJobs      `json:"workerLimits"`
-	GpuSelect     string             `json:"gpuSelect"`
-	NodePaused    bool               `json:"nodePaused"`
-	Priority      int                `json:"priority"`
-	ResourceStats TdarrResourceStats `json:"resStats"`
-	QueueLengths  TdarrNodeJobs      `json:"queueLengths"`
+	Id            string                      `json:"_id"`
+	Name          string                      `json:"nodeName"`
+	RemoteAddress string                      `json:"remoteAddress"`
+	Config        TdarrNodeConfig             `json:"config"`
+	WorkerLimits  TdarrNodeJobs               `json:"workerLimits"`
+	GpuSelect     string                      `json:"gpuSelect"`
+	NodePaused    bool                        `json:"nodePaused"`
+	Priority      int                         `json:"priority"`
+	Workers       map[string]TdarrNodeWorkers `json:"workers"`
+	ResourceStats TdarrResourceStats          `json:"resStats"`
+	QueueLengths  TdarrNodeJobs               `json:"queueLengths"`
 }
 
 type TdarrNodeConfig struct {
@@ -103,4 +104,35 @@ type TdarrNodeJobs struct {
 	HealthCheckGpu int `json:"healthcheckgpu"`
 	TranscodeCpu   int `json:"transcodecpu"`
 	TranscodeGpu   int `json:"transcodegpu"`
+}
+
+type TdarrNodeWorkers struct {
+	Id                 string  `json:"_id"`
+	WorkerType         string  `json:"workerType"`
+	Idle               bool    `json:"idle"`
+	File               string  `json:"file"`
+	OriginalfileSizeGb float64 `json:"originalfileSizeInGbytes"`
+	Percentage         float64 `json:"percentage"`
+	Fps                int     `json:"fps"`
+	Eta                string  `json:"ETA"`
+	Status             string  `json:"status"`
+	Job                struct {
+		Version   string `json:"version"`
+		StartTime int64  `json:"start"`
+		Type      string `json:"type"`
+		JobId     string `json:"jobId"`
+	} `json:"job"`
+	Process struct {
+		Connected         bool   `json:"connected"`
+		Pid               int    `json:"pid"`
+		StartTime         int64  `json:"startTime"`
+		CliType           string `json:"cliType"`
+		LastPluginDetails struct {
+			Source         string `json:"source"`
+			Id             string `json:"id"`
+			PositionNumber int    `json:"number"`
+		} `json:"lastPluginDetails"`
+		OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
+		EstSizeGb        float64 `json:"estSize"`
+	} `json:"process"`
 }
