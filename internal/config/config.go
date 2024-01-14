@@ -26,6 +26,7 @@ type Config struct {
 	PrometheusPath     string
 	HttpTimeoutSeconds int
 	TdarrMetricsPath   string
+	TdarrNodePath      string
 }
 
 // func setLoggerDefaults() {
@@ -107,6 +108,7 @@ func NewConfig() Config {
 		LogLevel:           *logLevel,
 		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
 		TdarrMetricsPath:   defaults.TdarrMetricsPath,
+		TdarrNodePath:      defaults.TdarrNodePath,
 	}
 }
 

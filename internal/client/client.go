@@ -88,7 +88,7 @@ func (c *RequestClient) DoRequest(path string, target interface{}, queryParams .
 	url := c.URL.JoinPath(path)
 	url.RawQuery = values.Encode()
 
-	log.Info().Str("url", url.String()).Msg("Sending HTTP request")
+	log.Debug().Str("url", url.String()).Msg("Sending HTTP request")
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")

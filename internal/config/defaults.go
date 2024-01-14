@@ -6,7 +6,8 @@ func GetDefaults() Config {
 		VerifySsl:          true,
 		PrometheusPort:     "9090",
 		PrometheusPath:     "/metrics",
-		HttpTimeoutSeconds: 10,
+		HttpTimeoutSeconds: 15,
 		TdarrMetricsPath:   "/api/v2/cruddb",
+		TdarrNodePath:      "/api/v2/get-nodes",
 	}
 }

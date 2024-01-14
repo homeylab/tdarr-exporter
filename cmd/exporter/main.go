@@ -24,7 +24,7 @@ func main() {
 	// prometheus set up
 	tdarrCollector := collector.NewTdarrCollector(userConfig)
 	registry := prometheus.NewRegistry()
-	// registering a collector uses JIT? and first scrape will be slower
+	// registering a collector uses JIT and first scrape will be slower
 	registry.MustRegister(tdarrCollector)
 
 	// http server
