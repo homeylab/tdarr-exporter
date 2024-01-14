@@ -2,7 +2,6 @@ package collector
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -40,175 +39,8 @@ type TdarrCollector struct {
 	pieVideoResolutions   *prometheus.Desc
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
-	// node data
-	nodeMetrics *TdarrNodeMetrics
-	// nodeWorkerLimit *prometheus.Desc
-	// nodePaused      *prometheus.Desc
-	// nodePriority    *prometheus.Desc
-	// nodeUptime      *prometheus.Desc
-	// nodeHeapUsedMb  *prometheus.Desc
-	// nodeHeapTotalMb *prometheus.Desc
-	// nodeCpuPercent  *prometheus.Desc
-	// nodeMemUsedGb   *prometheus.Desc
-	// nodeMemTotalGb  *prometheus.Desc
-	// nodeQueueLength *prometheus.Desc
-	errorMetric *prometheus.Desc // Error Description for use with InvalidMetric
-}
-
-type TdarrNodeMetrics struct {
-	// node data
-	nodeWorkerLimit                *prometheus.Desc
-	nodePaused                     *prometheus.Desc
-	nodePriority                   *prometheus.Desc
-	nodeUptime                     *prometheus.Desc
-	nodeHeapUsedMb                 *prometheus.Desc
-	nodeHeapTotalMb                *prometheus.Desc
-	nodeCpuPercent                 *prometheus.Desc
-	nodeMemUsedGb                  *prometheus.Desc
-	nodeMemTotalGb                 *prometheus.Desc
-	nodeQueueLength                *prometheus.Desc
-	workerFps                      *prometheus.Desc
-	workerIdle                     *prometheus.Desc
-	workerOriginalFileSizeGb       *prometheus.Desc
-	workerPercentage               *prometheus.Desc
-	workerEta                      *prometheus.Desc
-	workerStartTime                *prometheus.Desc
-	workerProcessStartTime         *prometheus.Desc
-	workerProcessPluginPosition    *prometheus.Desc
-	workerProcessPluginPositionMax *prometheus.Desc
-	workerProcessOutputSizeGb      *prometheus.Desc
-	workerProcessEstSizeGb         *prometheus.Desc
-}
-
-func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
-	return &TdarrNodeMetrics{
-		nodeWorkerLimit: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
-			"Tdarr node health check cpu limit",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodePaused: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
-			"Tdarr node paused: 1 = paused, 0 = not paused",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodePriority: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
-			"Tdarr node priority",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeUptime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
-			"Tdarr node uptime in seconds",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeHeapUsedMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
-			"Tdarr node heap used in MB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeHeapTotalMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
-			"Tdarr node heap total in MB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeCpuPercent: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
-			"Tdarr node cpu percent used",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeMemUsedGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
-			"Tdarr node memory used in GB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeMemTotalGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
-			"Tdarr node memory total in GB",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		nodeQueueLength: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
-			"Tdarr node queue length for a given worker type",
-			[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerFps: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_fps"),
-			"Tdarr worker fps for job running on node",
-			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerIdle: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_idle"),
-			"Tdarr worker idle status on node: 1 = idle, 0 = not idle",
-			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerOriginalFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_original_file_size_gb"),
-			"The original file size, in GB, for the worker job running on node",
-			[]string{"node_id", "node_name", "worker_id", "worker_type", "worker_status", "worker_file", "worker_status"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerPercentage: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_percentage"),
-			"The percentage completed for the worker job running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerEta: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_eta"),
-			"The estimated time remaining (unix timestamp) for the worker job running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerStartTime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_start_time"),
-			"The start time (unix timestamp) for the worker job running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerProcessStartTime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_start_time"),
-			"The start time (unix timestamp) for the worker job process running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerProcessPluginPosition: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_plugin_position"),
-			"The position number for the worker job process running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerProcessPluginPositionMax: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_plugin_position_max"),
-			"The position max for the worker job process running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerProcessOutputSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_output_size_gb"),
-			"The output size in GB for the worker job process running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-		workerProcessEstSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_process_est_size_gb"),
-			"The estimated size in GB for the worker job process running on node",
-			[]string{"worker_id", "worker_type", "worker_status", "worker_file", "worker_status", "job_type", "job_id", "process_pid", "plugin_source", "plugin_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
-		),
-	}
+	nodeCollector         *TdarrNodeCollector // node data
+	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
 }
 
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
@@ -241,13 +73,13 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 		),
 		tdarrScore: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "score_pct"),
-			"Tdarr score percentage - how much of your library is being handled by tdarr",
+			"Tdarr score percentage - how much of your libraries has been handled by tdarr",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
 		healthCheckScore: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "health_check_score_pct"),
-			"Tdarr health check score percentage - how much of your library is has been health checked by tdarr",
+			"Tdarr health check score percentage - how much of your libraries has been health checked by tdarr",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
@@ -341,73 +173,13 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "container_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
-		nodeMetrics: NewTdarrNodeMetrics(runConfig),
-		// nodeWorkerLimit: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
-		// 	"Tdarr node health check cpu limit",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodePaused: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
-		// 	"Tdarr node paused, 1 = paused, 0 = no",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodePriority: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_priority"),
-		// 	"Tdarr node priority",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeUptime: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
-		// 	"Tdarr node uptime in seconds",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeHeapUsedMb: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
-		// 	"Tdarr node heap used in MB",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeHeapTotalMb: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
-		// 	"Tdarr node heap total in MB",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeCpuPercent: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_cpu_percent"),
-		// 	"Tdarr node cpu percent used",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeMemUsedGb: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_used_gb"),
-		// 	"Tdarr node memory used in GB",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeMemTotalGb: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_mem_total_gb"),
-		// 	"Tdarr node memory total in GB",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
-		// nodeQueueLength: prometheus.NewDesc(
-		// 	prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
-		// 	"Tdarr node queue length for a given worker type",
-		// 	[]string{"node_id", "node_name", "node_address", "server_address", "server_port", "gpu_select", "worker_type"},
-		// 	prometheus.Labels{"tdarr_instance": runConfig.Url},
-		// ),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
 			"Error while collecting metrics",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),
+		nodeCollector: NewTdarrNodeCollector(runConfig),
 	}
 }
 
@@ -432,26 +204,15 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.pieVideoResolutions
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
-	ch <- c.nodeMetrics.nodeWorkerLimit
-	ch <- c.nodeMetrics.nodePaused
-	ch <- c.nodeMetrics.nodePriority
-	ch <- c.nodeMetrics.nodeUptime
-	ch <- c.nodeMetrics.nodeHeapUsedMb
-	ch <- c.nodeMetrics.nodeHeapTotalMb
-	ch <- c.nodeMetrics.nodeCpuPercent
-	ch <- c.nodeMetrics.nodeMemUsedGb
-	ch <- c.nodeMetrics.nodeMemTotalGb
-	ch <- c.nodeMetrics.nodeQueueLength
-	// ch <- c.nodeWorkerLimit
-	// ch <- c.nodePaused
-	// ch <- c.nodePriority
-	// ch <- c.nodeUptime
-	// ch <- c.nodeHeapUsedMb
-	// ch <- c.nodeHeapTotalMb
-	// ch <- c.nodeCpuPercent
-	// ch <- c.nodeMemUsedGb
-	// ch <- c.nodeMemTotalGb
-	// ch <- c.nodeQueueLength
+	ch <- c.nodeCollector.metrics.nodeInfo
+	ch <- c.nodeCollector.metrics.nodeUptime
+	ch <- c.nodeCollector.metrics.nodeHeapUsedMb
+	ch <- c.nodeCollector.metrics.nodeHeapTotalMb
+	ch <- c.nodeCollector.metrics.nodeHostCpuPercent
+	ch <- c.nodeCollector.metrics.nodeHostMemUsedGb
+	ch <- c.nodeCollector.metrics.nodeHostMemTotalGb
+	ch <- c.nodeCollector.metrics.nodeWorkerInfo
+	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
 }
 
 func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
@@ -481,24 +242,6 @@ func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
 	return metric, nil
 }
 
-func (c *TdarrCollector) getNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(c.config.Url, c.config.VerifySsl)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
-	}
-	// get node data
-	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := httpClient.DoRequest(c.config.TdarrNodePath, &nodeData)
-	if nodeHttpErr != nil {
-		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
-		return nil, nodeHttpErr
-	}
-	log.Info().Interface("response", nodeData).Msg("Node Api Response")
-	return nodeData, nil
-}
-
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// get server metrics
 	metric, err := c.getMetricsResponse()
@@ -506,14 +249,6 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
 		return
 	}
-
-	// get all nodes and their metrics
-	nodeData, err := c.getNodeData()
-	if err != nil {
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-		return
-	}
-	fmt.Println(nodeData)
 	// get metrics data
 	var (
 		pieData         []TdarrPie
@@ -656,12 +391,89 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
 		}
 	}
+
+	// get all node metrics
+	nodeData, err := c.nodeCollector.GetNodeData()
+	if err != nil {
+		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		return
+	}
+	// get worker data for each node
+
 	// node data parsing
 	for _, node := range nodeData {
-		ch <- prometheus.MustNewConstMetric(c.nodeMetrics.nodeWorkerLimit, prometheus.GaugeValue, float64(node.WorkerLimits.HealthCheckCpu),
-			node.Id, node.Name, node.RemoteAddress, node.Config.ServerIp, node.Config.ServerPort, node.GpuSelect, "healthcheckcpu")
-	}
+		// node info
+		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeInfo, prometheus.GaugeValue, 1,
+			node.Id, node.Name, node.GpuSelect, strconv.Itoa(node.Priority), strconv.Itoa(node.Config.Pid), strconv.FormatBool(node.Paused),
+			strconv.Itoa(node.WorkerLimits.HealthCheckGpu), strconv.Itoa(node.WorkerLimits.HealthCheckCpu),
+			strconv.Itoa(node.WorkerLimits.TranscodeGpu), strconv.Itoa(node.WorkerLimits.TranscodeCpu),
+			strconv.Itoa(node.QueueLengths.HealthCheckGpu), strconv.Itoa(node.QueueLengths.HealthCheckCpu),
+			strconv.Itoa(node.QueueLengths.TranscodeGpu), strconv.Itoa(node.QueueLengths.TranscodeCpu),
+		)
 
+		// node uptime
+		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeUptime, prometheus.GaugeValue, float64(node.ResourceStats.Process.Uptime),
+			node.Id, node.Name)
+
+		// convert resource stats to float from string
+		// skip if fail to parse
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapUsedMb", node.ResourceStats.Process.HeapUsedMb).Msg("Node heap used mb")
+		if nodeHeapUsedMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapUsedMb, 64); floatErr == nil {
+			log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Float64("heapUsedMb", nodeHeapUsedMb).Msg("Node heap information")
+			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapUsedMb, prometheus.GaugeValue, nodeHeapUsedMb,
+				node.Id, node.Name)
+		}
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapTotalMb", node.ResourceStats.Process.HeapTotalMb).Msg("Node heap total mb")
+		if nodeHeapTotalMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapTotalMb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapTotalMb, prometheus.GaugeValue, nodeHeapTotalMb,
+				node.Id, node.Name)
+		}
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("cpuPercent", node.ResourceStats.Os.CpuPercent).Msg("Node cpu percent")
+		if nodeHostCpuPercent, floatErr := strconv.ParseFloat(node.ResourceStats.Os.CpuPercent, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostCpuPercent, prometheus.GaugeValue, nodeHostCpuPercent,
+				node.Id, node.Name)
+		}
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memUsedGb", node.ResourceStats.Os.MemUsedGb).Msg("Node mem used gb")
+		if nodeHostMemUsedGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemUsedGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemUsedGb, prometheus.GaugeValue, nodeHostMemUsedGb,
+				node.Id, node.Name)
+		}
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memTotalGb", node.ResourceStats.Os.MemTotalGb).Msg("Node mem total gb")
+		if nodeHostMemTotalGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemTotalGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemTotalGb, prometheus.GaugeValue, nodeHostMemTotalGb,
+				node.Id, node.Name)
+		}
+
+		// node worker info
+		for _, worker := range node.Workers {
+			log.Debug().Interface("worker", worker).Msg("Worker data")
+			// see if flow worker
+			// if flow worker then `LastPluginDetails` fields will be empty
+			if worker.FlowWorker {
+				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerFlowInfo, prometheus.GaugeValue, 1,
+					node.Id, node.Name, worker.Id, worker.WorkerType,
+					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
+					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
+					strconv.Itoa(worker.Fps), worker.Eta,
+					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
+					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.Process.StartTime, 10),
+					strconv.FormatFloat(worker.Process.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.Process.EstSizeGb, 'f', -1, 64),
+				)
+			} else {
+				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerInfo, prometheus.GaugeValue, 1,
+					node.Id, node.Name, worker.Id, worker.WorkerType,
+					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
+					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
+					strconv.Itoa(worker.Fps), worker.Eta,
+					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
+					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.Process.StartTime, 10),
+					worker.Process.LastPluginDetails.Id, strconv.Itoa(worker.Process.LastPluginDetails.PositionNumber),
+					strconv.FormatFloat(worker.Process.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.Process.EstSizeGb, 'f', -1, 64),
+				)
+			}
+		}
+
+	}
 }
 
 func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err error) {

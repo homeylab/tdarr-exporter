@@ -86,7 +86,7 @@ type TdarrNode struct {
 	Config        TdarrNodeConfig             `json:"config"`
 	WorkerLimits  TdarrNodeJobs               `json:"workerLimits"`
 	GpuSelect     string                      `json:"gpuSelect"`
-	NodePaused    bool                        `json:"nodePaused"`
+	Paused        bool                        `json:"nodePaused"`
 	Priority      int                         `json:"priority"`
 	Workers       map[string]TdarrNodeWorkers `json:"workers"`
 	ResourceStats TdarrResourceStats          `json:"resStats"`
@@ -97,6 +97,7 @@ type TdarrNodeConfig struct {
 	ServerIp   string `json:"serverIP"`
 	ServerPort string `json:"serverPort"`
 	Priority   int    `json:"priority"`
+	Pid        int    `json:"processPid"`
 }
 
 type TdarrNodeJobs struct {
@@ -109,6 +110,7 @@ type TdarrNodeJobs struct {
 type TdarrNodeWorkers struct {
 	Id                 string  `json:"_id"`
 	WorkerType         string  `json:"workerType"`
+	FlowWorker         bool    `json:"isFlowWorker"`
 	Idle               bool    `json:"idle"`
 	File               string  `json:"file"`
 	OriginalfileSizeGb float64 `json:"originalfileSizeInGbytes"`
@@ -116,6 +118,7 @@ type TdarrNodeWorkers struct {
 	Fps                int     `json:"fps"`
 	Eta                string  `json:"ETA"`
 	Status             string  `json:"status"`
+	StatusTs           int64   `json:"statusTs"`
 	Job                struct {
 		Version   string `json:"version"`
 		StartTime int64  `json:"start"`
@@ -125,7 +128,7 @@ type TdarrNodeWorkers struct {
 	Process struct {
 		Connected         bool   `json:"connected"`
 		Pid               int    `json:"pid"`
-		StartTime         int64  `json:"startTime"`
+		StartTime         int64  `json:"startTime"` // start time of current plugin step
 		CliType           string `json:"cliType"`
 		LastPluginDetails struct {
 			Source         string `json:"source"`
