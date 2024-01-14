@@ -59,7 +59,7 @@ docker_build:
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
 	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
-	--build-arg TARGETOS=${GOOS} \
+	# --build-arg TARGETOS=${GOOS} \
 	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	--no-cache .
 
