@@ -126,16 +126,16 @@ type TdarrNodeWorkers struct {
 		JobId     string `json:"jobId"`
 	} `json:"job"`
 	Process struct {
-		Connected         bool   `json:"connected"`
-		Pid               int    `json:"pid"`
-		StartTime         int64  `json:"startTime"` // start time of current plugin step
-		CliType           string `json:"cliType"`
-		LastPluginDetails struct {
-			Source         string `json:"source"`
-			Id             string `json:"id"`
-			PositionNumber int    `json:"number"`
-		} `json:"lastPluginDetails"`
-		OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
-		EstSizeGb        float64 `json:"estSize"`
+		Connected bool   `json:"connected"`
+		Pid       int    `json:"pid"`
+		CliType   string `json:"cliType"`
 	} `json:"process"`
+	LastPluginDetails struct {
+		Source         string `json:"source"`
+		Id             string `json:"id"`
+		PositionNumber int    `json:"number"`
+	} `json:"lastPluginDetails"`
+	StartTime        int64   `json:"startTime"` // start time of current plugin step
+	OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
+	EstSizeGb        float64 `json:"estSize"`
 }
