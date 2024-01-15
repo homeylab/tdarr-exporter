@@ -81,7 +81,7 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_file", "worker_original_file_size_gb",
 				"worker_fps", "worker_eta",
 				"worker_percentage", "worker_connected", "worker_pid",
-				"worker_job_start_ts", "worker_job_process_start_ts", // when the operation started vs when plugin step within the operation started
+				"worker_job_start_ts", "worker_start_ts", // when the operation started vs when plugin step within the operation started
 				"worker_plugin_id", "worker_plugin_position",
 				"worker_output_size_gb", "worker_est_size_gb"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
@@ -94,7 +94,7 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_file", "worker_original_file_size_gb",
 				"worker_fps", "worker_eta",
 				"worker_percentage", "worker_connected", "worker_pid",
-				"worker_job_start_ts", "worker_job_process_start_ts",
+				"worker_job_start_ts", "worker_start_ts",
 				"worker_output_size_gb", "worker_est_size_gb"},
 			prometheus.Labels{"tdarr_instance": runConfig.Url},
 		),

@@ -456,8 +456,8 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
 					strconv.Itoa(worker.Fps), worker.Eta,
 					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.Process.StartTime, 10),
-					strconv.FormatFloat(worker.Process.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.Process.EstSizeGb, 'f', -1, 64),
+					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
+					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
 				)
 			} else {
 				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerInfo, prometheus.GaugeValue, 1,
@@ -466,9 +466,9 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
 					strconv.Itoa(worker.Fps), worker.Eta,
 					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.Process.StartTime, 10),
-					worker.Process.LastPluginDetails.Id, strconv.Itoa(worker.Process.LastPluginDetails.PositionNumber),
-					strconv.FormatFloat(worker.Process.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.Process.EstSizeGb, 'f', -1, 64),
+					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
+					worker.LastPluginDetails.Id, strconv.Itoa(worker.LastPluginDetails.PositionNumber),
+					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
 				)
 			}
 		}
