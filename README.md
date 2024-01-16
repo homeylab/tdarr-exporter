@@ -28,7 +28,7 @@ Docker images are provided for `linux/amd64` and `linux/arm64` variants.
 | tag | description |
 | --- | ----------- |
 | `latest` | Latest stable release and is updated with each new release. |
-| `vX.X`  | Semantic versioned releases are also provided if preferred for stability or other reasons. |
+| `X.X.X`  | Semantic versioned releases are also provided if preferred for stability or other reasons. |
 | `main` | This tag reflects the `main` branch of this repository and may not be stable |
 
 To run this image, the `URL` should be provided, and more options can be supplied if needed. See [configuration](#configuration) section for more details.
