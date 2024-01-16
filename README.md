@@ -8,8 +8,8 @@
 3. Progress updates for running transcode and health check jobs.
 
 Some samples below from Grafana, check `examples/` for more samples and a complete view of metrics.
-<img src="./examples/images/demo_3.png" alt="overview" width="950"/>
-<img src="./examples/images/demo_1.png" alt="overview" width="950"/>
+<img src="./examples/images/demo_3.png" alt="overview" width="1050"/>
+<img src="./examples/images/demo_1.png" alt="overview" width="1050"/>
 
 Currently progress for `Flow` workers is shown while `classic plugin` workers will be added shortly.
 
