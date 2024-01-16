@@ -11,16 +11,16 @@ Some samples below from Grafana, check `examples/` for more samples and a comple
 <img src="./examples/images/demo_3.png" alt="overview" width="1050"/>
 <img src="./examples/images/demo_1.png" alt="overview" width="1050"/>
 
-Currently progress for `Flow` workers is shown while `classic plugin` workers will be added shortly.
+Currently progress for `Flow` workers is shown in the provided dashboard. The `classic plugin` workers will be added shortly. The metrics for `classic plugin` workers already exists in metric: `tdarr_node_worker_info` and will be included in a new version of the dashboard.
 
 Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everything in Grafana so I don't have to check everywhere.
 
 ## Usage
 `tdarr-exporter` can be run from in the following ways:
 
-1. Executable binary
-2. Docker container
-3. Helm Chart (K8)
+1. Docker container
+2. Executable binary
+3. Helm chart (K8)
 
 ### Docker
 Docker images are provided for `linux/amd64` and `linux/arm64` variants.
@@ -41,7 +41,7 @@ Each tagged release will include executable binaries under the `assets` section 
 `./tdarr-exporter -url=example.com`
 
 ### Helm
-
+To be added shortly.
 
 ## Configuration
 `tdarr-exporter` accepts the following variables for configuration via the cli or environment variables.
