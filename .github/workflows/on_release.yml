@@ -29,7 +29,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ github.ref }}}
+          tag: ${{ github.ref_name }}
           generateReleaseNotes: true
   # build and push docker image
   release-docker:
