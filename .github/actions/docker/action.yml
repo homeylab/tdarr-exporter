@@ -87,4 +87,4 @@ runs:
     with:
       username: ${{ inputs.dockerhub_username }}
       password: ${{ inputs.dockerhub_token }}
-      repository: docker.io/${{ github.repository }}
+      repository: ${{ github.repository }}
