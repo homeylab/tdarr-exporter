@@ -22,8 +22,15 @@ Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everyt
 2. Executable binary
 3. Helm chart (K8)
 
+### Binary
+Each tagged release will include executable binaries under the `assets` section of the release notes. This can be downloaded and run directly, see [configuration](#configuration) section for more details on run options.
+
+`./tdarr-exporter -url=example.com`
+
+A variety of platforms (`darwin`, `linux`, `freebsd`, `openbsd`) are supported and include `386`, `amd64`, and `arm64` variants.
+
 ### Docker
-Docker images are provided for `linux/amd64` and `linux/arm64` variants.
+Docker images are provided for `linux/amd64` and `linux/arm64` variants only at the moment.
 
 | tag | description |
 | --- | ----------- |
@@ -34,11 +41,6 @@ Docker images are provided for `linux/amd64` and `linux/arm64` variants.
 To run this image, the `URL` should be provided, and more options can be supplied if needed. See [configuration](#configuration) section for more details.
 
 `docker run -e TDARR_URL=example.com -p 9090:9090 homeylab/tdarr-exporter:latest`
-
-### Binary
-Each tagged release will include executable binaries under the `assets` section of the release notes. This can be downloaded and run directly, see [configuration](#configuration) section for more details on run options.
-
-`./tdarr-exporter -url=example.com`
 
 ### Helm
 To be added shortly.
