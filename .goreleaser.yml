@@ -9,7 +9,7 @@ builds:
     binary: "tdarr-exporter"
 
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.revision={{.Commit}} -X main.buildTime={{.CommitTimestamp}}
+      - -w -s -extldflags '-static' -X main.version={{.Version}} -X main.revision={{.Commit}} -X main.buildTime={{.CommitTimestamp}}
 
     goarch:
       - "386"
