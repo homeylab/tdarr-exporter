@@ -1,4 +1,8 @@
 # tdarr-exporter
+- [tdarr-exporter](#tdarr-exporter)
+  - [Background](#background)
+  - [Usage](#usage)
+  - [Configuration](#configuration)
 
 ## Background
 `tdarr-exporter` is a Prometheus collector for [Tdarr](https://github.com/HaveAGitGat/Tdarr) and provides the following as Prometheus metrics:
@@ -11,7 +15,10 @@ Some samples below from Grafana, check `examples/` for more samples and a comple
 <img src="./examples/images/demo_3.png" alt="overview" width="1050"/>
 <img src="./examples/images/demo_1.png" alt="overview" width="1050"/>
 
-Currently progress for `Flow` workers is shown in the provided dashboard. The `classic plugin` workers will be added shortly. The metrics for `classic plugin` workers already exists in metric: `tdarr_node_worker_info` and will be included in a new version of the dashboard.
+Progress updates are provided for following:
+1. CPU/GPU Flow plugin jobs
+2. CPU/GPU Classic plugin jobs
+3. CPU/GPU health check jobs
 
 Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everything in Grafana so I don't have to check everywhere.
 
@@ -43,7 +50,7 @@ To run this image, the `URL` should be provided, and more options can be supplie
 `docker run -e TDARR_URL=example.com -p 9090:9090 homeylab/tdarr-exporter:latest`
 
 ### Helm
-To be added shortly.
+`tdarr-exporter` can be deployed to Kubernetes using the provided Helm chart. The chart is available in a separate [repository](https://github.com/homeylab/helm-charts/tree/main/charts/tdarr-exporter).
 
 ## Configuration
 `tdarr-exporter` accepts the following variables for configuration via the cli or environment variables.
