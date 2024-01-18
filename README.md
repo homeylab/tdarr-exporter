@@ -50,7 +50,7 @@ To run this image, the `URL` should be provided, and more options can be supplie
 `docker run -e TDARR_URL=example.com -p 9090:9090 homeylab/tdarr-exporter:latest`
 
 ### Helm
-To be added shortly.
+`tdarr-exporter` can be deployed to Kubernetes using the provided Helm chart. The chart is available in a separate [repository](https://github.com/homeylab/helm-charts/tree/main/charts/tdarr-exporter).
 
 ## Configuration
 `tdarr-exporter` accepts the following variables for configuration via the cli or environment variables.
