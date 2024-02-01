@@ -47,8 +47,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -59,7 +58,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 1
+            "y": 9
           },
           "id": 3,
           "options": {
@@ -123,7 +122,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 1
+            "y": 9
           },
           "id": 2,
           "options": {
@@ -197,7 +196,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 1
+            "y": 9
           },
           "id": 9,
           "options": {
@@ -271,7 +270,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 1
+            "y": 9
           },
           "id": 10,
           "options": {
@@ -334,8 +333,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "orange",
-                    "value": null
+                    "color": "orange"
                   },
                   {
                     "color": "red",
@@ -351,7 +349,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 9
+            "y": 17
           },
           "id": 11,
           "options": {
@@ -403,8 +401,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "purple",
-                    "value": null
+                    "color": "purple"
                   }
                 ]
               }
@@ -415,7 +412,7 @@
             "h": 4,
             "w": 6,
             "x": 6,
-            "y": 9
+            "y": 17
           },
           "id": 12,
           "options": {
@@ -467,8 +464,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "blue",
@@ -483,7 +479,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 9
+            "y": 17
           },
           "id": 13,
           "options": {
@@ -536,8 +532,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
-                    "value": null
+                    "color": "red"
                   },
                   {
                     "color": "orange",
@@ -561,7 +556,7 @@
             "h": 8,
             "w": 3,
             "x": 18,
-            "y": 9
+            "y": 17
           },
           "id": 5,
           "options": {
@@ -614,8 +609,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
-                    "value": null
+                    "color": "red"
                   },
                   {
                     "color": "orange",
@@ -639,7 +633,7 @@
             "h": 8,
             "w": 3,
             "x": 21,
-            "y": 9
+            "y": 17
           },
           "id": 4,
           "options": {
@@ -691,8 +685,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
-                    "value": null
+                    "color": "red"
                   }
                 ]
               }
@@ -703,7 +696,7 @@
             "h": 4,
             "w": 6,
             "x": 6,
-            "y": 13
+            "y": 21
           },
           "id": 27,
           "options": {
@@ -755,8 +748,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
-                    "value": null
+                    "color": "red"
                   }
                 ]
               }
@@ -767,7 +759,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 13
+            "y": 21
           },
           "id": 28,
           "options": {
@@ -819,8 +811,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -835,7 +826,7 @@
             "h": 6,
             "w": 4,
             "x": 0,
-            "y": 17
+            "y": 25
           },
           "id": 41,
           "options": {
@@ -887,8 +878,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -904,7 +894,7 @@
             "h": 6,
             "w": 6,
             "x": 4,
-            "y": 17
+            "y": 25
           },
           "id": 42,
           "options": {
@@ -956,8 +946,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -973,7 +962,7 @@
             "h": 6,
             "w": 7,
             "x": 10,
-            "y": 17
+            "y": 25
           },
           "id": 44,
           "options": {
@@ -1025,8 +1014,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1042,7 +1030,7 @@
             "h": 6,
             "w": 7,
             "x": 17,
-            "y": 17
+            "y": 25
           },
           "id": 45,
           "options": {
@@ -1105,7 +1093,7 @@
             "h": 11,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 31
           },
           "id": 36,
           "options": {
@@ -1179,7 +1167,7 @@
             "h": 11,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 31
           },
           "id": 37,
           "options": {
@@ -1243,8 +1231,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "orange",
@@ -1260,7 +1247,7 @@
             "h": 11,
             "w": 8,
             "x": 0,
-            "y": 34
+            "y": 42
           },
           "id": 15,
           "options": {
@@ -1320,8 +1307,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "orange",
@@ -1337,7 +1323,7 @@
             "h": 11,
             "w": 8,
             "x": 8,
-            "y": 34
+            "y": 42
           },
           "id": 14,
           "options": {
@@ -1396,8 +1382,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "orange",
@@ -1413,7 +1398,7 @@
             "h": 11,
             "w": 8,
             "x": 16,
-            "y": 34
+            "y": 42
           },
           "id": 26,
           "options": {
@@ -1472,8 +1457,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "orange",
@@ -1489,7 +1473,7 @@
             "h": 11,
             "w": 12,
             "x": 0,
-            "y": 45
+            "y": 53
           },
           "id": 46,
           "options": {
@@ -1549,8 +1533,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "orange",
@@ -1566,7 +1549,7 @@
             "h": 11,
             "w": 12,
             "x": 12,
-            "y": 45
+            "y": 53
           },
           "id": 47,
           "options": {
@@ -2198,7 +2181,7 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 16,
+            "w": 15,
             "x": 0,
             "y": 10
           },
@@ -2216,7 +2199,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.2.2",
+          "pluginVersion": "10.2.3",
           "targets": [
             {
               "datasource": {
@@ -2549,8 +2532,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 16,
+            "w": 9,
+            "x": 15,
             "y": 10
           },
           "id": 40,
@@ -2567,7 +2550,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.2.2",
+          "pluginVersion": "10.2.3",
           "targets": [
             {
               "datasource": {
@@ -2977,6 +2960,18 @@
                     "value": "decgbytes"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Worker Type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 127
+                  }
+                ]
               }
             ]
           },
@@ -3000,7 +2995,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.2.2",
+          "pluginVersion": "10.2.3",
           "targets": [
             {
               "datasource": {
@@ -3038,8 +3033,9 @@
                   "worker_connected": true,
                   "worker_idle": true,
                   "worker_job_start_ts": true,
-                  "worker_type": true
+                  "worker_type": false
                 },
+                "includeByName": {},
                 "indexByName": {
                   "Time": 0,
                   "Value": 28,
@@ -3050,7 +3046,7 @@
                   "job": 5,
                   "namespace": 6,
                   "node_id": 7,
-                  "node_name": 15,
+                  "node_name": 14,
                   "pod": 8,
                   "service": 9,
                   "tdarr_instance": 10,
@@ -3061,7 +3057,7 @@
                   "worker_fps": 20,
                   "worker_id": 16,
                   "worker_idle": 12,
-                  "worker_job_start_ts": 14,
+                  "worker_job_start_ts": 13,
                   "worker_original_file_size_gb": 24,
                   "worker_output_size_gb": 26,
                   "worker_percentage": 19,
@@ -3069,7 +3065,7 @@
                   "worker_start_ts": 18,
                   "worker_status": 22,
                   "worker_status_ts": 27,
-                  "worker_type": 13
+                  "worker_type": 15
                 },
                 "renameByName": {
                   "node_name": "Node",
@@ -3087,7 +3083,8 @@
                   "worker_pid": "PID",
                   "worker_start_ts": "Start Time",
                   "worker_status": "Flow Step",
-                  "worker_status_ts": "Last Status Update"
+                  "worker_status_ts": "Last Status Update",
+                  "worker_type": "Worker Type"
                 }
               }
             },
@@ -3399,6 +3396,30 @@
                     "value": "decgbytes"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 129
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Worker Type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 134
+                  }
+                ]
               }
             ]
           },
@@ -3422,7 +3443,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.2.2",
+          "pluginVersion": "10.2.3",
           "targets": [
             {
               "datasource": {
@@ -3431,7 +3452,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "tdarr_node_worker_info{tdarr_instance=\"$instance\", node_name=\"$tdarr_node\"}",
+              "expr": "tdarr_node_worker_info{tdarr_instance=\"$instance\", node_name=\"$tdarr_node\", worker_type=~\"healthcheck.*\"}",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -3464,8 +3485,9 @@
                   "worker_job_start_ts": true,
                   "worker_output_size_gb": true,
                   "worker_plugin_position": true,
-                  "worker_type": true
+                  "worker_type": false
                 },
+                "includeByName": {},
                 "indexByName": {
                   "Time": 0,
                   "Value": 29,
@@ -3476,27 +3498,27 @@
                   "job": 5,
                   "namespace": 6,
                   "node_id": 7,
-                  "node_name": 17,
+                  "node_name": 16,
                   "pod": 8,
                   "service": 9,
                   "tdarr_instance": 10,
-                  "worker_connected": 15,
+                  "worker_connected": 14,
                   "worker_est_size_gb": 11,
                   "worker_eta": 23,
                   "worker_file": 25,
                   "worker_fps": 22,
                   "worker_id": 18,
-                  "worker_idle": 14,
-                  "worker_job_start_ts": 16,
+                  "worker_idle": 13,
+                  "worker_job_start_ts": 15,
                   "worker_original_file_size_gb": 26,
-                  "worker_output_size_gb": 13,
+                  "worker_output_size_gb": 12,
                   "worker_percentage": 21,
                   "worker_pid": 19,
                   "worker_plugin_position": 28,
                   "worker_start_ts": 20,
                   "worker_status": 24,
                   "worker_status_ts": 27,
-                  "worker_type": 12
+                  "worker_type": 17
                 },
                 "renameByName": {
                   "node_name": "Node",
@@ -3516,7 +3538,7 @@
                   "worker_start_ts": "Start Time",
                   "worker_status": "Status",
                   "worker_status_ts": "Last Status Update",
-                  "worker_type": "Type"
+                  "worker_type": "Worker Type"
                 }
               }
             },
@@ -3875,6 +3897,18 @@
                     "value": "dateTimeAsLocal"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Worker Type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 133
+                  }
+                ]
               }
             ]
           },
@@ -3898,7 +3932,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.2.2",
+          "pluginVersion": "10.2.3",
           "targets": [
             {
               "datasource": {
@@ -3907,7 +3941,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "tdarr_node_worker_info{tdarr_instance=\"$instance\", node_name=\"$tdarr_node\"}",
+              "expr": "tdarr_node_worker_info{tdarr_instance=\"$instance\", node_name=\"$tdarr_node\", worker_type!~\"healthcheck.*\"}",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -3936,11 +3970,12 @@
                   "worker_connected": true,
                   "worker_idle": true,
                   "worker_job_start_ts": true,
-                  "worker_type": true
+                  "worker_type": false
                 },
+                "includeByName": {},
                 "indexByName": {
                   "Time": 0,
-                  "Value": 15,
+                  "Value": 14,
                   "__name__": 1,
                   "container": 2,
                   "endpoint": 3,
@@ -3948,7 +3983,7 @@
                   "job": 5,
                   "namespace": 6,
                   "node_id": 7,
-                  "node_name": 16,
+                  "node_name": 15,
                   "pod": 8,
                   "service": 9,
                   "tdarr_instance": 10,
@@ -3968,7 +4003,7 @@
                   "worker_start_ts": 19,
                   "worker_status": 23,
                   "worker_status_ts": 29,
-                  "worker_type": 14
+                  "worker_type": 16
                 },
                 "renameByName": {
                   "node_name": "Node",
@@ -3988,7 +4023,7 @@
                   "worker_start_ts": "Start Time",
                   "worker_status": "Status",
                   "worker_status_ts": "Last Status Update",
-                  "worker_type": ""
+                  "worker_type": "Worker Type"
                 }
               }
             },
@@ -4388,7 +4423,7 @@
           },
           "fieldConfig": {
             "defaults": {
-              "color": {  
+              "color": {
                 "mode": "palette-classic"
               },
               "custom": {
@@ -4838,7 +4873,7 @@
     }
   ],
   "refresh": "",
-  "schemaVersion": 38,
+  "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": [
@@ -4951,6 +4986,5 @@
   "timezone": "",
   "title": "Tdarr",
   "uid": "d468b00e-f30c-4d03-9229-6e44be575694",
-  "version": 68,
   "weekStart": ""
 }
