@@ -3,6 +3,7 @@
   - [Background](#background)
   - [Usage](#usage)
   - [Configuration](#configuration)
+  - [Dashboard](#dashboard)
 
 ## Background
 `tdarr-exporter` is a Prometheus collector for [Tdarr](https://github.com/HaveAGitGat/Tdarr) and provides the following as Prometheus metrics:
@@ -77,3 +78,10 @@ $ ./tdarr-exporter -h
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
 | `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve. metrics |
 | `prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+
+## Dashboard
+Dashboard example can be found on Grafana's portal [here](https://grafana.com/grafana/dashboards/20388).
+- Copy the ID `20388` and then import it in Grafana.
+
+Dashboard example is also provided in the `examples/dashboard.json` file in case the dashboard from [Grafana](https://grafana.com/grafana/dashboards/20388) is not available.
+- In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.

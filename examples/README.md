@@ -6,7 +6,11 @@
 
 
 ## Importing Dashboard
-In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.
+Dashboard example can be found on Grafana's portal [here](https://grafana.com/grafana/dashboards/20388).
+- Copy the ID `20388` and then import it in Grafana.
+
+Dashboard example is also provided in the `dashboard.json` file in case the dashboard from [Grafana](https://grafana.com/grafana/dashboards/20388) is not available.
+- In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.
 
 ## Dashboard Preview
 ![overview](./images/demo_3.png)
