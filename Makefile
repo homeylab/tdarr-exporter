@@ -6,13 +6,13 @@ MOD_NAME=${GIT_REPO}
 
 # Docker
 BASE_IMAGE=golang
-BASE_IMAGE_TAG=1.21.5-alpine
+BASE_IMAGE_TAG=1.22-alpine
 RUN_IMAGE=gcr.io/distroless/static
 RUN_IMAGE_TAG=nonroot
 
 # for test - do not try to use externally
 TEST_IMAGE_NAME=docker.homeylab.org/tdarr-exporter
-TEST_IMAGE_TAG=0.0.1
+TEST_IMAGE_TAG=test
 
 IMAGE_ARCH=amd64
 IMAGE_ARCH_ARM=arm64
@@ -36,8 +36,13 @@ update_dep:
 lint:
 	golangci-lint run
 
+local_run:
+	go run cmd/exporter/main.go --url=${TDARR_TEST_URL}
+
 local_docker_build:
+	@docker buildx create --use --name=crossplat --node=crossplat && \
 	docker buildx build \
+	--platform linux/amd64 \
 	--load \
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
@@ -48,7 +53,7 @@ local_docker_build:
 	--no-cache .
 
 local_docker_run:
-	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG}
+	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_TEST_URL} ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG}
 
 docker_build:
 	@docker buildx create --use --name=crossplat --node=crossplat && \
