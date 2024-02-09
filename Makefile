@@ -53,7 +53,7 @@ local_docker_build:
 	--no-cache .
 
 local_docker_run:
-	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_URL} ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG}
+	docker run -i -p 9090:9090 -e TDARR_URL=${TDARR_TEST_URL} ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG}
 
 docker_build:
 	@docker buildx create --use --name=crossplat --node=crossplat && \
