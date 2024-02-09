@@ -12,7 +12,7 @@ RUN_IMAGE_TAG=nonroot
 
 # for test - do not try to use externally
 TEST_IMAGE_NAME=docker.homeylab.org/tdarr-exporter
-TEST_IMAGE_TAG=1.0.0
+TEST_IMAGE_TAG=test
 
 IMAGE_ARCH=amd64
 IMAGE_ARCH_ARM=arm64
@@ -40,7 +40,9 @@ local_run:
 	go run cmd/exporter/main.go --url=${TDARR_TEST_URL}
 
 local_docker_build:
+	@docker buildx create --use --name=crossplat --node=crossplat && \
 	docker buildx build \
+	--platform linux/amd64 \
 	--load \
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
