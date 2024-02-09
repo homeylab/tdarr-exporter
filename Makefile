@@ -6,13 +6,13 @@ MOD_NAME=${GIT_REPO}
 
 # Docker
 BASE_IMAGE=golang
-BASE_IMAGE_TAG=1.21.5-alpine
+BASE_IMAGE_TAG=1.22-alpine
 RUN_IMAGE=gcr.io/distroless/static
 RUN_IMAGE_TAG=nonroot
 
 # for test - do not try to use externally
 TEST_IMAGE_NAME=docker.homeylab.org/tdarr-exporter
-TEST_IMAGE_TAG=0.0.1
+TEST_IMAGE_TAG=1.0.0
 
 IMAGE_ARCH=amd64
 IMAGE_ARCH_ARM=arm64
@@ -35,6 +35,9 @@ update_dep:
 
 lint:
 	golangci-lint run
+
+local_run:
+	go run cmd/exporter/main.go --url=${TDARR_TEST_URL}
 
 local_docker_build:
 	docker buildx build \
