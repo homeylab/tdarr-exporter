@@ -7,7 +7,7 @@ description: Runs actions to test go code
 runs:
   using: "composite" # allows inputs/outputs to be passed between steps
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     # https://github.com/actions/runner/issues/2238
     # use `fromJSON`
     - name: Set up Go
