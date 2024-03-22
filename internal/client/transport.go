@@ -28,8 +28,10 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
 		for i := 0; i < t.retries; i++ {
-			log.Debug().Int("retry_count", i).Int("status_code", resp.StatusCode).
-				Interface("backoff_seconds", t.backoff[i]).Msgf("Retrying HTTP Request: %s", req.URL.String())
+			log.Debug().Int("retry_count", i+1).
+				Interface("backoff_seconds", t.backoff[i]).
+				Str("url", req.URL.String()).
+				Msgf("Retrying HTTP Request")
 			// first try already failed so wait before retrying
 			time.Sleep(t.backoff[i])
 			resp, err = t.inner.RoundTrip(req)
