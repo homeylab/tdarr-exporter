@@ -133,7 +133,7 @@ type TdarrNodeWorkers struct {
 	LastPluginDetails struct {
 		Source         string `json:"source"`
 		Id             string `json:"id"`
-		PositionNumber int    `json:"number"`
+		PositionNumber string `json:"number"`
 	} `json:"lastPluginDetails"`
 	StartTime        int64   `json:"startTime"` // start time of current plugin step
 	OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
