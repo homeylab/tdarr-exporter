@@ -23,18 +23,10 @@ type RequestClient struct {
 
 type QueryParams = url.Values
 
-func NewRequestClient(baseUrl string, insecureSkipVerify bool) (*RequestClient, error) {
-	u, err := url.Parse(baseUrl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL(%s): %w", baseUrl, err)
-	}
-
+func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool) (*RequestClient, error) {
 	baseTransport := http.DefaultTransport
 	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
-	// add default scheme if not present
-	if u.Scheme == "" {
-		u.Scheme = "https"
-	}
+
 	return &RequestClient{
 		httpClient: http.Client{
 			// If CheckRedirect is nil, the Client uses its default policy,
@@ -47,7 +39,7 @@ func NewRequestClient(baseUrl string, insecureSkipVerify bool) (*RequestClient, 
 			Transport: NewClientTransport(baseTransport),
 			Timeout:   time.Duration(time.Duration(15) * time.Second),
 		},
-		URL: *u,
+		URL: *parsedUrl,
 	}, nil
 }
 

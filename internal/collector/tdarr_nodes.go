@@ -35,43 +35,43 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"node_gpu_transcode_limit", "node_cpu_transcode_limit",
 				"node_health_check_gpu_queue", "node_health_check_cpu_queue",
 				"node_transcode_gpu_queue", "node_transcode_cpu_queue"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeUptime: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
 			"Tdarr node uptime in seconds",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeHeapUsedMb: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
 			"Tdarr node heap used in MB",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeHeapTotalMb: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
 			"Tdarr node heap total in MB",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeHostCpuPercent: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_cpu_percent"),
 			"Tdarr node cpu percent used",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeHostMemUsedGb: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_used_gb"),
 			"Memory used in GB for host that Tdarr node is running on",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeHostMemTotalGb: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_total_gb"),
 			"Total memory in GB for host that Tdarr node is running on",
 			[]string{"node_id", "node_name"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeWorkerInfo: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_info"),
@@ -84,7 +84,7 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_job_start_ts", "worker_start_ts", // when the operation started vs when plugin step within the operation started
 				"worker_plugin_id", "worker_plugin_position",
 				"worker_output_size_gb", "worker_est_size_gb"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		nodeWorkerFlowInfo: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_flow_info"),
@@ -96,7 +96,7 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_percentage", "worker_connected", "worker_pid",
 				"worker_job_start_ts", "worker_start_ts",
 				"worker_output_size_gb", "worker_est_size_gb"},
-			prometheus.Labels{"tdarr_instance": runConfig.Url},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 	}
 }
@@ -109,7 +109,7 @@ func NewTdarrNodeCollector(runConfig config.Config) *TdarrNodeCollector {
 }
 
 func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(n.config.Url, n.config.VerifySsl)
+	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")

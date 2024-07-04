@@ -6,7 +6,7 @@ MOD_NAME=${GIT_REPO}
 
 # Docker
 BASE_IMAGE=golang
-BASE_IMAGE_TAG=1.22.1-alpine
+BASE_IMAGE_TAG=1.22.5-alpine
 RUN_IMAGE=gcr.io/distroless/static
 RUN_IMAGE_TAG=nonroot
 

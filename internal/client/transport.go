@@ -1,7 +1,9 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -25,15 +27,31 @@ func NewClientTransport(inner http.RoundTripper) *ClientTransport {
 
 // middleware for http to handle retries
 func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// read it first since once sent on first try it will be already streamed
+	// for request with body, we need to ensure we can re-use the body after it is read/cleared from the buffer on first request
+	// so copy it first to a buffer
+	var bodyBytes []byte
+	// for post/put (usually) we need to read the body and re-use it on retries
+	if req.Body != nil {
+		bodyBytes, _ = io.ReadAll(req.Body)
+		// `io.NopCloser()` is used to wrap the buffer and provide a `Close()` function for `io.ReaderClose` functionality.
+		// `req.Body` is then set to the copied data held in the buffer created with the `bodyBytes` slice.
+		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+	// `req.Body` is streamed when used in `RoundTrip()`, so we need to re-create the `req.Body` with the copied data when retrying
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
 		for i := 0; i < t.retries; i++ {
 			log.Debug().Int("retry_count", i+1).
 				Interface("backoff_seconds", t.backoff[i]).
 				Str("url", req.URL.String()).
-				Msgf("Retrying HTTP Request")
+				Msg("Retrying HTTP Request")
 			// first try already failed so wait before retrying
 			time.Sleep(t.backoff[i])
+			// re-add body to request
+			if req.Body != nil {
+				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			}
 			resp, err = t.inner.RoundTrip(req)
 			if err == nil && resp.StatusCode < 500 {
 				return resp, nil
