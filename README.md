@@ -71,13 +71,17 @@ $ ./tdarr-exporter -h
         verify ssl certificates from tdarr (default true)
 ```
 
+A valid URL for the tdarr instance must be provided and can include protocol (`http/https`) and port if needed.
+
 | Property          |  Environment Variable | Default    | Description |
 | ----------------- | --------------------- | ---------- | ----------- |
-| `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`. |
+| `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
 | `log_level`        | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
-| `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve. metrics |
+| `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
 | `prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+
+If the URL is a valid URL, the hostname inside the URL will be used to identify the instance in the metrics as `tdarr_instance` label, i.e. `https://tdarr.example.com` will be shown as `tdarr.example.com` in the metrics (if using version `v1.2.0` or later).
 
 ## Dashboard
 Dashboard example can be found on Grafana's portal [here](https://grafana.com/grafana/dashboards/20388).

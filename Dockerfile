@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=golang
-ARG BASE_IMAGE_TAG=1.22.1-alpine
+ARG BASE_IMAGE_TAG=1.22.5-alpine
 
 ARG RUN_IMAGE=gcr.io/distroless/static
 ARG RUN_IMAGE_TAG=nonroot

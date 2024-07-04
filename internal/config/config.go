@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +21,9 @@ const (
 
 type Config struct {
 	LogLevel           string
-	Url                string
+	url                string
+	UrlParsed          *url.URL
+	InstanceName       string
 	VerifySsl          bool
 	PrometheusPort     string
 	PrometheusPath     string
@@ -62,7 +65,7 @@ func newDefaults() Config {
 	// get defaults and then replace them with env vars if specified
 	defaults := GetDefaults()
 	if tdarrUrlEnv := os.Getenv(envTdarrUrl); tdarrUrlEnv != "" {
-		defaults.Url = tdarrUrlEnv
+		defaults.url = tdarrUrlEnv
 	}
 	if sslVerifyEnv := os.Getenv(envSslVerify); sslVerifyEnv != "" {
 		boolValue, err := strconv.ParseBool(sslVerifyEnv)
@@ -85,10 +88,24 @@ func newDefaults() Config {
 	return defaults
 }
 
+// also act as validation for provided url
+func parseUrl(urlString string) *url.URL {
+	// get hostname from url
+	if !strings.HasPrefix(urlString, "http") {
+		log.Warn().Str("url", urlString).Msg("No scheme provided, defaulting to https")
+		urlString = "https://" + urlString
+	}
+	url, err := url.Parse(urlString)
+	if err != nil {
+		log.Fatal().Str("url", urlString).Err(err).Msg("Invalid url provided - failed to parse!")
+	}
+	return url
+}
+
 func NewConfig() Config {
+
 	defaults := newDefaults()
-	log.Info().Str("url", defaults.Url)
-	url := flag.String("url", defaults.Url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
+	url := flag.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
 	sslVerify := flag.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
 	promPort := flag.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
 	promPath := flag.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
@@ -98,10 +115,15 @@ func NewConfig() Config {
 		log.Fatal().
 			Msg("A valid url needs to be provided!")
 	}
-
 	setLoggerLevel(*logLevel)
+
+	urlParsed := parseUrl(*url)
+	log.Info().Str("url", urlParsed.String()).Msg("Using provided full url for tdarr instance")
+
 	return Config{
-		Url:                *url,
+		url:                *url,
+		UrlParsed:          urlParsed,
+		InstanceName:       urlParsed.Hostname(),
 		VerifySsl:          *sslVerify,
 		PrometheusPort:     *promPort,
 		PrometheusPath:     *promPath,
