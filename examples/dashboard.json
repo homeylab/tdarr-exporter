@@ -21,7 +21,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "10.3.1"
+      "version": "11.0.0"
     },
     {
       "type": "panel",
@@ -106,8 +106,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -135,7 +134,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -172,8 +171,7 @@
                 }
               },
               "mappings": [],
-              "unit": "Files",
-              "unitScale": true
+              "unit": "Files"
             },
             "overrides": []
           },
@@ -206,6 +204,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -218,7 +217,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum (tdarr_library_files_total{tdarr_instance=\"$instance\", library_name != \"All\"}) by (library_name)",
+              "expr": "sum (tdarr_library_files_total{tdarr_instance=\"$instance\", library_id != \"all_libraries\"}) by (library_name)",
               "instant": false,
               "legendFormat": "{{library_name}}",
               "range": true,
@@ -247,8 +246,7 @@
                 }
               },
               "mappings": [],
-              "unit": "Transcodes",
-              "unitScale": true
+              "unit": "Transcodes"
             },
             "overrides": []
           },
@@ -281,6 +279,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -293,7 +292,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes_total{tdarr_instance=\"$instance\", library_name != \"All\"}) by (library_name)",
+              "expr": "sum(tdarr_library_transcodes_total{tdarr_instance=\"$instance\", library_id!=\"all_libraries\"}) by (library_name)",
               "instant": false,
               "legendFormat": "{{library_name}}",
               "range": true,
@@ -322,8 +321,7 @@
                 }
               },
               "mappings": [],
-              "unit": "Health Checks",
-              "unitScale": true
+              "unit": "Health Checks"
             },
             "overrides": []
           },
@@ -356,6 +354,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -368,7 +367,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks_total{tdarr_instance=\"$instance\", library_name != \"All\"}) by (library_name)",
+              "expr": "sum(tdarr_library_health_checks_total{tdarr_instance=\"$instance\", library_id!=\"all_libraries\"}) by (library_name)",
               "instant": false,
               "legendFormat": "__auto",
               "range": true,
@@ -403,8 +402,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes",
-              "unitScale": true
+              "unit": "decgbytes"
             },
             "overrides": []
           },
@@ -431,7 +429,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -469,8 +467,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -497,7 +494,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -539,8 +536,7 @@
                     "value": 0
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -567,7 +563,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -619,8 +615,7 @@
                   }
                 ]
               },
-              "unit": "percent",
-              "unitScale": true
+              "unit": "percent"
             },
             "overrides": []
           },
@@ -647,7 +642,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -699,8 +694,7 @@
                   }
                 ]
               },
-              "unit": "percent",
-              "unitScale": true
+              "unit": "percent"
             },
             "overrides": []
           },
@@ -727,7 +721,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -765,8 +759,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -793,7 +786,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -801,7 +794,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_library_transcodes{tdarr_instance=\"$instance\", library_name=\"All\", status=\"error\"}",
+              "expr": "tdarr_library_transcodes{tdarr_instance=\"$instance\", library_id=\"all_libraries\", status=\"error\"}",
               "instant": false,
               "legendFormat": "{{status}}",
               "range": true,
@@ -831,8 +824,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -859,7 +851,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -867,7 +859,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_library_health_checks{tdarr_instance=\"$instance\", library_name=\"All\", status=\"error\"}",
+              "expr": "tdarr_library_health_checks{tdarr_instance=\"$instance\", library_id=\"all_libraries\", status=\"error\"}",
               "instant": false,
               "legendFormat": "{{status}}",
               "range": true,
@@ -901,8 +893,7 @@
                     "value": 80
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -929,7 +920,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -972,8 +963,7 @@
                   }
                 ]
               },
-              "unit": "decbits",
-              "unitScale": true
+              "unit": "decbits"
             },
             "overrides": []
           },
@@ -1000,7 +990,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1043,8 +1033,7 @@
                   }
                 ]
               },
-              "unit": "s",
-              "unitScale": true
+              "unit": "s"
             },
             "overrides": []
           },
@@ -1071,7 +1060,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1114,8 +1103,7 @@
                   }
                 ]
               },
-              "unit": "Frames",
-              "unitScale": true
+              "unit": "Frames"
             },
             "overrides": []
           },
@@ -1142,7 +1130,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1179,8 +1167,7 @@
                 }
               },
               "mappings": [],
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1213,6 +1200,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -1225,7 +1213,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes{tdarr_instance=\"$instance\", library_name = \"All\"}) by (status)",
+              "expr": "sum(tdarr_library_transcodes{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (status)",
               "instant": false,
               "legendFormat": "{{library_name}}",
               "range": true,
@@ -1254,8 +1242,7 @@
                 }
               },
               "mappings": [],
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1288,6 +1275,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -1300,7 +1288,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks{tdarr_instance=\"$instance\", library_name = \"All\"}) by (status)",
+              "expr": "sum(tdarr_library_health_checks{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (status)",
               "instant": false,
               "legendFormat": "{{status}}",
               "range": true,
@@ -1336,8 +1324,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1370,7 +1357,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1379,7 +1366,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sort_desc(sum(tdarr_library_video_containers{tdarr_instance=\"$instance\", library_name=\"All\"}) by (container_type))",
+              "expr": "sort_desc(sum(tdarr_library_video_containers{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (container_type))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "range": false,
@@ -1387,7 +1374,6 @@
             }
           ],
           "title": "Total Video Containers by Type",
-          "transformations": [],
           "transparent": true,
           "type": "bargauge"
         },
@@ -1416,8 +1402,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1450,7 +1435,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1459,7 +1444,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sort_desc(sum(tdarr_library_video_codecs{tdarr_instance=\"$instance\", library_name=\"All\"}) by (codec))",
+              "expr": "sort_desc(sum(tdarr_library_video_codecs{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (codec))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "range": false,
@@ -1495,8 +1480,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1529,7 +1513,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1538,7 +1522,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sort_desc(sum(tdarr_library_video_resolutions{tdarr_instance=\"$instance\", library_name=\"All\"}) by (resolution))",
+              "expr": "sort_desc(sum(tdarr_library_video_resolutions{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (resolution))",
               "instant": true,
               "legendFormat": "{{resolution}}",
               "range": false,
@@ -1574,8 +1558,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1608,7 +1591,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1617,7 +1600,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sort_desc(sum(tdarr_library_audio_containers{tdarr_instance=\"$instance\", library_name=\"All\"}) by (container_type))",
+              "expr": "sort_desc(sum(tdarr_library_audio_containers{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (container_type))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "range": false,
@@ -1625,7 +1608,6 @@
             }
           ],
           "title": "Total Audio Containers by Type",
-          "transformations": [],
           "transparent": true,
           "type": "bargauge"
         },
@@ -1654,8 +1636,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1688,7 +1669,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -1697,7 +1678,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sort_desc(sum(tdarr_library_audio_codecs{tdarr_instance=\"$instance\", library_name=\"All\"}) by (codec))",
+              "expr": "sort_desc(sum(tdarr_library_audio_codecs{tdarr_instance=\"$instance\", library_id=\"all_libraries\"}) by (codec))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "range": false,
@@ -1775,8 +1756,7 @@
                   }
                 ]
               },
-              "unit": "percent",
-              "unitScale": true
+              "unit": "percent"
             },
             "overrides": []
           },
@@ -1795,6 +1775,7 @@
               "showLegend": true
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -1873,8 +1854,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes",
-              "unitScale": true
+              "unit": "decgbytes"
             },
             "overrides": []
           },
@@ -1893,6 +1873,7 @@
               "showLegend": true
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -1983,8 +1964,7 @@
                   }
                 ]
               },
-              "unit": "decmbytes",
-              "unitScale": true
+              "unit": "decmbytes"
             },
             "overrides": []
           },
@@ -2003,6 +1983,7 @@
               "showLegend": true
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -2065,8 +2046,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -2319,7 +2299,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -2469,8 +2449,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -2671,7 +2650,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -2809,8 +2788,7 @@
                     "value": 80
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -3117,7 +3095,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -3272,8 +3250,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -3566,7 +3543,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -3728,8 +3705,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -4056,7 +4032,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4224,8 +4200,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -4252,7 +4227,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4290,8 +4265,7 @@
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -4318,7 +4292,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4360,8 +4334,7 @@
                     "value": 0
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -4388,7 +4361,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4431,8 +4404,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes",
-              "unitScale": true
+              "unit": "decgbytes"
             },
             "overrides": []
           },
@@ -4459,7 +4431,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4496,8 +4468,7 @@
                 }
               },
               "mappings": [],
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4530,6 +4501,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -4571,8 +4543,7 @@
                 }
               },
               "mappings": [],
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4605,6 +4576,7 @@
               "values": false
             },
             "tooltip": {
+              "maxHeight": 600,
               "mode": "single",
               "sort": "none"
             }
@@ -4653,8 +4625,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4687,7 +4658,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4704,7 +4675,6 @@
             }
           ],
           "title": "Total Video Containers by Type",
-          "transformations": [],
           "transparent": true,
           "type": "bargauge"
         },
@@ -4733,8 +4703,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4767,7 +4736,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4812,8 +4781,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4846,7 +4814,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4891,8 +4859,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -4925,7 +4892,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -4942,7 +4909,6 @@
             }
           ],
           "title": "Total Audio Containers by Type",
-          "transformations": [],
           "transparent": true,
           "type": "bargauge"
         },
@@ -4971,8 +4937,7 @@
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -5005,7 +4970,7 @@
             },
             "valueMode": "text"
           },
-          "pluginVersion": "10.3.1",
+          "pluginVersion": "11.0.0",
           "targets": [
             {
               "datasource": {
@@ -5128,10 +5093,11 @@
     "from": "now-5m",
     "to": "now"
   },
+  "timeRangeUpdatedDuringEditOrView": false,
   "timepicker": {},
   "timezone": "",
   "title": "Tdarr",
   "uid": "d468b00e-f30c-4d03-9229-6e44be575694",
-  "version": 73,
+  "version": 74,
   "weekStart": ""
 }
