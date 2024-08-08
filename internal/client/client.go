@@ -18,13 +18,13 @@ import (
 // Client struct is an *Arr client.
 type RequestClient struct {
 	httpClient http.Client
-	apiToken   string
+	apiKey     string
 	URL        url.URL
 }
 
 type QueryParams = url.Values
 
-func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, tokenAuth string) (*RequestClient, error) {
+func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, apiKeyAuth string) (*RequestClient, error) {
 	baseTransport := http.DefaultTransport
 	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
 
@@ -40,8 +40,8 @@ func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, tokenAuth str
 			Transport: NewClientTransport(baseTransport),
 			Timeout:   time.Duration(time.Duration(15) * time.Second),
 		},
-		URL:      *parsedUrl,
-		apiToken: tokenAuth,
+		URL:    *parsedUrl,
+		apiKey: apiKeyAuth,
 	}, nil
 }
 
@@ -88,9 +88,9 @@ func (c *RequestClient) DoRequest(path string, target interface{}, queryParams .
 		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
-	if c.apiToken != "" {
+	if c.apiKey != "" {
 		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
-		req.Header.Set("x-api-key", c.apiToken)
+		req.Header.Set("x-api-key", c.apiKey)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -112,9 +112,9 @@ func (c *RequestClient) DoPostRequest(path string, target interface{}, payload [
 
 	// json content
 	req.Header.Set("Content-Type", "application/json")
-	if c.apiToken != "" {
+	if c.apiKey != "" {
 		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
-		req.Header.Set("x-api-key", c.apiToken)
+		req.Header.Set("x-api-key", c.apiKey)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -216,7 +216,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
-	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.TokenAuth)
+	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
