@@ -18,12 +18,13 @@ import (
 // Client struct is an *Arr client.
 type RequestClient struct {
 	httpClient http.Client
+	apiToken   string
 	URL        url.URL
 }
 
 type QueryParams = url.Values
 
-func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool) (*RequestClient, error) {
+func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, tokenAuth string) (*RequestClient, error) {
 	baseTransport := http.DefaultTransport
 	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
 
@@ -39,7 +40,8 @@ func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool) (*RequestClie
 			Transport: NewClientTransport(baseTransport),
 			Timeout:   time.Duration(time.Duration(15) * time.Second),
 		},
-		URL: *parsedUrl,
+		URL:      *parsedUrl,
+		apiToken: tokenAuth,
 	}, nil
 }
 
@@ -86,7 +88,10 @@ func (c *RequestClient) DoRequest(path string, target interface{}, queryParams .
 		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
-
+	if c.apiToken != "" {
+		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
+		req.Header.Set("x-api-key", c.apiToken)
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
@@ -107,6 +112,10 @@ func (c *RequestClient) DoPostRequest(path string, target interface{}, payload [
 
 	// json content
 	req.Header.Set("Content-Type", "application/json")
+	if c.apiToken != "" {
+		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
+		req.Header.Set("x-api-key", c.apiToken)
+	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)

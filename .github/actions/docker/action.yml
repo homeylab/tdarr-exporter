@@ -82,7 +82,7 @@ runs:
         REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
 
   - name: Update Dockerhub Documentation
-    uses: peter-evans/dockerhub-description@v3
+    uses: peter-evans/dockerhub-description@v4
     if: ${{ (fromJSON(inputs.latest) == true) && (github.event_name != 'pull_request') }}
     with:
       username: ${{ inputs.dockerhub_username }}

@@ -13,6 +13,7 @@ import (
 
 const (
 	envTdarrUrl       = "TDARR_URL"
+	envTdarrApiToken  = "TDARR_API_TOKEN"
 	envSslVerify      = "VERIFY_SSL"
 	envPrometheusPort = "PROMETHEUS_PORT"
 	envPrometheusPath = "PROMETHEUS_PATH"
@@ -24,6 +25,7 @@ type Config struct {
 	url                string
 	UrlParsed          *url.URL
 	InstanceName       string
+	TokenAuth          string
 	VerifySsl          bool
 	PrometheusPort     string
 	PrometheusPath     string
@@ -61,11 +63,27 @@ func setLoggerLevel(logLevel string) {
 	}
 }
 
+func getDefaults() Config {
+	return Config{
+		LogLevel:           "info",
+		TokenAuth:          "",
+		VerifySsl:          true,
+		PrometheusPort:     "9090",
+		PrometheusPath:     "/metrics",
+		HttpTimeoutSeconds: 15,
+		TdarrMetricsPath:   "/api/v2/cruddb",
+		TdarrNodePath:      "/api/v2/get-nodes",
+	}
+}
+
 func newDefaults() Config {
 	// get defaults and then replace them with env vars if specified
-	defaults := GetDefaults()
+	defaults := getDefaults()
 	if tdarrUrlEnv := os.Getenv(envTdarrUrl); tdarrUrlEnv != "" {
 		defaults.url = tdarrUrlEnv
+	}
+	if tdarrApiTokenEnv := os.Getenv(envTdarrApiToken); tdarrApiTokenEnv != "" {
+		defaults.TokenAuth = tdarrApiTokenEnv
 	}
 	if sslVerifyEnv := os.Getenv(envSslVerify); sslVerifyEnv != "" {
 		boolValue, err := strconv.ParseBool(sslVerifyEnv)
@@ -103,9 +121,9 @@ func parseUrl(urlString string) *url.URL {
 }
 
 func NewConfig() Config {
-
 	defaults := newDefaults()
 	url := flag.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
+	tokenAuth := flag.String("token", defaults.TokenAuth, "api token for tdarr instance if authentication is enabled")
 	sslVerify := flag.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
 	promPort := flag.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
 	promPath := flag.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
@@ -124,6 +142,7 @@ func NewConfig() Config {
 		url:                *url,
 		UrlParsed:          urlParsed,
 		InstanceName:       urlParsed.Hostname(),
+		TokenAuth:          *tokenAuth,
 		VerifySsl:          *sslVerify,
 		PrometheusPort:     *promPort,
 		PrometheusPath:     *promPath,

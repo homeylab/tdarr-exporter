@@ -109,7 +109,7 @@ func NewTdarrNodeCollector(runConfig config.Config) *TdarrNodeCollector {
 }
 
 func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl)
+	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl, n.config.TokenAuth)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
