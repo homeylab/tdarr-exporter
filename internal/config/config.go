@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
@@ -38,7 +40,7 @@ type Config struct {
 // 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 // }
 
-func setLoggerLevel(logLevel string) {
+func setLoggerLevel(logLevel string) error {
 	// set up global log level for zerolog
 	level := strings.ToLower(logLevel)
 	switch level {
@@ -57,10 +59,12 @@ func setLoggerLevel(logLevel string) {
 	case "panic":
 		zerolog.SetGlobalLevel(zerolog.PanicLevel)
 	default:
-		log.Fatal().
-			Str("log_level", logLevel).
-			Msg("Improper log level given!")
+		// log.Fatal().
+		// 	Str("log_level", logLevel).
+		// 	Msg("Improper log level given!")
+		return fmt.Errorf("improper log level given: %s", logLevel)
 	}
+	return nil
 }
 
 func getDefaults() Config {
@@ -76,7 +80,7 @@ func getDefaults() Config {
 	}
 }
 
-func newDefaults() Config {
+func newDefaults() (Config, error) {
 	// get defaults and then replace them with env vars if specified
 	defaults := getDefaults()
 	if tdarrUrlEnv := os.Getenv(envTdarrUrl); tdarrUrlEnv != "" {
@@ -88,9 +92,10 @@ func newDefaults() Config {
 	if sslVerifyEnv := os.Getenv(envSslVerify); sslVerifyEnv != "" {
 		boolValue, err := strconv.ParseBool(sslVerifyEnv)
 		if err != nil {
-			log.Fatal().
+			log.Error().
 				Err(err).
 				Msg("Invalid value for verify_ssl! Please provide one of true or false.")
+			return Config{}, fmt.Errorf("invalid value for verify_ssl, should be true or false: %w", err)
 		}
 		defaults.VerifySsl = boolValue
 	}
@@ -103,7 +108,7 @@ func newDefaults() Config {
 	if logLevelEnv := os.Getenv(envLogLevel); logLevelEnv != "" {
 		defaults.LogLevel = logLevelEnv
 	}
-	return defaults
+	return defaults, nil
 }
 
 // also act as validation for provided url
@@ -120,8 +125,11 @@ func parseUrl(urlString string) *url.URL {
 	return url
 }
 
-func NewConfig() Config {
-	defaults := newDefaults()
+func NewConfig() (Config, error) {
+	defaults, defaultsErr := newDefaults()
+	if defaultsErr != nil {
+		return Config{}, defaultsErr
+	}
 	url := flag.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
 	apiKeyAuth := flag.String("api_key", defaults.ApiKey, "api token for tdarr instance if authentication is enabled")
 	sslVerify := flag.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
@@ -130,10 +138,12 @@ func NewConfig() Config {
 	logLevel := flag.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
 	flag.Parse()
 	if *url == "" {
-		log.Fatal().
-			Msg("A valid url needs to be provided!")
+		return Config{}, errors.New("a valid url needs to be provided")
 	}
-	setLoggerLevel(*logLevel)
+	logErr := setLoggerLevel(*logLevel)
+	if logErr != nil {
+		return Config{}, logErr
+	}
 
 	urlParsed := parseUrl(*url)
 	log.Info().Str("url", urlParsed.String()).Msg("Using provided full url for tdarr instance")
@@ -150,7 +160,7 @@ func NewConfig() Config {
 		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
 		TdarrMetricsPath:   defaults.TdarrMetricsPath,
 		TdarrNodePath:      defaults.TdarrNodePath,
-	}
+	}, nil
 }
 
 // func init() {

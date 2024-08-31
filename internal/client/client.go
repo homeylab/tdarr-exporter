@@ -37,7 +37,7 @@ func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, apiKeyAuth st
 			// 	return http.ErrUseLastResponse
 			// },
 			// TdarrTransport implements `RoundTrip`
-			Transport: NewClientTransport(baseTransport),
+			Transport: NewClientTransport(NewBaseTransport(insecureSkipVerify)),
 			Timeout:   time.Duration(time.Duration(15) * time.Second),
 		},
 		URL:    *parsedUrl,
@@ -122,4 +122,10 @@ func (c *RequestClient) DoPostRequest(path string, target interface{}, payload [
 	}
 	defer resp.Body.Close()
 	return c.unmarshalBody(resp.Body, target)
+}
+
+func NewBaseTransport(insecureSkipVerify bool) http.RoundTripper {
+	baseTransport := http.DefaultTransport
+	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
+	return baseTransport
 }
