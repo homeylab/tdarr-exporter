@@ -13,7 +13,7 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22' # The Go version to download (if necessary) and use.
+        go-version: '1.23' # The Go version to download (if necessary) and use.
     # get version
     # format with go fmt to check against go styling
     # check for diff and exit with non-zero if there is a diff meaning we need to format our code
