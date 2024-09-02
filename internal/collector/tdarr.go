@@ -370,10 +370,11 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				libraryName: pie[0].(string),
 				libraryId:   libId,
 				PieStats: TdarrPieStat{
-					TotalFiles:            pie[2].(int),
-					TotalTranscodeCount:   pie[3].(int),
+					// convert to int for now to support old api that is still in usee
+					TotalFiles:            int(pie[2].(float64)),
+					TotalTranscodeCount:   int(pie[3].(float64)),
 					SizeDiff:              pie[4].(float64),
-					TotalHealthCheckCount: pie[5].(int),
+					TotalHealthCheckCount: int(pie[5].(float64)),
 					Status: TdarrPieStatusSlice{
 						Transcode:   transcodePie,
 						HealthCheck: healthPie,
