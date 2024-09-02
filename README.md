@@ -33,7 +33,7 @@ Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everyt
 ### Binary
 Each tagged release will include executable binaries under the `assets` section of the release notes. This can be downloaded and run directly, see [configuration](#configuration) section for more details on run options.
 
-`./tdarr-exporter -url=example.com`
+`./tdarr-exporter -u example.com`
 
 A variety of platforms (`darwin`, `linux`, `freebsd`, `openbsd`) are supported and include `386`, `amd64`, and `arm64` variants.
 
@@ -59,30 +59,32 @@ To run this image, the `URL` should be provided, and more options can be supplie
 Example
 ```bash
 $ ./tdarr-exporter -h
-  -api_key string
-        api token for tdarr instance if authentication is enabled
-  -log_level string
-        log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level (default "debug")
-  -prometheus_path string
-        path to use for prometheus exporter (default "/metrics")
-  -prometheus_port string
-        port for prometheus exporter (default "9090")
-  -url string
-        valid url for tdarr instance, ex: https://tdarr.somedomain.com (default "http://tdarr.localdomain:8266")
-  -verify_ssl
-        verify ssl certificates from tdarr (default true)
+  -l, --log_level string         log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level (default "info")
+      --prometheus_path string   path to use for prometheus exporter (default "/metrics")
+      --prometheus_port string   port for prometheus exporter (default "9090")
+  -a, --tdarr_api_key string     api token for tdarr instance if authentication is enabled
+  -u, --tdarr_url string         valid url for tdarr instance, ex: https://tdarr.somedomain.com
+      --verify_ssl               verify ssl certificates from tdarr (default true)
 ```
 
-A valid URL for the tdarr instance must be provided and can include protocol (`http/https`) and port if needed.
+A valid URL for the tdarr instance must be provided and can include protocol (`http/https`) and port as needed.
 
-| Property          |  Environment Variable | Default    | Description |
+| Cli Property      |  Environment Variable | Default    | Description |
 | ----------------- | --------------------- | ---------- | ----------- |
-| `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
-| `api_key`         | `TDARR_API_KEY`       | `NONE`     | API token for tdarr instance if authentication is enabled. |
-| `log_level`       | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
-| `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
-| `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
-| `prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+| `-u`, `--tdarr_url`  | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
+| `-a`, `--tdarr_api_key` | `TDARR_API_KEY`       | `NONE`     | API token for tdarr instance if authentication is enabled. |
+| `-l`, `--log_level` | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
+| `--verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
+| `--prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
+| `--prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+
+Additional environment variables can be set for the following properties:
+
+| Environment Variable | Default | Description |
+| -------------------- | ------- | ----------- |
+| `HTTP_TIMEOUT_SECONDS` | `15` | Timeout in seconds for http requests to Tdarr instance. |
+| `TDARR_METRICS_PATH` | `/api/v2/cruddb` | Path to use when requesting general metrics from Tdarr instance |
+| `TDARR_NODE_PATH` | `/api/v2/get-nodes` | Path to use when requesting worker node metrics from Tdarr instance |
 
 If the URL is a valid URL, the hostname inside the URL will be used to identify the instance in the metrics as `tdarr_instance` label, i.e. `https://tdarr.example.com` will be shown as `tdarr.example.com` in the metrics (if using version `v1.2.0` or later).
 

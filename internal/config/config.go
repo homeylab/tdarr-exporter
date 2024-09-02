@@ -1,39 +1,37 @@
 package config
 
 import (
-	"errors"
-	"flag"
+	// "flag"
 	"fmt"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-)
 
-const (
-	envTdarrUrl       = "TDARR_URL"
-	envTdarrApiKey    = "TDARR_API_KEY"
-	envSslVerify      = "VERIFY_SSL"
-	envPrometheusPort = "PROMETHEUS_PORT"
-	envPrometheusPath = "PROMETHEUS_PATH"
-	envLogLevel       = "LOG_LEVEL"
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/posflag"
+	"github.com/knadh/koanf/v2"
+
+	// required by koanf
+	// provides GNU-style command line flags
+	flag "github.com/spf13/pflag"
 )
 
 type Config struct {
-	LogLevel           string
-	url                string
-	UrlParsed          *url.URL
-	InstanceName       string
-	ApiKey             string
-	VerifySsl          bool
-	PrometheusPort     string
-	PrometheusPath     string
-	HttpTimeoutSeconds int
-	TdarrMetricsPath   string
-	TdarrNodePath      string
+	LogLevel           string   `koanf:"log_level"`
+	Url                string   `koanf:"tdarr_url"`
+	UrlParsed          *url.URL `koanf:"-"`
+	InstanceName       string   `koanf:"-"`
+	ApiKey             string   `koanf:"tdarr_api_key"`
+	VerifySsl          bool     `koanf:"verify_ssl"`
+	PrometheusPort     string   `koanf:"prometheus_port"`
+	PrometheusPath     string   `koanf:"prometheus_path"`
+	HttpTimeoutSeconds int      `koanf:"http_timeout_seconds"`
+	TdarrMetricsPath   string   `koanf:"tdarr_metrics_path"`
+	TdarrNodePath      string   `koanf:"tdarr_node_path"`
 }
 
 // func setLoggerDefaults() {
@@ -67,100 +65,112 @@ func setLoggerLevel(logLevel string) error {
 	return nil
 }
 
-func getDefaults() Config {
-	return Config{
-		LogLevel:           "info",
-		ApiKey:             "",
-		VerifySsl:          true,
-		PrometheusPort:     "9090",
-		PrometheusPath:     "/metrics",
-		HttpTimeoutSeconds: 15,
-		TdarrMetricsPath:   "/api/v2/cruddb",
-		TdarrNodePath:      "/api/v2/get-nodes",
-	}
-}
-
-func newDefaults() (Config, error) {
-	// get defaults and then replace them with env vars if specified
-	defaults := getDefaults()
-	if tdarrUrlEnv := os.Getenv(envTdarrUrl); tdarrUrlEnv != "" {
-		defaults.url = tdarrUrlEnv
-	}
-	if tdarrApiKeyEnv := os.Getenv(envTdarrApiKey); tdarrApiKeyEnv != "" {
-		defaults.ApiKey = tdarrApiKeyEnv
-	}
-	if sslVerifyEnv := os.Getenv(envSslVerify); sslVerifyEnv != "" {
-		boolValue, err := strconv.ParseBool(sslVerifyEnv)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Msg("Invalid value for verify_ssl! Please provide one of true or false.")
-			return Config{}, fmt.Errorf("invalid value for verify_ssl, should be true or false: %w", err)
-		}
-		defaults.VerifySsl = boolValue
-	}
-	if prometheusPortEnv := os.Getenv(envPrometheusPort); prometheusPortEnv != "" {
-		defaults.PrometheusPort = prometheusPortEnv
-	}
-	if prometheusPathEnv := os.Getenv(envPrometheusPath); prometheusPathEnv != "" {
-		defaults.PrometheusPath = prometheusPathEnv
-	}
-	if logLevelEnv := os.Getenv(envLogLevel); logLevelEnv != "" {
-		defaults.LogLevel = logLevelEnv
-	}
-	return defaults, nil
-}
-
 // also act as validation for provided url
-func parseUrl(urlString string) *url.URL {
+func parseUrl(urlString string) (*url.URL, error) {
 	// get hostname from url
 	if !strings.HasPrefix(urlString, "http") {
-		log.Warn().Str("url", urlString).Msg("No scheme provided, defaulting to https")
+		log.Debug().Str("url", urlString).Msg("No scheme provided, defaulting to https")
 		urlString = "https://" + urlString
 	}
 	url, err := url.Parse(urlString)
 	if err != nil {
-		log.Fatal().Str("url", urlString).Err(err).Msg("Invalid url provided - failed to parse!")
+		log.Error().Str("url", urlString).Err(err).Msg("Invalid url provided - failed to parse!")
+		return nil, err
 	}
-	return url
+	return url, nil
 }
 
-func NewConfig() (Config, error) {
-	defaults, defaultsErr := newDefaults()
-	if defaultsErr != nil {
-		return Config{}, defaultsErr
+func InputIntake(flags *flag.FlagSet) error {
+	flags.StringP("tdarr_url", "u", "", "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
+	flags.StringP("tdarr_api_key", "a", "", "api token for tdarr instance if authentication is enabled")
+	flags.Bool("verify_ssl", true, "verify ssl certificates from tdarr")
+	flags.String("prometheus_port", "9090", "port for prometheus exporter")
+	flags.String("prometheus_path", "/metrics", "path to use for prometheus exporter")
+	flags.StringP("log_level", "l", "info", "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
+	// exit cleanly if help is requested
+	flags.Usage = func() {
+		fmt.Println(flags.FlagUsages())
+		os.Exit(0)
 	}
-	url := flag.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
-	apiKeyAuth := flag.String("api_key", defaults.ApiKey, "api token for tdarr instance if authentication is enabled")
-	sslVerify := flag.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
-	promPort := flag.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
-	promPath := flag.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
-	logLevel := flag.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
-	flag.Parse()
-	if *url == "" {
-		return Config{}, errors.New("a valid url needs to be provided")
+	err := flags.Parse(os.Args[1:])
+	if err != nil {
+		return err
 	}
-	logErr := setLoggerLevel(*logLevel)
-	if logErr != nil {
-		return Config{}, logErr
+	return nil
+}
+
+func (c *Config) validate() error {
+	// validate provided log level
+	err := setLoggerLevel(c.LogLevel)
+	if err != nil {
+		return err
+	}
+	// validate url is not empty
+	if c.Url == "" {
+		return fmt.Errorf("a valid url needs to be provided")
+	}
+	// validate url is parseable
+	c.UrlParsed, err = parseUrl(c.Url)
+	if err != nil {
+		return err
+	}
+	// assign instance name for clean prometheus metrics label
+	c.InstanceName = c.UrlParsed.Hostname()
+	return nil
+}
+
+func NewConfig() (*Config, error) {
+	k := koanf.New(".")
+
+	// set defaults
+	err := k.Load(confmap.Provider(map[string]interface{}{
+		"log_level":            "info",
+		"tdarr_url":            "",
+		"tdarr_api_key":        "",
+		"verify_ssl":           true,
+		"prometheus_port":      "9090",
+		"prometheus_path":      "/metrics",
+		"http_timeout_seconds": 15,
+		"tdarr_metrics_path":   "/api/v2/cruddb",
+		"tdarr_node_path":      "/api/v2/get-nodes",
+	}, "."), nil)
+	if err != nil {
+		return nil, err
 	}
 
-	urlParsed := parseUrl(*url)
-	log.Info().Str("url", urlParsed.String()).Msg("Using provided full url for tdarr instance")
+	// load any matching env vars with struct tags
+	err = k.Load(env.Provider("", ".", func(s string) string {
+		return strings.ToLower(s)
+	}), nil)
+	if err != nil {
+		return nil, err
+	}
 
-	return Config{
-		url:                *url,
-		UrlParsed:          urlParsed,
-		InstanceName:       urlParsed.Hostname(),
-		ApiKey:             *apiKeyAuth,
-		VerifySsl:          *sslVerify,
-		PrometheusPort:     *promPort,
-		PrometheusPath:     *promPath,
-		LogLevel:           *logLevel,
-		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
-		TdarrMetricsPath:   defaults.TdarrMetricsPath,
-		TdarrNodePath:      defaults.TdarrNodePath,
-	}, nil
+	// load given command line flags
+	flags := flag.NewFlagSet("config", flag.ContinueOnError)
+	// ContinueOnError will return an error when `Parse()` fails
+	err = InputIntake(flags)
+	if err != nil {
+		return nil, err
+	}
+	if err = k.Load(posflag.Provider(flags, ".", k), nil); err != nil {
+		return nil, err
+	}
+
+	newConf := Config{}
+
+	err = k.Unmarshal("", &newConf)
+	if err != nil {
+		return nil, err
+	}
+
+	// init additional fields and validate
+	err = newConf.validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &newConf, nil
 }
 
 // func init() {

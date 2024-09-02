@@ -18,14 +18,14 @@ import (
 
 func main() {
 	defer os.Exit(0)
-	userConfig, configErr := config.NewConfig()
-	if configErr != nil {
-		log.Fatal().Err(configErr).Msg("Failed to generate configuration")
+	userConfig, err := config.NewConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to generate configuration")
 	}
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 
 	// prometheus set up
-	tdarrCollector := collector.NewTdarrCollector(userConfig)
+	tdarrCollector := collector.NewTdarrCollector(*userConfig)
 	registry := prometheus.NewRegistry()
 	// registering a collector uses JIT and first scrape will be slower
 	registry.MustRegister(tdarrCollector)

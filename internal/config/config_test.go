@@ -3,76 +3,136 @@ package config
 import (
 	"testing"
 
+	flag "github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewConfig(t *testing.T) {
-	// test
-	sampleUrl := "http://tdarr.unittest"
-	t.Setenv("TDARR_URL", sampleUrl)
-	c, err := NewConfig()
-	defaults, defaultErr := newDefaults()
-	require := require.New(t)
-	require.Nil(err, "NewConfig should not return an error")
-	require.Nil(defaultErr, "newDefaults should not return an error")
-	require.Equal(c.url, sampleUrl)
-	require.Equal(c.UrlParsed.String(), sampleUrl)
-	require.Equal(c.InstanceName, "tdarr.unittest")
-	require.Equal(c.ApiKey, defaults.ApiKey)
-	require.Equal(c.VerifySsl, defaults.VerifySsl)
-	require.Equal(c.PrometheusPort, defaults.PrometheusPort)
-	require.Equal(c.PrometheusPath, defaults.PrometheusPath)
-	require.Equal(c.HttpTimeoutSeconds, defaults.HttpTimeoutSeconds)
-	require.Equal(c.TdarrMetricsPath, defaults.TdarrMetricsPath)
-	require.Equal(c.TdarrNodePath, defaults.TdarrNodePath)
+	// static input
+	parameters := []struct {
+		name        string
+		config      *Config
+		shouldError bool
+	}{
+		{
+			name: "noUrl",
+			config: &Config{
+				Url:      "",
+				LogLevel: "info",
+			},
+			shouldError: true,
+		},
+		{
+			name: "badLogLevel",
+			config: &Config{
+				Url:      "http://tdarr.unittest",
+				LogLevel: "bad",
+			},
+			shouldError: true,
+		},
+		{
+			name: "badUrl",
+			config: &Config{
+				Url:      "tdarr.%%.com",
+				LogLevel: "debug",
+			},
+			shouldError: true,
+		},
+		{
+			name: "valid",
+			config: &Config{
+				Url:      "http://tdarr.unittest",
+				LogLevel: "warn",
+			},
+			shouldError: false,
+		},
+	}
+
+	for _, param := range parameters {
+		t.Run(param.name, func(t *testing.T) {
+			require := require.New(t)
+			err := param.config.validate()
+			if param.shouldError {
+				require.Error(err, "validate should return an error")
+			} else {
+				require.NoError(err, "validate should not return an error")
+			}
+		})
+	}
 }
 
-func TestBadConfig(t *testing.T) {
-	// no url set
+func TestDefaults(t *testing.T) {
+	// set only required input to avoid errors
+	t.Setenv("TDARR_URL", "http://localhost")
+	conf, err := NewConfig()
 	require := require.New(t)
-	_, err := NewConfig()
-	require.NotNil(err, "NewConfig should return an error")
+	require.NoError(err, "NewConfig should not return an error")
+	require.Equal("http://localhost", conf.Url, "NewConfig should set the correct URL")
+	require.Equal("localhost", conf.InstanceName, "NewConfig should set the correct instance name")
+	// below are defaults set in NewConfig
+	require.Equal("info", conf.LogLevel, "NewConfig should set the correct log level")
+	require.Equal(true, conf.VerifySsl, "NewConfig should set the correct verify_ssl")
+	require.Equal("9090", conf.PrometheusPort, "NewConfig should set the correct Prometheus port")
+	require.Equal("/metrics", conf.PrometheusPath, "NewConfig should set the correct Prometheus path")
+	require.Equal("/api/v2/cruddb", conf.TdarrMetricsPath, "NewConfig should set the correct Tdarr metrics path")
+	require.Equal("/api/v2/get-nodes", conf.TdarrNodePath, "NewConfig should set the correct Tdarr node path")
+	require.Equal(15, conf.HttpTimeoutSeconds, "NewConfig should set the correct http timeout seconds")
 }
 
-func TestEnvIntake(t *testing.T) {
-	// test
+func TestValidateURLParsed(t *testing.T) {
+	// static input
+	sampleUrl := "tdarr.unittest.org:8080"
+	sampleLogLevel := "debug"
+	conf := &Config{
+		Url:      sampleUrl,
+		LogLevel: sampleLogLevel,
+	}
+	err := conf.validate()
+	require := require.New(t)
+	require.NoError(err, "NewConfig should not return an error")
+	require.Equal(sampleUrl, conf.Url, "NewConfig should set the correct URL")
+	// validate that the default protocol is set
+	require.Equal("https", conf.UrlParsed.Scheme, "NewConfig should set the correct URL")
+	require.Equal("tdarr.unittest.org", conf.InstanceName, "NewConfig parse the instance name from URL obj")
+	require.Equal(sampleLogLevel, conf.LogLevel, "NewConfig should set the correct log level")
+}
+
+func TestEnvVars(t *testing.T) {
+	// static input
 	sampleUrl := "http://tdarr.unittest"
 	sampleApiKey := "testApiKey"
 	sampleVerifySsl := "false"
 	samplePromPort := "8080"
 	samplePromPath := "/doodle"
-	sampleLogLevel := "debug"
+	sampleLogLevel := "warn"
 	t.Setenv("TDARR_URL", sampleUrl)
 	t.Setenv("TDARR_API_KEY", sampleApiKey)
 	t.Setenv("VERIFY_SSL", sampleVerifySsl)
 	t.Setenv("PROMETHEUS_PORT", samplePromPort)
 	t.Setenv("PROMETHEUS_PATH", samplePromPath)
 	t.Setenv("LOG_LEVEL", sampleLogLevel)
-	c, err := NewConfig()
+	conf, err := NewConfig()
 	require := require.New(t)
-	require.Nil(err, "NewConfig should not return an error")
-	require.Equal(c.url, sampleUrl)
-	require.Equal(c.ApiKey, sampleApiKey)
-	require.Equal(c.VerifySsl, false)
-	require.Equal(c.PrometheusPort, samplePromPort)
-	require.Equal(c.PrometheusPath, samplePromPath)
-	require.Equal(c.LogLevel, sampleLogLevel)
+	require.NoError(err, "NewConfig should not return an error")
+	require.Equal(sampleUrl, conf.Url, "NewConfig should set the correct URL")
+	require.Equal(sampleApiKey, conf.ApiKey, "NewConfig should set the correct API key")
+	require.Equal(false, conf.VerifySsl, "NewConfig should set the correct verify_ssl")
+	require.Equal(samplePromPort, conf.PrometheusPort, "NewConfig should set the correct Prometheus port")
+	require.Equal(samplePromPath, conf.PrometheusPath, "NewConfig should set the correct Prometheus path")
+	require.Equal(sampleLogLevel, conf.LogLevel, "NewConfig should set the correct log level")
 }
 
-func TestBadLogLevel(t *testing.T) {
-	// not a valid log level string
-	t.Setenv("TDARR_URL", "http://tdarr.unittest")
-	t.Setenv("LOG_LEVEL", "doodle")
-	_, err := NewConfig()
+func TestValidateFlags(t *testing.T) {
+	testFlags := flag.NewFlagSet("unittest", flag.ContinueOnError)
+	err := InputIntake(testFlags)
 	require := require.New(t)
-	require.NotNil(err, "NewConfig should return an error")
-}
-
-func TestBadBoolean(t *testing.T) {
-	// not a valid boolean string
-	t.Setenv("TDARR_URL", "http://tdarr.unittest")
-	t.Setenv("VERIFY_SSL", "doodle")
-	_, err := NewConfig()
-	require := require.New(t)
-	require.NotNil(err, "NewConfig should return an error")
+	require.NoError(err, "InputIntake should not return an error")
+	// test flags
+	val, _ := testFlags.GetBool("verify_ssl")
+	logLevel, _ := testFlags.GetString("log_level")
+	require.NoError(err, "InputIntake should set the correct flag")
+	// default = true verify_ssl by flags
+	require.Equal(true, val, "InputIntake should set the correct flag")
+	// default = info log_level by flags
+	require.Equal("info", logLevel, "InputIntake should set the correct flag")
 }
