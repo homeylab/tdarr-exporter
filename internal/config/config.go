@@ -30,7 +30,8 @@ type Config struct {
 	PrometheusPort     string
 	PrometheusPath     string
 	HttpTimeoutSeconds int
-	TdarrMetricsPath   string
+	TdarrStatsPath     string
+	TdarrPieStatsPath  string
 	TdarrNodePath      string
 }
 
@@ -71,8 +72,9 @@ func getDefaults() Config {
 		PrometheusPort:     "9090",
 		PrometheusPath:     "/metrics",
 		HttpTimeoutSeconds: 15,
-		TdarrMetricsPath:   "/api/v2/cruddb",
+		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrNodePath:      "/api/v2/get-nodes",
+		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 	}
 }
 
@@ -148,8 +150,9 @@ func NewConfig() Config {
 		PrometheusPath:     *promPath,
 		LogLevel:           *logLevel,
 		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
-		TdarrMetricsPath:   defaults.TdarrMetricsPath,
+		TdarrStatsPath:     defaults.TdarrStatsPath,
 		TdarrNodePath:      defaults.TdarrNodePath,
+		TdarrPieStatsPath:  defaults.TdarrPieStatsPath,
 	}
 }
 

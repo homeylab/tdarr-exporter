@@ -17,7 +17,6 @@ var (
 
 type TdarrCollector struct {
 	config                config.Config
-	payload               TdarrMetricRequest
 	totalFilesMetric      *prometheus.Desc
 	totalTranscodeCount   *prometheus.Desc
 	totalHealthCheckCount *prometheus.Desc
@@ -45,8 +44,7 @@ type TdarrCollector struct {
 
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 	return &TdarrCollector{
-		config:  runConfig,
-		payload: getRequestPayload(),
+		config: runConfig,
 		totalFilesMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "files_total"),
 			"Tdarr total file count - includes files in ignore lists within each library",
@@ -215,43 +213,126 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
 }
 
-func (c *TdarrCollector) getMetricsResponse() (*TdarrMetric, error) {
+// func (c *TdarrCollector) getGeneralStats(reqBody TdarrMetricRequest) (*TdarrMetric, error) {
+// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
+// 	if err != nil {
+// 		log.Error().
+// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
+// 		return nil, err
+// 	}
+// 	log.Debug().Interface("payload", reqBody).Msg("Requesting statistics data from Tdarr")
+// 	// Marshal it into JSON prior to requesting
+// 	payload, err := json.Marshal(reqBody)
+// 	if err != nil {
+// 		log.Error().Err(err).Interface("payload", reqBody).
+// 			Msg("Failed to marshal payload for statistics request")
+// 		return nil, err
+// 	}
+// 	// get the post request payload to use
+// 	metric := &TdarrMetric{}
+// 	// make request
+// 	httpErr := httpClient.DoPostRequest(c.config.TdarrStatsPath, metric, payload)
+// 	if httpErr != nil {
+// 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
+// 		return nil, httpErr
+// 	}
+// 	log.Debug().Interface("response", metric).Msg("Metrics Api Response")
+// 	return metric, nil
+// }
+
+func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
+		return err
 	}
-	log.Debug().Interface("payload", c.payload).Msg("Requesting statistics data from Tdarr")
+	log.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
-	payload, err := json.Marshal(c.payload)
+	payload, err := json.Marshal(reqPayload)
 	if err != nil {
-		log.Error().Err(err).Interface("payload", c.payload).
+		log.Error().Err(err).Interface("payload", reqPayload).
 			Msg("Failed to marshal payload for statistics request")
-		return nil, err
+		return err
 	}
-	// get the post request payload to use
-	metric := &TdarrMetric{}
 	// make request
-	httpErr := httpClient.DoPostRequest(c.config.TdarrMetricsPath, metric, payload)
+	httpErr := httpClient.DoPostRequest(path, target, payload)
 	if httpErr != nil {
-		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
-		return nil, httpErr
+		log.Error().Str("urlPath", path).Interface("payload", reqPayload).Err(httpErr).Msg("Failed to get data for Tdarr exporter")
+		return httpErr
 	}
-	log.Debug().Interface("response", metric).Msg("Metrics Api Response")
-	return metric, nil
+	log.Debug().Str("urlPath", path).Interface("payload", reqPayload).Interface("response", target).Msg("Stats API Response")
+	return nil
 }
+
+// func (c *TdarrCollector) getLibraryDetails(reqBody TdarrMetricRequest) ([]TdarrLibraryInfo, error) {
+// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
+// 	if err != nil {
+// 		log.Error().
+// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
+// 		return nil, err
+// 	}
+// 	log.Debug().Interface("payload", reqBody).Msg("Requesting library data from Tdarr")
+// 	// Marshal it into JSON prior to requesting
+// 	payload, err := json.Marshal(reqBody)
+// 	if err != nil {
+// 		log.Error().Err(err).Interface("payload", reqBody).
+// 			Msg("Failed to marshal payload for library request")
+// 		return nil, err
+// 	}
+// 	// get the post request payload to use
+// 	libraryInfo := []TdarrLibraryInfo{}
+// 	// make request
+// 	httpErr := httpClient.DoPostRequest(c.config.TdarrStatsPath, &libraryInfo, payload)
+// 	if httpErr != nil {
+// 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
+// 		return nil, httpErr
+// 	}
+// 	log.Debug().Interface("response", libraryInfo).Msg("Library Info Api Response")
+// 	return libraryInfo, nil
+// }
+
+// func (c *TdarrCollector) getLibraryStats(reqBody TdarrPieDataRequest) (*TdarrPieStats, error) {
+// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
+// 	if err != nil {
+// 		log.Error().
+// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
+// 		return nil, err
+// 	}
+// 	log.Debug().Interface("payload", reqBody).Msg("Requesting Pie data from Tdarr")
+// 	// Marshal it into JSON prior to requesting
+// 	payload, err := json.Marshal(reqBody)
+// 	if err != nil {
+// 		log.Error().Err(err).Interface("payload", reqBody).
+// 			Msg("Failed to marshal payload for pie data request")
+// 		return nil, err
+// 	}
+// 	// get the post request payload to use
+// 	metric := &TdarrPieStats{}
+// 	// make request
+// 	httpErr := httpClient.DoPostRequest(c.config.TdarrPieStatsPath, metric, payload)
+// 	if httpErr != nil {
+// 		log.Error().Err(httpErr).Msg("Failed to get pie data for Tdarr exporter")
+// 		return nil, httpErr
+// 	}
+// 	log.Debug().Interface("response", metric).Msg("Pie Data Api Response")
+// 	return metric, nil
+// }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// get server metrics
-	metric, err := c.getMetricsResponse()
+	metricReqBody := getGeneralReqPayload("")
+	// metric, err := c.getMetricsResponse(metricReqBody)
+	// metric, err := c.getGeneralStats(metricReqBody)
+	metric := &TdarrMetric{}
+	err := c.httpReqHelper(c.config.TdarrStatsPath, metricReqBody, &metric)
 	if err != nil {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
 		return
 	}
 	// get metrics data
 	var (
-		pieData         []TdarrPie
+		pieData         []*TdarrPieStats
 		score           float64
 		healthScore     float64
 		floatConvertErr error
@@ -270,8 +351,54 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	for _, pie := range metric.Pies {
-		log.Debug().Interface("pie", pie).Msg("Pie data to be parsed")
+	// api changed after v2.24.01+
+	if len(metric.Pies) == 0 {
+		log.Info().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
+		// get pie data
+		getLibsPayload := getGeneralReqPayload("library")
+		allLibs := []TdarrLibraryInfo{}
+		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get library details")
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+			return
+		}
+		// add default "all libraries" to the list
+		allLibs = append(allLibs, TdarrLibraryInfo{
+			Name:      "",
+			LibraryId: "",
+		})
+		for _, lib := range allLibs {
+			req := TdarrPieDataRequest{
+				Data: struct {
+					LibraryId string `json:"libraryId"`
+				}{
+					LibraryId: lib.LibraryId,
+				},
+			}
+			// pieMetric, pieErr := c.getLibraryStats(req)
+			pieMetric := &TdarrPieStats{}
+			err := c.httpReqHelper(c.config.TdarrPieStatsPath, req, pieMetric)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get pie data")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+				return
+			}
+			pieMetric.libraryName = lib.Name
+			pieMetric.libraryId = lib.LibraryId
+			// if no name, set to all
+			if pieMetric.libraryName == "" {
+				pieMetric.libraryName = "all"
+			}
+			// if no id, set to all
+			if pieMetric.libraryId == "" {
+				pieMetric.libraryId = "all_libraries"
+			}
+			pieData = append(pieData, pieMetric)
+		}
+	} else {
+		// old api support
+		// have to create a usable struct from tdarr's structured slice response (not an object with keys)
 		var (
 			transcodePie        []TdarrPieSlice
 			healthPie           []TdarrPieSlice
@@ -282,49 +409,69 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			audioContainersPie  []TdarrPieSlice
 			pieMetricsErr       error
 		)
-		if transcodePie, pieMetricsErr = getPieMetricsFields(pie[6].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[6].([]interface{})).Msg("Failed to get transcode pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+		for _, pie := range metric.Pies {
+			log.Debug().Interface("pie", pie).Msg("Pie data to be parsed")
+
+			// ensure the data inside each slice adheres to the expected format
+			if transcodePie, pieMetricsErr = getPieMetricsFields(pie[6].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[6].([]interface{})).Msg("Failed to get transcode pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if healthPie, pieMetricsErr = getPieMetricsFields(pie[7].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[7].([]interface{})).Msg("Failed to get health pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if videoCodecsPie, pieMetricsErr = getPieMetricsFields(pie[8].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[8].([]interface{})).Msg("Failed to get video codecs pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if videoContainersPie, pieMetricsErr = getPieMetricsFields(pie[9].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[9].([]interface{})).Msg("Failed to get video containers pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if videoResolutionsPie, pieMetricsErr = getPieMetricsFields(pie[10].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[10].([]interface{})).Msg("Failed to get video resolutions pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if audioCodecsPie, pieMetricsErr = getPieMetricsFields(pie[11].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[11].([]interface{})).Msg("Failed to get audio codecs pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+			if audioContainersPie, pieMetricsErr = getPieMetricsFields(pie[12].([]interface{})); pieMetricsErr != nil {
+				log.Error().Interface("rawData", pie[12].([]interface{})).Msg("Failed to get audio containers pie metrics")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
+			}
+
+			// if we don't change, it errors with duplicate label value in single metric with `library_name` label
+			libId := pie[1].(string)
+			if strings.ToLower(libId) == "all" {
+				libId = "all_libraries"
+			}
+
+			pieData = append(pieData, &TdarrPieStats{
+				libraryName: pie[0].(string),
+				libraryId:   libId,
+				PieStats: TdarrPieStat{
+					TotalFiles:            pie[2].(int),
+					TotalTranscodeCount:   pie[3].(int),
+					SizeDiff:              pie[4].(float64),
+					TotalHealthCheckCount: pie[5].(int),
+					Status: TdarrPieStatusSlice{
+						Transcode:   transcodePie,
+						HealthCheck: healthPie,
+					},
+					Video: TdarrPieVideoSlice{
+						Codec:      videoCodecsPie,
+						Container:  videoContainersPie,
+						Resolution: videoResolutionsPie,
+					},
+					Audio: TdarrPieVideoSlice{
+						Codec:     audioCodecsPie,
+						Container: audioContainersPie,
+					},
+				},
+			})
 		}
-		if healthPie, pieMetricsErr = getPieMetricsFields(pie[7].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[7].([]interface{})).Msg("Failed to get health pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		if videoCodecsPie, pieMetricsErr = getPieMetricsFields(pie[8].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[8].([]interface{})).Msg("Failed to get video codecs pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		if videoContainersPie, pieMetricsErr = getPieMetricsFields(pie[9].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[9].([]interface{})).Msg("Failed to get video containers pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		if videoResolutionsPie, pieMetricsErr = getPieMetricsFields(pie[10].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[10].([]interface{})).Msg("Failed to get video resolutions pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		if audioCodecsPie, pieMetricsErr = getPieMetricsFields(pie[11].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[11].([]interface{})).Msg("Failed to get audio codecs pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		if audioContainersPie, pieMetricsErr = getPieMetricsFields(pie[12].([]interface{})); pieMetricsErr != nil {
-			log.Error().Interface("rawData", pie[12].([]interface{})).Msg("Failed to get audio containers pie metrics")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-		}
-		pieData = append(pieData, TdarrPie{
-			LibraryName:              pie[0].(string),
-			LibraryId:                pie[1].(string),
-			NumFiles:                 pie[2].(float64),
-			NumTranscodes:            pie[3].(float64),
-			SpaceSavedGB:             pie[4].(float64),
-			NumHealthChecks:          pie[5].(float64),
-			TdarrTranscodePie:        transcodePie,
-			TdarrHealthPie:           healthPie,
-			TdarrVideoCodecsPie:      videoCodecsPie,
-			TdarrVideoContainersPie:  videoContainersPie,
-			TdarrVideoResolutionsPie: videoResolutionsPie,
-			TdarrAudioCodecsPie:      audioCodecsPie,
-			TdarrAudioContainersPie:  audioContainersPie,
-		})
 	}
 
 	// add metrics to collector
@@ -345,16 +492,11 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Highest), "highest")
 	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Total), "total")
 	for _, pie := range pieData {
-		libraryId := pie.LibraryId
-		// if we don't change, it errors with duplicate label value in single metric with `library_name` label
-		if strings.ToLower(libraryId) == "all" {
-			libraryId = "all_libraries"
-		}
-		ch <- prometheus.MustNewConstMetric(c.pieNumFiles, prometheus.GaugeValue, pie.NumFiles, pie.LibraryName, libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, pie.NumTranscodes, pie.LibraryName, libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, pie.NumHealthChecks, pie.LibraryName, libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.SpaceSavedGB, pie.LibraryName, libraryId)
-		for _, pieSlice := range pie.TdarrTranscodePie {
+		ch <- prometheus.MustNewConstMetric(c.pieNumFiles, prometheus.GaugeValue, float64(pie.PieStats.TotalFiles), pie.libraryName, pie.libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
+		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
+		for _, pieSlice := range pie.PieStats.Status.Transcode {
 			var labelName string
 			statusName := strings.ToLower(pieSlice.Name)
 			if strings.HasPrefix(statusName, "transcode") {
@@ -364,31 +506,31 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				labelName = cleanUpTranscodeStatus(statusName, false)
 			}
 			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, labelName)
+				pie.libraryName, pie.libraryId, labelName)
 		}
-		for _, pieSlice := range pie.TdarrHealthPie {
+		for _, pieSlice := range pie.PieStats.Status.HealthCheck {
 			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.TdarrVideoCodecsPie {
+		for _, pieSlice := range pie.PieStats.Video.Codec {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.TdarrVideoContainersPie {
+		for _, pieSlice := range pie.PieStats.Video.Container {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoContainers, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.TdarrVideoResolutionsPie {
+		for _, pieSlice := range pie.PieStats.Video.Resolution {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoResolutions, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.TdarrAudioCodecsPie {
+		for _, pieSlice := range pie.PieStats.Audio.Codec {
 			ch <- prometheus.MustNewConstMetric(c.pieAudioCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.TdarrAudioContainersPie {
+		for _, pieSlice := range pie.PieStats.Audio.Container {
 			ch <- prometheus.MustNewConstMetric(c.pieAudioContainers, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.LibraryName, libraryId, strings.ToLower(pieSlice.Name))
+				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
 	}
 
@@ -505,13 +647,24 @@ func loadKeyValue(data interface{}, target *TdarrPieSlice) (err error) {
 	return
 }
 
-func getRequestPayload() TdarrMetricRequest {
-	return TdarrMetricRequest{
-		Data: TdarrDataRequest{
-			Collection: "StatisticsJSONDB",
-			Mode:       "getById",
-			DocId:      "statistics",
-			Obj:        map[string]interface{}{},
-		},
+func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {
+	if payloadRequestType == "library" {
+		return TdarrMetricRequest{
+			Data: TdarrDataRequest{
+				Collection: "LibrarySettingsJSONDB",
+				Mode:       "getAll",
+				DocId:      "",
+				Obj:        map[string]interface{}{},
+			},
+		}
+	} else {
+		return TdarrMetricRequest{
+			Data: TdarrDataRequest{
+				Collection: "StatisticsJSONDB",
+				Mode:       "getById",
+				DocId:      "statistics",
+				Obj:        map[string]interface{}{},
+			},
+		}
 	}
 }
