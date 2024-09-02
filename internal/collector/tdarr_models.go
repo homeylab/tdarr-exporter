@@ -11,11 +11,18 @@ type TdarrDataRequest struct {
 	Obj        map[string]interface{} `json:"obj"`
 }
 
+type TdarrPieDataRequest struct {
+	Data struct {
+		LibraryId string `json:"libraryId"`
+	} `json:"data"`
+}
+
 type TdarrPieSlice struct {
 	Name  string `json:"name"`
 	Value int    `json:"value"`
 }
 
+// struct to flatten data and support older versions running older api
 type TdarrPie struct {
 	LibraryName              string //label
 	LibraryId                string //label
@@ -46,12 +53,45 @@ type TdarrMetric struct {
 	StreamStats           TdarrStreamStats `json:"streamStats"`
 	// appears we can get below in other places and may not be necessary
 	// HoldQueue             int              `json:"table0Count"`
-	// TranscodeQueue        int              `json:"table1Count"`
+	// TranscodeQueue int `json:"table1Count"`
 	// TranscodeSuccess      int              `json:"table2Count"`
 	// TranscodeFailed       int              `json:"table3Count"`
-	// HealthCheckQueue      int              `json:"table4Count"`
+	// HealthCheckQueue int `json:"table4Count"`
 	// HealthCheckSuccess    int              `json:"table5Count"`
 	// HealthCheckFailed     int              `json:"table6Count"`
+}
+
+type TdarrLibraryInfo struct {
+	LibraryId string `json:"_id"`
+	Name      string `json:"name"`
+}
+
+// new api `api/v2/stats/get-pies` support
+type TdarrPieStats struct {
+	PieStats    TdarrPieStat `json:"pieStats"`
+	libraryName string
+	libraryId   string
+}
+
+type TdarrPieStat struct {
+	TotalFiles            int                 `json:"totalFiles"`
+	TotalTranscodeCount   int                 `json:"totalTranscodeCount"`
+	SizeDiff              float64             `json:"sizeDiff"`
+	TotalHealthCheckCount int                 `json:"totalHealthCheckCount"`
+	Status                TdarrPieStatusSlice `json:"status"`
+	Video                 TdarrPieVideoSlice  `json:"video"`
+	Audio                 TdarrPieVideoSlice  `json:"audio"`
+}
+
+type TdarrPieStatusSlice struct {
+	Transcode   []TdarrPieSlice `json:"transcode"`
+	HealthCheck []TdarrPieSlice `json:"healthCheck"`
+}
+
+type TdarrPieVideoSlice struct {
+	Codec      []TdarrPieSlice `json:"codec"`
+	Container  []TdarrPieSlice `json:"container"`
+	Resolution []TdarrPieSlice `json:"resolution"`
 }
 
 type TdarrStreamStatsObj struct {

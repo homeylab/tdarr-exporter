@@ -19,7 +19,7 @@ import (
 func main() {
 	defer os.Exit(0)
 	userConfig := config.NewConfig()
-	log.Info().Interface("config", userConfig).Msg("Using generated configuration")
+	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 
 	// prometheus set up
 	tdarrCollector := collector.NewTdarrCollector(userConfig)
