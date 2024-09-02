@@ -380,13 +380,13 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 						HealthCheck: healthPie,
 					},
 					Video: TdarrPieVideoSlice{
-						Codec:      videoCodecsPie,
-						Container:  videoContainersPie,
-						Resolution: videoResolutionsPie,
+						Codecs:      videoCodecsPie,
+						Containers:  videoContainersPie,
+						Resolutions: videoResolutionsPie,
 					},
 					Audio: TdarrPieVideoSlice{
-						Codec:     audioCodecsPie,
-						Container: audioContainersPie,
+						Codecs:     audioCodecsPie,
+						Containers: audioContainersPie,
 					},
 				},
 			})
@@ -431,23 +431,23 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.PieStats.Video.Codec {
+		for _, pieSlice := range pie.PieStats.Video.Codecs {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.PieStats.Video.Container {
+		for _, pieSlice := range pie.PieStats.Video.Containers {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoContainers, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.PieStats.Video.Resolution {
+		for _, pieSlice := range pie.PieStats.Video.Resolutions {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoResolutions, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.PieStats.Audio.Codec {
+		for _, pieSlice := range pie.PieStats.Audio.Codecs {
 			ch <- prometheus.MustNewConstMetric(c.pieAudioCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
-		for _, pieSlice := range pie.PieStats.Audio.Container {
+		for _, pieSlice := range pie.PieStats.Audio.Containers {
 			ch <- prometheus.MustNewConstMetric(c.pieAudioContainers, prometheus.GaugeValue, float64(pieSlice.Value),
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
