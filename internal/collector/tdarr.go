@@ -213,33 +213,6 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
 }
 
-// func (c *TdarrCollector) getGeneralStats(reqBody TdarrMetricRequest) (*TdarrMetric, error) {
-// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
-// 	if err != nil {
-// 		log.Error().
-// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-// 		return nil, err
-// 	}
-// 	log.Debug().Interface("payload", reqBody).Msg("Requesting statistics data from Tdarr")
-// 	// Marshal it into JSON prior to requesting
-// 	payload, err := json.Marshal(reqBody)
-// 	if err != nil {
-// 		log.Error().Err(err).Interface("payload", reqBody).
-// 			Msg("Failed to marshal payload for statistics request")
-// 		return nil, err
-// 	}
-// 	// get the post request payload to use
-// 	metric := &TdarrMetric{}
-// 	// make request
-// 	httpErr := httpClient.DoPostRequest(c.config.TdarrStatsPath, metric, payload)
-// 	if httpErr != nil {
-// 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
-// 		return nil, httpErr
-// 	}
-// 	log.Debug().Interface("response", metric).Msg("Metrics Api Response")
-// 	return metric, nil
-// }
-
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
 	if err != nil {
@@ -265,65 +238,9 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, targ
 	return nil
 }
 
-// func (c *TdarrCollector) getLibraryDetails(reqBody TdarrMetricRequest) ([]TdarrLibraryInfo, error) {
-// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
-// 	if err != nil {
-// 		log.Error().
-// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-// 		return nil, err
-// 	}
-// 	log.Debug().Interface("payload", reqBody).Msg("Requesting library data from Tdarr")
-// 	// Marshal it into JSON prior to requesting
-// 	payload, err := json.Marshal(reqBody)
-// 	if err != nil {
-// 		log.Error().Err(err).Interface("payload", reqBody).
-// 			Msg("Failed to marshal payload for library request")
-// 		return nil, err
-// 	}
-// 	// get the post request payload to use
-// 	libraryInfo := []TdarrLibraryInfo{}
-// 	// make request
-// 	httpErr := httpClient.DoPostRequest(c.config.TdarrStatsPath, &libraryInfo, payload)
-// 	if httpErr != nil {
-// 		log.Error().Err(httpErr).Msg("Failed to get data for Tdarr exporter")
-// 		return nil, httpErr
-// 	}
-// 	log.Debug().Interface("response", libraryInfo).Msg("Library Info Api Response")
-// 	return libraryInfo, nil
-// }
-
-// func (c *TdarrCollector) getLibraryStats(reqBody TdarrPieDataRequest) (*TdarrPieStats, error) {
-// 	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
-// 	if err != nil {
-// 		log.Error().
-// 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-// 		return nil, err
-// 	}
-// 	log.Debug().Interface("payload", reqBody).Msg("Requesting Pie data from Tdarr")
-// 	// Marshal it into JSON prior to requesting
-// 	payload, err := json.Marshal(reqBody)
-// 	if err != nil {
-// 		log.Error().Err(err).Interface("payload", reqBody).
-// 			Msg("Failed to marshal payload for pie data request")
-// 		return nil, err
-// 	}
-// 	// get the post request payload to use
-// 	metric := &TdarrPieStats{}
-// 	// make request
-// 	httpErr := httpClient.DoPostRequest(c.config.TdarrPieStatsPath, metric, payload)
-// 	if httpErr != nil {
-// 		log.Error().Err(httpErr).Msg("Failed to get pie data for Tdarr exporter")
-// 		return nil, httpErr
-// 	}
-// 	log.Debug().Interface("response", metric).Msg("Pie Data Api Response")
-// 	return metric, nil
-// }
-
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
-	// metric, err := c.getMetricsResponse(metricReqBody)
-	// metric, err := c.getGeneralStats(metricReqBody)
 	metric := &TdarrMetric{}
 	err := c.httpReqHelper(c.config.TdarrStatsPath, metricReqBody, &metric)
 	if err != nil {
@@ -353,7 +270,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// api changed after v2.24.01+
 	if len(metric.Pies) == 0 {
-		log.Info().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
+		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
 		// get pie data
 		getLibsPayload := getGeneralReqPayload("library")
 		allLibs := []TdarrLibraryInfo{}
@@ -364,6 +281,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			return
 		}
 		// add default "all libraries" to the list
+		// if no libraryId is supplied, it should return data combined for all libraries
 		allLibs = append(allLibs, TdarrLibraryInfo{
 			Name:      "",
 			LibraryId: "",
