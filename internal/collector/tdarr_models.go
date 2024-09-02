@@ -22,35 +22,18 @@ type TdarrPieSlice struct {
 	Value int    `json:"value"`
 }
 
-// struct to flatten data and support older versions running older api
-type TdarrPie struct {
-	LibraryName              string //label
-	LibraryId                string //label
-	NumFiles                 float64
-	NumTranscodes            float64
-	NumHealthChecks          float64
-	SpaceSavedGB             float64
-	TdarrTranscodePie        []TdarrPieSlice
-	TdarrHealthPie           []TdarrPieSlice
-	TdarrVideoCodecsPie      []TdarrPieSlice
-	TdarrVideoContainersPie  []TdarrPieSlice
-	TdarrVideoResolutionsPie []TdarrPieSlice
-	// below are based off examples I've seen, I don't have any stats for these
-	TdarrAudioCodecsPie     []TdarrPieSlice
-	TdarrAudioContainersPie []TdarrPieSlice
-}
-
 // core metrics
 type TdarrMetric struct {
-	TotalFileCount        int              `json:"totalFileCount"`
-	TotalTranscodeCount   int              `json:"totalTranscodeCount"`
-	TotalHealthCheckCount int              `json:"totalHealthCheckCount"`
-	SizeDiff              float64          `json:"sizeDiff"`
-	Pies                  [][]interface{}  `json:"pies"`
-	TdarrScore            string           `json:"tdarrScore"`
-	HealthCheckScore      string           `json:"healthCheckScore"`
-	AvgNumStreams         float64          `json:"avgNumberOfStreamsInVideo"`
-	StreamStats           TdarrStreamStats `json:"streamStats"`
+	TotalFileCount        int     `json:"totalFileCount"`
+	TotalTranscodeCount   int     `json:"totalTranscodeCount"`
+	TotalHealthCheckCount int     `json:"totalHealthCheckCount"`
+	SizeDiff              float64 `json:"sizeDiff"`
+	// support for old API
+	Pies             [][]interface{}  `json:"pies"`
+	TdarrScore       string           `json:"tdarrScore"`
+	HealthCheckScore string           `json:"healthCheckScore"`
+	AvgNumStreams    float64          `json:"avgNumberOfStreamsInVideo"`
+	StreamStats      TdarrStreamStats `json:"streamStats"`
 	// appears we can get below in other places and may not be necessary
 	// HoldQueue             int              `json:"table0Count"`
 	// TranscodeQueue int `json:"table1Count"`
@@ -61,12 +44,12 @@ type TdarrMetric struct {
 	// HealthCheckFailed     int              `json:"table6Count"`
 }
 
+// new api `api/v2/stats/get-pies` support
 type TdarrLibraryInfo struct {
 	LibraryId string `json:"_id"`
 	Name      string `json:"name"`
 }
 
-// new api `api/v2/stats/get-pies` support
 type TdarrPieStats struct {
 	PieStats    TdarrPieStat `json:"pieStats"`
 	libraryName string
@@ -89,9 +72,9 @@ type TdarrPieStatusSlice struct {
 }
 
 type TdarrPieVideoSlice struct {
-	Codec      []TdarrPieSlice `json:"codec"`
-	Container  []TdarrPieSlice `json:"container"`
-	Resolution []TdarrPieSlice `json:"resolution"`
+	Codecs      []TdarrPieSlice `json:"codecs"`
+	Containers  []TdarrPieSlice `json:"containers"`
+	Resolutions []TdarrPieSlice `json:"resolutions"`
 }
 
 type TdarrStreamStatsObj struct {
