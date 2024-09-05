@@ -13,7 +13,8 @@ type TdarrDataRequest struct {
 
 type TdarrPieDataRequest struct {
 	Data struct {
-		LibraryId string `json:"libraryId"`
+		LibraryId   string `json:"libraryId"`
+		libraryName string `json:"-"`
 	} `json:"data"`
 }
 

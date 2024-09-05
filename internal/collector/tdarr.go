@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -238,6 +239,31 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, targ
 	return nil
 }
 
+// support concurrency
+func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
+	defer wg.Done()
+	for piePayload := range inChan {
+		pieMetric := &TdarrPieStats{}
+		log.Info().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
+		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
+		if err != nil {
+			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
+			continue
+		}
+		pieMetric.libraryName = piePayload.Data.libraryName
+		pieMetric.libraryId = piePayload.Data.LibraryId
+		// if no name, set to all
+		if pieMetric.libraryName == "" {
+			pieMetric.libraryName = "all"
+		}
+		// if no id, set to all
+		if pieMetric.libraryId == "" {
+			pieMetric.libraryId = "all_libraries"
+		}
+		outChan <- pieMetric
+	}
+}
+
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
@@ -286,34 +312,84 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			Name:      "",
 			LibraryId: "",
 		})
+
+		dataWg := &sync.WaitGroup{}
+
+		inChan := make(chan TdarrPieDataRequest, len(allLibs))
+		outChan := make(chan *TdarrPieStats, len(allLibs))
+		// start workers
+		for i := 0; i < c.config.HttpMaxConcurrency; i++ {
+			dataWg.Add(1)
+			go c.getLibStats(dataWg, inChan, outChan)
+		}
+
+		// send data to workers
 		for _, lib := range allLibs {
-			req := TdarrPieDataRequest{
+			inChan <- TdarrPieDataRequest{
 				Data: struct {
-					LibraryId string `json:"libraryId"`
+					LibraryId   string `json:"libraryId"`
+					libraryName string `json:"-"`
 				}{
-					LibraryId: lib.LibraryId,
+					LibraryId:   lib.LibraryId,
+					libraryName: lib.Name,
 				},
 			}
-			// pieMetric, pieErr := c.getLibraryStats(req)
-			pieMetric := &TdarrPieStats{}
-			err := c.httpReqHelper(c.config.TdarrPieStatsPath, req, pieMetric)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to get pie data")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-				return
-			}
-			pieMetric.libraryName = lib.Name
-			pieMetric.libraryId = lib.LibraryId
-			// if no name, set to all
-			if pieMetric.libraryName == "" {
-				pieMetric.libraryName = "all"
-			}
-			// if no id, set to all
-			if pieMetric.libraryId == "" {
-				pieMetric.libraryId = "all_libraries"
-			}
-			pieData = append(pieData, pieMetric)
 		}
+
+		// close channel to signal workers to stop
+		close(inChan)
+
+		// wait for workers to finish
+		dataWg.Wait()
+
+		// collect results
+		resultWg := &sync.WaitGroup{}
+		resultWg.Add(1)
+		go func() {
+			defer resultWg.Done()
+			for pie := range outChan {
+				pieData = append(pieData, pie)
+			}
+		}()
+
+		// close channel no longer needed
+		close(outChan)
+
+		// wait for results to be collected
+		resultWg.Wait()
+
+		// below logic is for per library concurrent request instead of based on a given HTTP max concurrency property
+		// for _, lib := range allLibs {
+		// 	req := TdarrPieDataRequest{
+		// 		Data: struct {
+		// 			LibraryId string `json:"libraryId"`
+		// 		}{
+		// 			LibraryId: lib.LibraryId,
+		// 		},
+		// 	}
+		// 	wg.Add(1)
+		// 	go func() {
+		// 		defer wg.Done()
+		// 		pieMetric := &TdarrPieStats{}
+		// 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, req, pieMetric)
+		// 		if err != nil {
+		// 			log.Error().Err(err).Msg("Failed to get pie data")
+		// 			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+		// 			return
+		// 		}
+		// 		pieMetric.libraryName = lib.Name
+		// 		pieMetric.libraryId = lib.LibraryId
+		// 		// if no name, set to all
+		// 		if pieMetric.libraryName == "" {
+		// 			pieMetric.libraryName = "all"
+		// 		}
+		// 		// if no id, set to all
+		// 		if pieMetric.libraryId == "" {
+		// 			pieMetric.libraryId = "all_libraries"
+		// 		}
+		// 		pieData = append(pieData, pieMetric)
+		// 	}()
+		// wg.Wait()
 	} else {
 		// old api support
 		// have to create a usable struct from tdarr's structured slice response (not an object with keys)

@@ -61,14 +61,16 @@ Example
 $ ./tdarr-exporter -h
   -api_key string
         api token for tdarr instance if authentication is enabled
+  -http_max_concurrency int
+        maximum number of concurrent http requests to make when requesting per Library stats (default 3)
   -log_level string
-        log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level (default "debug")
+        log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level (default "info")
   -prometheus_path string
         path to use for prometheus exporter (default "/metrics")
   -prometheus_port string
         port for prometheus exporter (default "9090")
   -url string
-        valid url for tdarr instance, ex: https://tdarr.somedomain.com (default "http://tdarr.localdomain:8266")
+        valid url for tdarr instance, ex: https://tdarr.somedomain.com
   -verify_ssl
         verify ssl certificates from tdarr (default true)
 ```
@@ -79,6 +81,7 @@ A valid URL for the tdarr instance must be provided and can include protocol (`h
 | ----------------- | --------------------- | ---------- | ----------- |
 | `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
 | `api_key`         | `TDARR_API_KEY`       | `NONE`     | API token for tdarr instance if authentication is enabled. |
+| `http_max_concurrency` | `HTTP_MAX_CONCURRENCY` | `3`     | Maximum number of concurrent http requests to make when requesting per Library stats. Only applicable if Tdarr instance is version `2.24.01` or higher.<br><br>The new Tdarr library stats API introduced in that version calculates stats only when requested and an API call has to be made individually for each library. This can be a time consuming operation for some larger setups or certain hardware causing latency when requesting individual library stats.<br><br>This property allows you to set the number of concurrent library stats API being made by the exporter. You can try increasing this number to be closer to your number of Tdarr libraries to speed up the time it takes to collect all the stats from different libraries. It is recommended to increase this cautiously and put use a reasonable value. You can also consider increasing scrape interval time as well to make less API calls overall. The new Tdarr API behavior is described in this [issue](https://github.com/homeylab/tdarr-exporter/issues/38). |
 | `log_level`       | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
 | `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
