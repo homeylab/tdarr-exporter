@@ -244,7 +244,7 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 	defer wg.Done()
 	for piePayload := range inChan {
 		pieMetric := &TdarrPieStats{}
-		log.Info().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
+		log.Debug().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
