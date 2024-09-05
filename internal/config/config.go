@@ -12,12 +12,13 @@ import (
 )
 
 const (
-	envTdarrUrl       = "TDARR_URL"
-	envTdarrApiKey    = "TDARR_API_KEY"
-	envSslVerify      = "VERIFY_SSL"
-	envPrometheusPort = "PROMETHEUS_PORT"
-	envPrometheusPath = "PROMETHEUS_PATH"
-	envLogLevel       = "LOG_LEVEL"
+	envTdarrUrl           = "TDARR_URL"
+	envTdarrApiKey        = "TDARR_API_KEY"
+	envSslVerify          = "VERIFY_SSL"
+	envPrometheusPort     = "PROMETHEUS_PORT"
+	envPrometheusPath     = "PROMETHEUS_PATH"
+	envLogLevel           = "LOG_LEVEL"
+	envHttpMaxConcurrency = "HTTP_MAX_CONCURRENCY"
 )
 
 type Config struct {
@@ -33,6 +34,7 @@ type Config struct {
 	TdarrStatsPath     string
 	TdarrPieStatsPath  string
 	TdarrNodePath      string
+	HttpMaxConcurrency int
 }
 
 // func setLoggerDefaults() {
@@ -75,6 +77,7 @@ func getDefaults() Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrNodePath:      "/api/v2/get-nodes",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
+		HttpMaxConcurrency: 3,
 	}
 }
 
@@ -105,6 +108,15 @@ func newDefaults() Config {
 	if logLevelEnv := os.Getenv(envLogLevel); logLevelEnv != "" {
 		defaults.LogLevel = logLevelEnv
 	}
+	if httpMaxConcurrencyEnv := os.Getenv(envHttpMaxConcurrency); httpMaxConcurrencyEnv != "" {
+		intValue, err := strconv.Atoi(httpMaxConcurrencyEnv)
+		if err != nil {
+			log.Fatal().
+				Err(err).
+				Msg("Invalid value for http_max_concurrency! Please provide a valid integer.")
+		}
+		defaults.HttpMaxConcurrency = intValue
+	}
 	return defaults
 }
 
@@ -130,11 +142,17 @@ func NewConfig() Config {
 	promPort := flag.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
 	promPath := flag.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
 	logLevel := flag.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
+	httpMaxConcurrency := flag.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
 	flag.Parse()
 	if *url == "" {
 		log.Fatal().
 			Msg("A valid url needs to be provided!")
 	}
+	if *httpMaxConcurrency <= 0 {
+		log.Fatal().
+			Msg("http_max_concurrency must be at least 1 (single connection)!")
+	}
+
 	setLoggerLevel(*logLevel)
 
 	urlParsed := parseUrl(*url)
@@ -153,6 +171,7 @@ func NewConfig() Config {
 		TdarrStatsPath:     defaults.TdarrStatsPath,
 		TdarrNodePath:      defaults.TdarrNodePath,
 		TdarrPieStatsPath:  defaults.TdarrPieStatsPath,
+		HttpMaxConcurrency: *httpMaxConcurrency,
 	}
 }
 
