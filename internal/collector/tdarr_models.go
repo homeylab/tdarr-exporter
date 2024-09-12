@@ -163,3 +163,9 @@ type TdarrNodeWorkers struct {
 	OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
 	EstSizeGb        float64 `json:"estSize"`
 }
+
+type tdarrCacheTotals struct {
+	totalFileCount        int
+	totalTranscodeCount   int
+	totalHealthCheckCount int
+}
