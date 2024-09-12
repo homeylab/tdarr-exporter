@@ -321,6 +321,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
 		return
 	}
+
+	log.Debug().Int("totalFiles", metric.TotalFileCount).
+		Int("totalTranscodes", metric.TotalTranscodeCount).
+		Int("totalHealthChecks", metric.TotalHealthCheckCount).
+		Msg("General stats totals")
+
 	// get metrics data
 	var (
 		pieData         []*TdarrPieStats
@@ -342,38 +348,35 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	if metric.TotalFileCount == 0 {
-		log.Warn().Msg("No files found in Tdarr, skipping library stats collection")
-	}
-
 	// api changed after v2.24.01+
 	if len(metric.Pies) == 0 {
 		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
 		// already have total file count from general stats (`metric.TotalFileCount`)
 		// check cache for all libraries data
 		shouldCollect := false
+
 		// this won't block other reads when checking
 		cacheTotals := c.statsCache.GetTotals()
-		if cacheTotals.totalFileCount != metric.TotalFileCount {
+		if cacheTotals.totalFileCount != metric.TotalFileCount && metric.TotalFileCount > 0 {
 			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount {
+		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount && metric.TotalTranscodeCount > 0 {
 			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount {
+		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount && metric.TotalHealthCheckCount > 0 {
 			log.Debug().Int("cachedFileCount", cacheTotals.totalHealthCheckCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total healthcheck mismatch - gathering metrics")
 			shouldCollect = true
 		}
 		// if counts are the same use cache
 		if !shouldCollect {
-			log.Debug().Msg("Using cached library stats - api file count matches cached value")
+			log.Debug().Msg("Using cached library stats - api totals matches cached values")
 			pieData = c.statsCache.GetLibStats()
 		}
 		// if no data from API returns no counts, nothing to do
 		// i mean technically there can be no more files because of deletion but still other stats?
-		if shouldCollect && (metric.TotalFileCount > 0 || metric.TotalTranscodeCount > 0 || metric.TotalHealthCheckCount > 0) {
+		if shouldCollect {
 			getLibsPayload := getGeneralReqPayload("library")
 			allLibs := []TdarrLibraryInfo{}
 			err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
