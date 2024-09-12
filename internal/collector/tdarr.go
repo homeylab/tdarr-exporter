@@ -366,7 +366,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			shouldCollect = true
 		}
 		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount && metric.TotalHealthCheckCount > 0 {
-			log.Debug().Int("cachedFileCount", cacheTotals.totalHealthCheckCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total healthcheck mismatch - gathering metrics")
+			log.Debug().Int("cachedHealthCount", cacheTotals.totalHealthCheckCount).Int("apiHealthCount", metric.TotalHealthCheckCount).Msg("Total healthcheck mismatch - gathering metrics")
 			shouldCollect = true
 		}
 		// if counts are the same use cache
