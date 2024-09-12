@@ -18,6 +18,7 @@ var (
 
 type TdarrCollector struct {
 	config                config.Config
+	statsCache            *TdarrLibStatsCache
 	totalFilesMetric      *prometheus.Desc
 	totalTranscodeCount   *prometheus.Desc
 	totalHealthCheckCount *prometheus.Desc
@@ -43,9 +44,56 @@ type TdarrCollector struct {
 	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
 }
 
+// Cache to store library stats and reduce excessive API calls
+// Mutex added to reduce chance of running into errors (from race condition) from misconfiguration or manual testing
+// i.e getting scraped twice by two different prometheus instances
+type TdarrLibStatsCache struct {
+	mu           sync.RWMutex
+	totals       tdarrCacheTotals
+	libraryStats []*TdarrPieStats
+}
+
+func NewTdarrLibStatsCache() *TdarrLibStatsCache {
+	return &TdarrLibStatsCache{
+		// if any of these overall counts change, we need to re-fetch all library stats
+		totals: tdarrCacheTotals{
+			totalFileCount:        0,
+			totalTranscodeCount:   0,
+			totalHealthCheckCount: 0,
+		},
+		libraryStats: nil,
+	}
+}
+
+func (c *TdarrLibStatsCache) GetTotals() tdarrCacheTotals {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.totals
+}
+
+func (c *TdarrLibStatsCache) SetTotals(totals tdarrCacheTotals) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.totals = totals
+}
+
+func (c *TdarrLibStatsCache) GetLibStats() []*TdarrPieStats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.libraryStats
+}
+
+func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.libraryStats = stats
+}
+
+// collector
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 	return &TdarrCollector{
-		config: runConfig,
+		config:     runConfig,
+		statsCache: NewTdarrLibStatsCache(),
 		totalFilesMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "files_total"),
 			"Tdarr total file count - includes files in ignore lists within each library",
@@ -273,6 +321,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
 		return
 	}
+
+	log.Debug().Int("totalFiles", metric.TotalFileCount).
+		Int("totalTranscodes", metric.TotalTranscodeCount).
+		Int("totalHealthChecks", metric.TotalHealthCheckCount).
+		Msg("General stats totals")
+
 	// get metrics data
 	var (
 		pieData         []*TdarrPieStats
@@ -297,99 +351,100 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// api changed after v2.24.01+
 	if len(metric.Pies) == 0 {
 		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
-		// get pie data
-		getLibsPayload := getGeneralReqPayload("library")
-		allLibs := []TdarrLibraryInfo{}
-		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to get library details")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-			return
+		// already have total file count from general stats (`metric.TotalFileCount`)
+		// check cache for all libraries data
+		shouldCollect := false
+
+		// this won't block other reads when checking
+		cacheTotals := c.statsCache.GetTotals()
+		if cacheTotals.totalFileCount != metric.TotalFileCount && metric.TotalFileCount > 0 {
+			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
+			shouldCollect = true
 		}
-		// add default "all libraries" to the list
-		// if no libraryId is supplied, it should return data combined for all libraries
-		allLibs = append(allLibs, TdarrLibraryInfo{
-			Name:      "",
-			LibraryId: "",
-		})
-
-		dataWg := &sync.WaitGroup{}
-
-		inChan := make(chan TdarrPieDataRequest, len(allLibs))
-		outChan := make(chan *TdarrPieStats, len(allLibs))
-		// start workers
-		for i := 0; i < c.config.HttpMaxConcurrency; i++ {
-			dataWg.Add(1)
-			go c.getLibStats(dataWg, inChan, outChan)
+		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount && metric.TotalTranscodeCount > 0 {
+			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
+			shouldCollect = true
 		}
-
-		// send data to workers
-		for _, lib := range allLibs {
-			inChan <- TdarrPieDataRequest{
-				Data: struct {
-					LibraryId   string `json:"libraryId"`
-					libraryName string `json:"-"`
-				}{
-					LibraryId:   lib.LibraryId,
-					libraryName: lib.Name,
-				},
+		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount && metric.TotalHealthCheckCount > 0 {
+			log.Debug().Int("cachedFileCount", cacheTotals.totalHealthCheckCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total healthcheck mismatch - gathering metrics")
+			shouldCollect = true
+		}
+		// if counts are the same use cache
+		if !shouldCollect {
+			log.Debug().Msg("Using cached library stats - api totals matches cached values")
+			pieData = c.statsCache.GetLibStats()
+		}
+		// if no data from API returns no counts, nothing to do
+		// i mean technically there can be no more files because of deletion but still other stats?
+		if shouldCollect {
+			getLibsPayload := getGeneralReqPayload("library")
+			allLibs := []TdarrLibraryInfo{}
+			err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get library details")
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+				return
 			}
-		}
 
-		// close channel to signal workers to stop
-		close(inChan)
+			// add for default all lib stats
+			allLibs = append(allLibs, TdarrLibraryInfo{
+				LibraryId: "",
+				Name:      "",
+			})
 
-		// wait for workers to finish
-		dataWg.Wait()
-
-		// collect results
-		resultWg := &sync.WaitGroup{}
-		resultWg.Add(1)
-		go func() {
-			defer resultWg.Done()
-			for pie := range outChan {
-				pieData = append(pieData, pie)
+			dataWg := &sync.WaitGroup{}
+			inChan := make(chan TdarrPieDataRequest, len(allLibs))
+			outChan := make(chan *TdarrPieStats, len(allLibs))
+			// start workers
+			for i := 0; i < c.config.HttpMaxConcurrency; i++ {
+				dataWg.Add(1)
+				go c.getLibStats(dataWg, inChan, outChan)
 			}
-		}()
 
-		// close channel no longer needed
-		close(outChan)
+			// send data to workers
+			for _, lib := range allLibs {
+				inChan <- TdarrPieDataRequest{
+					Data: struct {
+						LibraryId   string `json:"libraryId"`
+						libraryName string `json:"-"`
+					}{
+						LibraryId:   lib.LibraryId,
+						libraryName: lib.Name,
+					},
+				}
+			}
 
-		// wait for results to be collected
-		resultWg.Wait()
+			// close channel to signal workers to stop
+			close(inChan)
 
-		// below logic is for per library concurrent request instead of based on a given HTTP max concurrency property
-		// for _, lib := range allLibs {
-		// 	req := TdarrPieDataRequest{
-		// 		Data: struct {
-		// 			LibraryId string `json:"libraryId"`
-		// 		}{
-		// 			LibraryId: lib.LibraryId,
-		// 		},
-		// 	}
-		// 	wg.Add(1)
-		// 	go func() {
-		// 		defer wg.Done()
-		// 		pieMetric := &TdarrPieStats{}
-		// 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, req, pieMetric)
-		// 		if err != nil {
-		// 			log.Error().Err(err).Msg("Failed to get pie data")
-		// 			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-		// 			return
-		// 		}
-		// 		pieMetric.libraryName = lib.Name
-		// 		pieMetric.libraryId = lib.LibraryId
-		// 		// if no name, set to all
-		// 		if pieMetric.libraryName == "" {
-		// 			pieMetric.libraryName = "all"
-		// 		}
-		// 		// if no id, set to all
-		// 		if pieMetric.libraryId == "" {
-		// 			pieMetric.libraryId = "all_libraries"
-		// 		}
-		// 		pieData = append(pieData, pieMetric)
-		// 	}()
-		// wg.Wait()
+			// wait for workers to finish
+			dataWg.Wait()
+
+			// collect results
+			resultWg := &sync.WaitGroup{}
+			resultWg.Add(1)
+			go func() {
+				defer resultWg.Done()
+				for pie := range outChan {
+					pieData = append(pieData, pie)
+				}
+			}()
+
+			// close channel no longer needed
+			close(outChan)
+
+			// wait for results to be collected
+			resultWg.Wait()
+			log.Debug().Msg("All library stats gathered - setting cache")
+			c.statsCache.SetLibStats(pieData)
+
+			// set totals here after all data is collected
+			c.statsCache.SetTotals(tdarrCacheTotals{
+				totalFileCount:        metric.TotalFileCount,
+				totalHealthCheckCount: metric.TotalHealthCheckCount,
+				totalTranscodeCount:   metric.TotalTranscodeCount,
+			})
+		}
 	} else {
 		// old api support
 		// have to create a usable struct from tdarr's structured slice response (not an object with keys)
