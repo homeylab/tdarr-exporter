@@ -45,31 +45,36 @@ type TdarrCollector struct {
 }
 
 // Cache to store library stats and reduce excessive API calls
-// Mutex added to reduce chance of running into errors (accessing same var) from misconfiguration or manual testing
+// Mutex added to reduce chance of running into errors (from race condition) from misconfiguration or manual testing
 // i.e getting scraped twice by two different prometheus instances
 type TdarrLibStatsCache struct {
 	mu           sync.RWMutex
-	totalFiles   int
+	totals       tdarrCacheTotals
 	libraryStats []*TdarrPieStats
 }
 
 func NewTdarrLibStatsCache() *TdarrLibStatsCache {
 	return &TdarrLibStatsCache{
-		totalFiles:   0,
+		// if any of these overall counts change, we need to re-fetch all library stats
+		totals: tdarrCacheTotals{
+			totalFileCount:        0,
+			totalTranscodeCount:   0,
+			totalHealthCheckCount: 0,
+		},
 		libraryStats: nil,
 	}
 }
 
-func (c *TdarrLibStatsCache) GetTotalFiles() int {
+func (c *TdarrLibStatsCache) GetTotals() tdarrCacheTotals {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.totalFiles
+	return c.totals
 }
 
-func (c *TdarrLibStatsCache) SetTotalFiles(totalNum int) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	c.totalFiles = totalNum
+func (c *TdarrLibStatsCache) SetTotals(totals tdarrCacheTotals) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.totals = totals
 }
 
 func (c *TdarrLibStatsCache) GetLibStats() []*TdarrPieStats {
@@ -79,8 +84,8 @@ func (c *TdarrLibStatsCache) GetLibStats() []*TdarrPieStats {
 }
 
 func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.libraryStats = stats
 }
 
@@ -337,38 +342,28 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
+	if metric.TotalFileCount == 0 {
+		log.Warn().Msg("No files found in Tdarr, skipping library stats collection")
+	}
+
 	// api changed after v2.24.01+
 	if len(metric.Pies) == 0 {
 		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
-		// get pie data
-		overallPie := &TdarrPieStats{}
-		// add default "all libraries" to the list
-		// if no libraryId is supplied, it should return data combined for all libraries
-		overallPayload := TdarrPieDataRequest{
-			Data: struct {
-				LibraryId   string `json:"libraryId"`
-				libraryName string `json:"-"`
-			}{
-				LibraryId:   "",
-				libraryName: "",
-			},
-		}
-		log.Debug().Str("library", "all").Msg("Requesting all lib stats pie data from Tdarr")
-		err = c.httpReqHelper(c.config.TdarrPieStatsPath, overallPayload, overallPie)
-		if err != nil {
-			log.Error().Str("library", "all").Err(err).Msg("Failed to get all lib stats from Tdarr")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-			return
-		}
-
+		// already have total file count from general stats (`metric.TotalFileCount`)
 		// check cache for all libraries data
-		// get pie data
 		shouldCollect := false
 		// this won't block other reads when checking
-		totalFiles := c.statsCache.GetTotalFiles()
-		if totalFiles != overallPie.PieStats.TotalFiles {
-			log.Debug().Int("cachedFileCount", totalFiles).Int("apiFileCount", overallPie.PieStats.TotalFiles).Msg("Total files mismatch - gathering metrics")
-			c.statsCache.SetTotalFiles(overallPie.PieStats.TotalFiles)
+		cacheTotals := c.statsCache.GetTotals()
+		if cacheTotals.totalFileCount != metric.TotalFileCount {
+			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
+			shouldCollect = true
+		}
+		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount {
+			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
+			shouldCollect = true
+		}
+		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount {
+			log.Debug().Int("cachedFileCount", cacheTotals.totalHealthCheckCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total healthcheck mismatch - gathering metrics")
 			shouldCollect = true
 		}
 		// if counts are the same use cache
@@ -376,8 +371,9 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			log.Debug().Msg("Using cached library stats - api file count matches cached value")
 			pieData = c.statsCache.GetLibStats()
 		}
-		// if no data from API returns no file count, nothing to do
-		if shouldCollect && overallPie.PieStats.TotalFiles > 0 {
+		// if no data from API returns no counts, nothing to do
+		// i mean technically there can be no more files because of deletion but still other stats?
+		if shouldCollect && (metric.TotalFileCount > 0 || metric.TotalTranscodeCount > 0 || metric.TotalHealthCheckCount > 0) {
 			getLibsPayload := getGeneralReqPayload("library")
 			allLibs := []TdarrLibraryInfo{}
 			err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
@@ -386,6 +382,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
 				return
 			}
+
+			// add for default all lib stats
+			allLibs = append(allLibs, TdarrLibraryInfo{
+				LibraryId: "",
+				Name:      "",
+			})
 
 			dataWg := &sync.WaitGroup{}
 			inChan := make(chan TdarrPieDataRequest, len(allLibs))
@@ -425,9 +427,6 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				}
 			}()
 
-			// append all libraries data to the slice
-			pieData = append(pieData, overallPie)
-
 			// close channel no longer needed
 			close(outChan)
 
@@ -435,6 +434,13 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			resultWg.Wait()
 			log.Debug().Msg("All library stats gathered - setting cache")
 			c.statsCache.SetLibStats(pieData)
+
+			// set totals here after all data is collected
+			c.statsCache.SetTotals(tdarrCacheTotals{
+				totalFileCount:        metric.TotalFileCount,
+				totalHealthCheckCount: metric.TotalHealthCheckCount,
+				totalTranscodeCount:   metric.TotalTranscodeCount,
+			})
 		}
 	} else {
 		// old api support
