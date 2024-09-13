@@ -3,6 +3,7 @@
   - [Background](#background)
   - [Usage](#usage)
   - [Configuration](#configuration)
+  - [Caching and Concurrency](#caching-and-concurrency)
   - [Dashboard](#dashboard)
 
 ## Background
@@ -91,7 +92,7 @@ If the URL is a valid URL, the hostname inside the URL will be used to identify 
 
 If using authentication with Tdarr, an API key must be provided. Follow instructions [here](https://docs.tdarr.io/docs/other/authentication) to generate or use an existing API key.
 
-### Caching and Concurrency
+## Caching and Concurrency
 Caching and concurrency is only applicable if Tdarr instance is version `2.24.01 [11th August 2024]` or higher.
 
 The Tdarr library stats API introduced in that version calculates stats only when requested and an API call has to be made individually for each library. This can be a time consuming operation for some larger setups or certain hardware causing latency when requesting individual library statistics.
