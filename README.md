@@ -96,12 +96,12 @@ Caching and concurrency is only applicable if Tdarr instance is version `2.24.01
 
 The Tdarr library stats API introduced in that version calculates stats only when requested and an API call has to be made individually for each library. This can be a time consuming operation for some larger setups or certain hardware causing latency when requesting individual library statistics.
 
-To reduce number of API calls made and speed up scrapes, caching will be utilized if the below counts have not changed since the last scrape:
+To reduce number of API calls made, caching will be utilized if the below counts have not changed since the last scrape:
 - total file count
 - total transcode count
 - total health check count
 
-If you want to speed up metrics collecting and/or if you have a large number of libraries, consider increasing the `http_max_concurrency` (default: `3`) property. This property allows you to set the max number of concurrent library stats API being made by the exporter. You can try increasing this number to be closer to your number of Tdarr libraries to speed up the time it takes to collect all the stats from different libraries. It is recommended to increase this cautiously and put use a reasonable value if you have a very large number of libraries. You can also consider increasing scrape interval time as well to make less API calls overall if needed.
+Consider increasing the `http_max_concurrency` property if you have a large number of libraries or want to speed up metrics collection. You can try increasing this number to be closer to your number of Tdarr libraries to reduce the time it takes to collect all the stats from different libraries. The max value of this property is `num of libraries + 1`. It is recommended to increase this cautiously and put use a reasonable value if you have a very large number of libraries. You can also consider increasing scrape interval time as well to make less API calls overall if needed.
 
 The new Tdarr API behavior is described in this [issue](https://github.com/homeylab/tdarr-exporter/issues/38).
 
