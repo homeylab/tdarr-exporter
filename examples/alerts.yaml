@@ -1,0 +1,21 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tdarr-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: tdarr.rules
+      rules:
+        - alert: TdarrTranscodeFailed
+          annotations:
+            description: One or more transcode tasks for Library {{ $labels.library_name }} has failed.
+            summary: A tdarr transcode failed
+          expr: |-
+            tdarr_library_transcodes{status="error"} > 0
+          for: 5m
+          labels:
+            severity: warning

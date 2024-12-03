@@ -3,6 +3,7 @@
   - [Importing Dashboard](#importing-dashboard)
   - [Dashboard Preview](#dashboard-preview)
   - [Modifying Tables](#modifying-tables)
+  - [AlertManager alerts](#alertmanager-alerts)
 
 
 ## Importing Dashboard
@@ -23,3 +24,7 @@ Dashboard example is also provided in the `dashboard.json` file in case the dash
 For the `worker` tables, there are hidden fields that you can optionally show. You can choose to customize the table and hide the default fields as well. In the table edit view, click on the `Transformations` tab and then click the eye icon to toggle the visibility of the fields.
 
 ![transformations](./images/demo_6.png)
+
+## AlertManager alerts
+
+If you're using [kube-prometheus-stack](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack), you can use the included [alerts.yaml](alerts.yaml) manifest, which will trigger an alert 5 minutes after a transcode has failed.
