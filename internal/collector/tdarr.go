@@ -260,6 +260,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.nodeCollector.metrics.nodeHostMemTotalGb
 	ch <- c.nodeCollector.metrics.nodeWorkerInfo
 	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
+	ch <- c.nodeCollector.metrics.nodeIsBusy
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
@@ -357,15 +358,17 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 
 		// this won't block other reads when checking
 		cacheTotals := c.statsCache.GetTotals()
-		if cacheTotals.totalFileCount != metric.TotalFileCount && metric.TotalFileCount > 0 {
+		// if total counts has changed from cache and cache is populated, need to re-collect
+		// also collect if cache is empty (first run)
+		if cacheTotals.totalFileCount != metric.TotalFileCount || c.statsCache.libraryStats != nil {
 			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount && metric.TotalTranscodeCount > 0 {
+		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount || c.statsCache.libraryStats != nil {
 			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount && metric.TotalHealthCheckCount > 0 {
+		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount || c.statsCache.libraryStats != nil {
 			log.Debug().Int("cachedHealthCount", cacheTotals.totalHealthCheckCount).Int("apiHealthCount", metric.TotalHealthCheckCount).Msg("Total healthcheck mismatch - gathering metrics")
 			shouldCollect = true
 		}
@@ -636,6 +639,14 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				node.Id, node.Name)
 		}
 
+		// if node was busy processing metrics, update info metric
+		isBusy := 0.0
+		if len(node.Workers) > 0 {
+			isBusy = 1.0
+		}
+		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeIsBusy, prometheus.GaugeValue, isBusy,
+			node.Id, node.Name)
+
 		// node worker info
 		for _, worker := range node.Workers {
 			log.Debug().Interface("worker", worker).Msg("Worker data")
@@ -664,7 +675,6 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				)
 			}
 		}
-
 	}
 }
 
