@@ -360,15 +360,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		cacheTotals := c.statsCache.GetTotals()
 		// if total counts has changed from cache and cache is populated, need to re-collect
 		// also collect if cache is empty (first run)
-		if cacheTotals.totalFileCount != metric.TotalFileCount || c.statsCache.libraryStats != nil {
+		if cacheTotals.totalFileCount != metric.TotalFileCount || c.statsCache.libraryStats == nil {
 			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount || c.statsCache.libraryStats != nil {
+		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount || c.statsCache.libraryStats == nil {
 			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
 			shouldCollect = true
 		}
-		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount || c.statsCache.libraryStats != nil {
+		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount || c.statsCache.libraryStats == nil {
 			log.Debug().Int("cachedHealthCount", cacheTotals.totalHealthCheckCount).Int("apiHealthCount", metric.TotalHealthCheckCount).Msg("Total healthcheck mismatch - gathering metrics")
 			shouldCollect = true
 		}
