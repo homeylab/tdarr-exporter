@@ -18,6 +18,7 @@ type TdarrNodeMetrics struct {
 	nodeHostCpuPercent *prometheus.Desc
 	nodeHostMemUsedGb  *prometheus.Desc
 	nodeHostMemTotalGb *prometheus.Desc
+	nodeIsBusy         *prometheus.Desc
 }
 
 type TdarrNodeCollector struct {
@@ -96,6 +97,12 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_percentage", "worker_connected", "worker_pid",
 				"worker_job_start_ts", "worker_start_ts",
 				"worker_output_size_gb", "worker_est_size_gb"},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+		),
+		nodeIsBusy: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "node_busy"),
+			"Tdarr node is busy (1) or idle and not doing any transcoding (0)",
+			[]string{"node_id", "node_name"},
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 	}
