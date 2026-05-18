@@ -258,9 +258,23 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.nodeCollector.metrics.nodeHostCpuPercent
 	ch <- c.nodeCollector.metrics.nodeHostMemUsedGb
 	ch <- c.nodeCollector.metrics.nodeHostMemTotalGb
+	ch <- c.nodeCollector.metrics.nodePaused
+	ch <- c.nodeCollector.metrics.nodeMaxGpuWorkers
+	ch <- c.nodeCollector.metrics.nodeScheduleEnabled
+	ch <- c.nodeCollector.metrics.nodeWorkerCount
+	ch <- c.nodeCollector.metrics.nodeWorkerLimit
+	ch <- c.nodeCollector.metrics.nodeQueueLength
 	ch <- c.nodeCollector.metrics.nodeWorkerInfo
-	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
-	ch <- c.nodeCollector.metrics.nodeIsBusy
+	ch <- c.nodeCollector.metrics.nodeWorkerPercentage
+	ch <- c.nodeCollector.metrics.nodeWorkerFps
+	ch <- c.nodeCollector.metrics.nodeWorkerOriginalFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerOutputFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerEstFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerJobStartTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerStartTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerStatusTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerEtaSeconds
+	ch <- c.nodeCollector.metrics.nodeWorkerPid
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
@@ -597,82 +611,123 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// node data parsing
 	for _, node := range nodeData {
-		// node info
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeInfo, prometheus.GaugeValue, 1,
-			node.Id, node.Name, node.GpuSelect, strconv.Itoa(node.Priority), strconv.Itoa(node.Config.Pid), strconv.FormatBool(node.Paused),
-			strconv.Itoa(node.WorkerLimits.HealthCheckGpu), strconv.Itoa(node.WorkerLimits.HealthCheckCpu),
-			strconv.Itoa(node.WorkerLimits.TranscodeGpu), strconv.Itoa(node.WorkerLimits.TranscodeCpu),
-			strconv.Itoa(node.QueueLengths.HealthCheckGpu), strconv.Itoa(node.QueueLengths.HealthCheckCpu),
-			strconv.Itoa(node.QueueLengths.TranscodeGpu), strconv.Itoa(node.QueueLengths.TranscodeCpu),
+		m := c.nodeCollector.metrics
+
+		// node identity info
+		ch <- prometheus.MustNewConstMetric(m.nodeInfo, prometheus.GaugeValue, 1,
+			node.Id, node.Name, node.GpuSelect,
+			strconv.Itoa(node.Config.Pid), strconv.Itoa(node.Priority),
+			strconv.FormatBool(node.AllowGpuDoCpu), strconv.FormatBool(node.Paused),
 		)
 
 		// node uptime
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeUptime, prometheus.GaugeValue, float64(node.ResourceStats.Process.Uptime),
-			node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodeUptime, prometheus.GaugeValue,
+			float64(node.ResourceStats.Process.Uptime), node.Id, node.Name)
 
-		// convert resource stats to float from string
-		// skip if fail to parse
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapUsedMb", node.ResourceStats.Process.HeapUsedMb).Msg("Node heap used mb")
-		if nodeHeapUsedMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapUsedMb, 64); floatErr == nil {
-			log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Float64("heapUsedMb", nodeHeapUsedMb).Msg("Node heap information")
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapUsedMb, prometheus.GaugeValue, nodeHeapUsedMb,
-				node.Id, node.Name)
+		// convert resource stats to float from string; skip on parse failure
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("heapUsedMb", node.ResourceStats.Process.HeapUsedMb).Msg("Node heap used mb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapUsedMb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHeapUsedMb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapTotalMb", node.ResourceStats.Process.HeapTotalMb).Msg("Node heap total mb")
-		if nodeHeapTotalMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapTotalMb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapTotalMb, prometheus.GaugeValue, nodeHeapTotalMb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("heapTotalMb", node.ResourceStats.Process.HeapTotalMb).Msg("Node heap total mb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapTotalMb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHeapTotalMb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("cpuPercent", node.ResourceStats.Os.CpuPercent).Msg("Node cpu percent")
-		if nodeHostCpuPercent, floatErr := strconv.ParseFloat(node.ResourceStats.Os.CpuPercent, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostCpuPercent, prometheus.GaugeValue, nodeHostCpuPercent,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("cpuPercent", node.ResourceStats.Os.CpuPercent).Msg("Node cpu percent")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.CpuPercent, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostCpuPercent, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memUsedGb", node.ResourceStats.Os.MemUsedGb).Msg("Node mem used gb")
-		if nodeHostMemUsedGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemUsedGb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemUsedGb, prometheus.GaugeValue, nodeHostMemUsedGb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("memUsedGb", node.ResourceStats.Os.MemUsedGb).Msg("Node mem used gb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemUsedGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostMemUsedGb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memTotalGb", node.ResourceStats.Os.MemTotalGb).Msg("Node mem total gb")
-		if nodeHostMemTotalGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemTotalGb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemTotalGb, prometheus.GaugeValue, nodeHostMemTotalGb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("memTotalGb", node.ResourceStats.Os.MemTotalGb).Msg("Node mem total gb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemTotalGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostMemTotalGb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
 
-		// if node was busy processing metrics, update info metric
-		isBusy := 0.0
-		if len(node.Workers) > 0 {
-			isBusy = 1.0
+		// node state gauges
+		pausedVal := 0.0
+		if node.Paused {
+			pausedVal = 1.0
 		}
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeIsBusy, prometheus.GaugeValue, isBusy,
-			node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodePaused, prometheus.GaugeValue, pausedVal, node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodeMaxGpuWorkers, prometheus.GaugeValue, float64(node.MaxGpuWorkers), node.Id, node.Name)
+		schedVal := 0.0
+		if node.ScheduleEnabled {
+			schedVal = 1.0
+		}
+		ch <- prometheus.MustNewConstMetric(m.nodeScheduleEnabled, prometheus.GaugeValue, schedVal, node.Id, node.Name)
 
-		// node worker info
+		// per-type gauges — always emit all four types so zero-value series appear
+		emitPerType(ch, m.nodeWorkerLimit, node.Id, node.Name, node.WorkerLimits)
+		emitPerType(ch, m.nodeQueueLength, node.Id, node.Name, node.QueueLengths)
+
+		// worker count by type — count from active workers map
+		workerCounts := countWorkersByType(node.Workers)
+		for _, wType := range knownWorkerTypes {
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+				float64(workerCounts[wType]), node.Id, node.Name, wType)
+		}
+		// emit unknown bucket only if non-zero to avoid polluting metric with permanent zero
+		if unknownCount, hasUnknown := workerCounts[workerTypeUnknown]; hasUnknown && unknownCount > 0 {
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+				float64(unknownCount), node.Id, node.Name, workerTypeUnknown)
+		}
+
+		// per-worker metrics
 		for _, worker := range node.Workers {
 			log.Debug().Interface("worker", worker).Msg("Worker data")
-			// see if flow worker
-			// if flow worker then `LastPluginDetails` fields will be empty
+
+			// plugin labels: empty strings for flow workers (no plugin step concept)
+			pluginId := worker.LastPluginDetails.Id
+			pluginPosition := worker.LastPluginDetails.PositionNumber
 			if worker.FlowWorker {
-				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerFlowInfo, prometheus.GaugeValue, 1,
-					node.Id, node.Name, worker.Id, worker.WorkerType,
-					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
-					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
-					strconv.Itoa(worker.Fps), worker.Eta,
-					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
-					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
-				)
+				pluginId = ""
+				pluginPosition = ""
+			}
+
+			// unified worker info metric (all workers, flow or classic)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerInfo, prometheus.GaugeValue, 1,
+				node.Id, node.Name, worker.Id, worker.WorkerType,
+				strconv.FormatBool(worker.FlowWorker),
+				worker.Status, worker.File,
+				pluginId, pluginPosition,
+				strconv.FormatBool(worker.Process.Connected), strconv.FormatBool(worker.Idle),
+			)
+
+			// per-worker numeric gauges
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPercentage, prometheus.GaugeValue,
+				worker.Percentage, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerFps, prometheus.GaugeValue,
+				float64(worker.Fps), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOriginalFileSizeGb, prometheus.GaugeValue,
+				worker.OriginalfileSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOutputFileSizeGb, prometheus.GaugeValue,
+				worker.OutputFileSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerEstFileSizeGb, prometheus.GaugeValue,
+				worker.EstSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerJobStartTimestamp, prometheus.GaugeValue,
+				float64(worker.Job.StartTime), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStartTimestamp, prometheus.GaugeValue,
+				float64(worker.StartTime), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStatusTimestamp, prometheus.GaugeValue,
+				float64(worker.StatusTs), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPid, prometheus.GaugeValue,
+				float64(worker.Process.Pid), node.Id, node.Name, worker.Id)
+
+			// ETA: parse "H:MM:SS" string into seconds; skip on parse failure
+			if etaSecs, ok := parseEtaSeconds(worker.Eta); ok {
+				ch <- prometheus.MustNewConstMetric(m.nodeWorkerEtaSeconds, prometheus.GaugeValue,
+					float64(etaSecs), node.Id, node.Name, worker.Id)
 			} else {
-				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerInfo, prometheus.GaugeValue, 1,
-					node.Id, node.Name, worker.Id, worker.WorkerType,
-					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
-					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
-					strconv.Itoa(worker.Fps), worker.Eta,
-					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
-					worker.LastPluginDetails.Id, worker.LastPluginDetails.PositionNumber,
-					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
-				)
+				log.Debug().Str("nodeId", node.Id).Str("workerId", worker.Id).
+					Str("eta", worker.Eta).Msg("Failed to parse worker ETA; skipping metric")
 			}
 		}
 	}
