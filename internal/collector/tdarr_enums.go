@@ -24,8 +24,8 @@ var knownHealthCheckStatuses = map[string]struct{}{
 }
 
 // cleanTranscodeLabel converts a raw API transcode status name into the cleaned label value
-// used in Prometheus metrics. Mirrors the logic in cleanUpTranscodeStatus but operates at
-// normalize-time rather than emit-time.
+// used in Prometheus metrics. Runs at normalize-time so the emit loop consumes pre-cleaned
+// labels directly.
 //
 // Examples:
 //

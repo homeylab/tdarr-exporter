@@ -268,6 +268,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.avgNumStreams
 	ch <- c.streamStatsDuration
 	ch <- c.streamStatsBitRate
+	ch <- c.streamStatsNumFrames
 	ch <- c.pieVideoCodecs
 	ch <- c.pieVideoContainers
 	ch <- c.pieVideoResolutions
@@ -368,6 +369,15 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
+	// Reset partialFailure flag at end of every scrape regardless of code path.
+	// Flag is set by getLibStats workers during pie fan-out. Defer guarantees the
+	// flag never leaks across scrapes even if early returns skip the in-path reset.
+	defer func() {
+		if c.partialFailure.Swap(false) {
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, errors.New("partial pie fetch failure: one or more library stats could not be retrieved"))
+		}
+	}()
+
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
@@ -477,11 +487,8 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			// wait for workers to finish
 			dataWg.Wait()
 
-			// If any per-library fetch failed, signal via tdarr_collector_error so users can
-			// detect partial data. The flag is reset here so the next scrape starts clean.
-			if c.partialFailure.Swap(false) {
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, errors.New("partial pie fetch failure: one or more library stats could not be retrieved"))
-			}
+			// partialFailure flag check + emit handled by deferred handler at Collect entry —
+			// ensures consistent signaling across all code paths (new API, old API, early returns).
 
 			// collect results
 			resultWg := &sync.WaitGroup{}
@@ -794,16 +801,6 @@ func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err erro
 		}
 		pieSlice = append(pieSlice, currSlice)
 	}
-	return
-}
-
-func cleanUpTranscodeStatus(status string, transcodeFlag bool) (newStatus string) {
-	if transcodeFlag {
-		newStatus = strings.Replace(status, "transcode", "", 1)
-	} else {
-		newStatus = status
-	}
-	newStatus = strings.TrimSpace(newStatus)
 	return
 }
 
