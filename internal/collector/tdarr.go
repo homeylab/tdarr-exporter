@@ -51,7 +51,7 @@ type TdarrCollector struct {
 	pieVideoResolutions   *prometheus.Desc
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
-	unknownStatusTotal    *prometheus.Desc // counter for status values not in known enum
+	unknownStatusTotal    *prometheus.Desc    // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
 }

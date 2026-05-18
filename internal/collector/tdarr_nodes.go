@@ -43,22 +43,22 @@ type TdarrNodeMetrics struct {
 	nodeMaxGpuWorkers   *prometheus.Desc
 	nodeScheduleEnabled *prometheus.Desc
 	// per-type node gauges (type label = transcodecpu|transcodegpu|healthcheckcpu|healthcheckgpu)
-	nodeWorkerCount  *prometheus.Desc
-	nodeWorkerLimit  *prometheus.Desc
-	nodeQueueLength  *prometheus.Desc
+	nodeWorkerCount *prometheus.Desc
+	nodeWorkerLimit *prometheus.Desc
+	nodeQueueLength *prometheus.Desc
 	// worker identity / info
 	nodeWorkerInfo *prometheus.Desc
 	// per-worker numeric gauges
-	nodeWorkerPercentage          *prometheus.Desc
-	nodeWorkerFps                 *prometheus.Desc
-	nodeWorkerOriginalFileSizeGb  *prometheus.Desc
-	nodeWorkerOutputFileSizeGb    *prometheus.Desc
-	nodeWorkerEstFileSizeGb       *prometheus.Desc
-	nodeWorkerJobStartTimestamp   *prometheus.Desc
-	nodeWorkerStartTimestamp      *prometheus.Desc
-	nodeWorkerStatusTimestamp     *prometheus.Desc
-	nodeWorkerEtaSeconds          *prometheus.Desc
-	nodeWorkerPid                 *prometheus.Desc
+	nodeWorkerPercentage         *prometheus.Desc
+	nodeWorkerFps                *prometheus.Desc
+	nodeWorkerOriginalFileSizeGb *prometheus.Desc
+	nodeWorkerOutputFileSizeGb   *prometheus.Desc
+	nodeWorkerEstFileSizeGb      *prometheus.Desc
+	nodeWorkerJobStartTimestamp  *prometheus.Desc
+	nodeWorkerStartTimestamp     *prometheus.Desc
+	nodeWorkerStatusTimestamp    *prometheus.Desc
+	nodeWorkerEtaSeconds         *prometheus.Desc
+	nodeWorkerPid                *prometheus.Desc
 }
 
 type TdarrNodeCollector struct {
