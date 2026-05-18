@@ -97,7 +97,11 @@ func (c *RequestClient) DoRequest(path string, target interface{}, queryParams .
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if cErr := resp.Body.Close(); cErr != nil {
+			log.Error().Err(cErr).Msg("Failed to close response body")
+		}
+	}()
 	return c.unmarshalBody(resp.Body, target)
 }
 
@@ -120,6 +124,10 @@ func (c *RequestClient) DoPostRequest(path string, target interface{}, payload [
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP Request(%s): %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cErr := resp.Body.Close(); cErr != nil {
+			log.Error().Err(cErr).Msg("Failed to close response body")
+		}
+	}()
 	return c.unmarshalBody(resp.Body, target)
 }
