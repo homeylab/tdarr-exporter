@@ -104,17 +104,20 @@ type TdarrResourceStats struct {
 }
 
 type TdarrNode struct {
-	Id            string                      `json:"_id"`
-	Name          string                      `json:"nodeName"`
-	RemoteAddress string                      `json:"remoteAddress"`
-	Config        TdarrNodeConfig             `json:"config"`
-	WorkerLimits  TdarrNodeJobs               `json:"workerLimits"`
-	GpuSelect     string                      `json:"gpuSelect"`
-	Paused        bool                        `json:"nodePaused"`
-	Priority      int                         `json:"priority"`
-	Workers       map[string]TdarrNodeWorkers `json:"workers"`
-	ResourceStats TdarrResourceStats          `json:"resStats"`
-	QueueLengths  TdarrNodeJobs               `json:"queueLengths"`
+	Id              string                      `json:"_id"`
+	Name            string                      `json:"nodeName"`
+	RemoteAddress   string                      `json:"remoteAddress"`
+	Config          TdarrNodeConfig             `json:"config"`
+	WorkerLimits    TdarrNodeJobs               `json:"workerLimits"`
+	GpuSelect       string                      `json:"gpuSelect"`
+	Paused          bool                        `json:"nodePaused"`
+	Priority        int                         `json:"priority"`
+	Workers         map[string]TdarrNodeWorkers `json:"workers"`
+	ResourceStats   TdarrResourceStats          `json:"resStats"`
+	QueueLengths    TdarrNodeJobs               `json:"queueLengths"`
+	MaxGpuWorkers   int                         `json:"maxGpuWorkers"`
+	ScheduleEnabled bool                        `json:"scheduleEnabled"`
+	AllowGpuDoCpu   bool                        `json:"allowGpuDoCpu"`
 }
 
 type TdarrNodeConfig struct {
