@@ -2,9 +2,11 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -16,9 +18,18 @@ var (
 	METRIC_PREFIX = "tdarr"
 )
 
+// unknownStatusKey identifies a unique (kind, status) pair for the unknown-status counter.
+type unknownStatusKey struct {
+	kind   string
+	status string
+}
+
 type TdarrCollector struct {
 	config                config.Config
 	statsCache            *TdarrLibStatsCache
+	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
+	unknownStatusMu       sync.Mutex
+	unknownStatusCounts   map[unknownStatusKey]float64 // monotonic counter for enum drift detection
 	totalFilesMetric      *prometheus.Desc
 	totalTranscodeCount   *prometheus.Desc
 	totalHealthCheckCount *prometheus.Desc
@@ -40,6 +51,7 @@ type TdarrCollector struct {
 	pieVideoResolutions   *prometheus.Desc
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
+	unknownStatusTotal    *prometheus.Desc    // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
 }
@@ -55,12 +67,7 @@ type TdarrLibStatsCache struct {
 
 func NewTdarrLibStatsCache() *TdarrLibStatsCache {
 	return &TdarrLibStatsCache{
-		// if any of these overall counts change, we need to re-fetch all library stats
-		totals: tdarrCacheTotals{
-			totalFileCount:        0,
-			totalTranscodeCount:   0,
-			totalHealthCheckCount: 0,
-		},
+		totals:       tdarrCacheTotals{},
 		libraryStats: nil,
 	}
 }
@@ -92,8 +99,9 @@ func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
 // collector
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 	return &TdarrCollector{
-		config:     runConfig,
-		statsCache: NewTdarrLibStatsCache(),
+		config:              runConfig,
+		statsCache:          NewTdarrLibStatsCache(),
+		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "files_total"),
 			"Tdarr total file count - includes files in ignore lists within each library",
@@ -220,9 +228,18 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "container_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
+		unknownStatusTotal: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "unknown_status_total"),
+			"Count of pie status values not in the known enum, by kind (transcode|healthcheck) and status label. "+
+				"A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. "+
+				"Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.",
+			[]string{"kind", "status"},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+		),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
-			"Error while collecting metrics",
+			"1 if exporter failed to fetch from Tdarr API on last scrape (including partial pie-stats failures), "+
+				"0 otherwise. Distinct from prometheus 'up' metric which indicates exporter reachability.",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
@@ -246,11 +263,13 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.avgNumStreams
 	ch <- c.streamStatsDuration
 	ch <- c.streamStatsBitRate
+	ch <- c.streamStatsNumFrames
 	ch <- c.pieVideoCodecs
 	ch <- c.pieVideoContainers
 	ch <- c.pieVideoResolutions
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
+	ch <- c.unknownStatusTotal
 	ch <- c.nodeCollector.metrics.nodeInfo
 	ch <- c.nodeCollector.metrics.nodeUptime
 	ch <- c.nodeCollector.metrics.nodeHeapUsedMb
@@ -258,9 +277,23 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.nodeCollector.metrics.nodeHostCpuPercent
 	ch <- c.nodeCollector.metrics.nodeHostMemUsedGb
 	ch <- c.nodeCollector.metrics.nodeHostMemTotalGb
+	ch <- c.nodeCollector.metrics.nodePaused
+	ch <- c.nodeCollector.metrics.nodeMaxGpuWorkers
+	ch <- c.nodeCollector.metrics.nodeScheduleEnabled
+	ch <- c.nodeCollector.metrics.nodeWorkerCount
+	ch <- c.nodeCollector.metrics.nodeWorkerLimit
+	ch <- c.nodeCollector.metrics.nodeQueueLength
 	ch <- c.nodeCollector.metrics.nodeWorkerInfo
-	ch <- c.nodeCollector.metrics.nodeWorkerFlowInfo
-	ch <- c.nodeCollector.metrics.nodeIsBusy
+	ch <- c.nodeCollector.metrics.nodeWorkerPercentage
+	ch <- c.nodeCollector.metrics.nodeWorkerFps
+	ch <- c.nodeCollector.metrics.nodeWorkerOriginalFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerOutputFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerEstFileSizeGb
+	ch <- c.nodeCollector.metrics.nodeWorkerJobStartTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerStartTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerStatusTimestamp
+	ch <- c.nodeCollector.metrics.nodeWorkerEtaSeconds
+	ch <- c.nodeCollector.metrics.nodeWorkerPid
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
@@ -288,6 +321,15 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, targ
 	return nil
 }
 
+// bumpUnknownStatus increments the persistent unknown-status counter for the given kind and status.
+// Safe for concurrent use from multiple getLibStats goroutines.
+func (c *TdarrCollector) bumpUnknownStatus(kind, status string) {
+	key := unknownStatusKey{kind: kind, status: status}
+	c.unknownStatusMu.Lock()
+	c.unknownStatusCounts[key]++
+	c.unknownStatusMu.Unlock()
+}
+
 // support concurrency
 func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
 	defer wg.Done()
@@ -297,6 +339,10 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
+			// Signal partial failure so Collect() can emit tdarr_collector_error.
+			// Previously-cached normalized data for this library is preserved (acceptable:
+			// last-known zero-padded series keep emitting while tdarr_collector_error signals the issue).
+			c.partialFailure.Store(true)
 			continue
 		}
 		pieMetric.libraryName = piePayload.Data.libraryName
@@ -309,11 +355,24 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		if pieMetric.libraryId == "" {
 			pieMetric.libraryId = "all_libraries"
 		}
+		// Normalize status slices to cleaned-label maps covering the full known enum.
+		// This ensures zero values are emitted for all known statuses even when Tdarr
+		// omits them from the response (Tdarr only returns non-zero counts).
+		normalizePieStatuses(pieMetric, c.bumpUnknownStatus)
 		outChan <- pieMetric
 	}
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
+	// Reset partialFailure flag at end of every scrape regardless of code path.
+	// Flag is set by getLibStats workers during pie fan-out. Defer guarantees the
+	// flag never leaks across scrapes even if early returns skip the in-path reset.
+	defer func() {
+		if c.partialFailure.Swap(false) {
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, errors.New("partial pie fetch failure: one or more library stats could not be retrieved"))
+		}
+	}()
+
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
@@ -349,182 +408,113 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// api changed after v2.24.01+
-	if len(metric.Pies) == 0 {
-		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
-		// already have total file count from general stats (`metric.TotalFileCount`)
-		// check cache for all libraries data
-		shouldCollect := false
+	// supports only api versions: v2.24.01+
+	log.Debug().Str("path", c.config.TdarrPieStatsPath).Msg("Fetching library pie stats")
+	// already have total file count from general stats (`metric.TotalFileCount`)
+	// check cache for all libraries data
+	shouldCollect := false
 
-		// this won't block other reads when checking
-		cacheTotals := c.statsCache.GetTotals()
-		// if total counts has changed from cache and cache is populated, need to re-collect
-		// also collect if cache is empty (first run)
-		if cacheTotals.totalFileCount != metric.TotalFileCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
-			shouldCollect = true
+	// this won't block other reads when checking
+	cacheTotals := c.statsCache.GetTotals()
+	// if total counts has changed from cache and cache is populated, need to re-collect
+	// also collect if cache is empty (first run)
+	// Compare all 10 totals. table0Count–table6Count cover every per-bucket state transition
+	// (e.g. files queued but not yet transcoded), catching invalidation cases the three top-level
+	// counts miss. Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means
+	// no spurious refetches — behavior degrades gracefully to original 3-totals logic.
+	if c.statsCache.libraryStats == nil ||
+		cacheTotals.totalFileCount != metric.TotalFileCount ||
+		cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount ||
+		cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount ||
+		cacheTotals.holdQueue != metric.HoldQueue ||
+		cacheTotals.transcodeQueue != metric.TranscodeQueue ||
+		cacheTotals.transcodeSuccess != metric.TranscodeSuccess ||
+		cacheTotals.transcodeFailed != metric.TranscodeFailed ||
+		cacheTotals.healthCheckQueue != metric.HealthCheckQueue ||
+		cacheTotals.healthCheckSuccess != metric.HealthCheckSuccess ||
+		cacheTotals.healthCheckFailed != metric.HealthCheckFailed {
+		log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
+		shouldCollect = true
+	}
+	// if counts are the same use cache
+	if !shouldCollect {
+		log.Debug().Msg("Using cached library stats - api totals matches cached values")
+		pieData = c.statsCache.GetLibStats()
+	} else { // fetch new data and update cache
+		getLibsPayload := getGeneralReqPayload("library")
+		allLibs := []TdarrLibraryInfo{}
+		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get library details")
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+			return
 		}
-		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
-			shouldCollect = true
+
+		// add for default all lib stats
+		allLibs = append(allLibs, TdarrLibraryInfo{
+			LibraryId: "",
+			Name:      "",
+		})
+
+		dataWg := &sync.WaitGroup{}
+		inChan := make(chan TdarrPieDataRequest, len(allLibs))
+		outChan := make(chan *TdarrPieStats, len(allLibs))
+		// start workers
+		for i := 0; i < c.config.HttpMaxConcurrency; i++ {
+			dataWg.Add(1)
+			go c.getLibStats(dataWg, inChan, outChan)
 		}
-		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedHealthCount", cacheTotals.totalHealthCheckCount).Int("apiHealthCount", metric.TotalHealthCheckCount).Msg("Total healthcheck mismatch - gathering metrics")
-			shouldCollect = true
-		}
-		// if counts are the same use cache
-		if !shouldCollect {
-			log.Debug().Msg("Using cached library stats - api totals matches cached values")
-			pieData = c.statsCache.GetLibStats()
-		}
-		// if no data from API returns no counts, nothing to do
-		// i mean technically there can be no more files because of deletion but still other stats?
-		if shouldCollect {
-			getLibsPayload := getGeneralReqPayload("library")
-			allLibs := []TdarrLibraryInfo{}
-			err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to get library details")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-				return
-			}
 
-			// add for default all lib stats
-			allLibs = append(allLibs, TdarrLibraryInfo{
-				LibraryId: "",
-				Name:      "",
-			})
-
-			dataWg := &sync.WaitGroup{}
-			inChan := make(chan TdarrPieDataRequest, len(allLibs))
-			outChan := make(chan *TdarrPieStats, len(allLibs))
-			// start workers
-			for i := 0; i < c.config.HttpMaxConcurrency; i++ {
-				dataWg.Add(1)
-				go c.getLibStats(dataWg, inChan, outChan)
-			}
-
-			// send data to workers
-			for _, lib := range allLibs {
-				inChan <- TdarrPieDataRequest{
-					Data: struct {
-						LibraryId   string `json:"libraryId"`
-						libraryName string `json:"-"`
-					}{
-						LibraryId:   lib.LibraryId,
-						libraryName: lib.Name,
-					},
-				}
-			}
-
-			// close channel to signal workers to stop
-			close(inChan)
-
-			// wait for workers to finish
-			dataWg.Wait()
-
-			// collect results
-			resultWg := &sync.WaitGroup{}
-			resultWg.Add(1)
-			go func() {
-				defer resultWg.Done()
-				for pie := range outChan {
-					pieData = append(pieData, pie)
-				}
-			}()
-
-			// close channel no longer needed
-			close(outChan)
-
-			// wait for results to be collected
-			resultWg.Wait()
-			log.Debug().Msg("All library stats gathered - setting cache")
-			c.statsCache.SetLibStats(pieData)
-
-			// set totals here after all data is collected
-			c.statsCache.SetTotals(tdarrCacheTotals{
-				totalFileCount:        metric.TotalFileCount,
-				totalHealthCheckCount: metric.TotalHealthCheckCount,
-				totalTranscodeCount:   metric.TotalTranscodeCount,
-			})
-		}
-	} else {
-		// old api support
-		// have to create a usable struct from tdarr's structured slice response (not an object with keys)
-		var (
-			transcodePie        []TdarrPieSlice
-			healthPie           []TdarrPieSlice
-			videoCodecsPie      []TdarrPieSlice
-			videoContainersPie  []TdarrPieSlice
-			videoResolutionsPie []TdarrPieSlice
-			audioCodecsPie      []TdarrPieSlice
-			audioContainersPie  []TdarrPieSlice
-			pieMetricsErr       error
-		)
-		for _, pie := range metric.Pies {
-			log.Debug().Interface("pie", pie).Msg("Pie data to be parsed")
-
-			// ensure the data inside each slice adheres to the expected format
-			if transcodePie, pieMetricsErr = getPieMetricsFields(pie[6].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[6].([]interface{})).Msg("Failed to get transcode pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if healthPie, pieMetricsErr = getPieMetricsFields(pie[7].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[7].([]interface{})).Msg("Failed to get health pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoCodecsPie, pieMetricsErr = getPieMetricsFields(pie[8].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[8].([]interface{})).Msg("Failed to get video codecs pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoContainersPie, pieMetricsErr = getPieMetricsFields(pie[9].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[9].([]interface{})).Msg("Failed to get video containers pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoResolutionsPie, pieMetricsErr = getPieMetricsFields(pie[10].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[10].([]interface{})).Msg("Failed to get video resolutions pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if audioCodecsPie, pieMetricsErr = getPieMetricsFields(pie[11].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[11].([]interface{})).Msg("Failed to get audio codecs pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if audioContainersPie, pieMetricsErr = getPieMetricsFields(pie[12].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[12].([]interface{})).Msg("Failed to get audio containers pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-
-			// if we don't change, it errors with duplicate label value in single metric with `library_name` label
-			libId := pie[1].(string)
-			if strings.ToLower(libId) == "all" {
-				libId = "all_libraries"
-			}
-
-			pieData = append(pieData, &TdarrPieStats{
-				libraryName: pie[0].(string),
-				libraryId:   libId,
-				PieStats: TdarrPieStat{
-					// convert to int for now to support old api that is still in usee
-					TotalFiles:            int(pie[2].(float64)),
-					TotalTranscodeCount:   int(pie[3].(float64)),
-					SizeDiff:              pie[4].(float64),
-					TotalHealthCheckCount: int(pie[5].(float64)),
-					Status: TdarrPieStatusSlice{
-						Transcode:   transcodePie,
-						HealthCheck: healthPie,
-					},
-					Video: TdarrPieVideoSlice{
-						Codecs:      videoCodecsPie,
-						Containers:  videoContainersPie,
-						Resolutions: videoResolutionsPie,
-					},
-					Audio: TdarrPieVideoSlice{
-						Codecs:     audioCodecsPie,
-						Containers: audioContainersPie,
-					},
+		// send data to workers
+		for _, lib := range allLibs {
+			inChan <- TdarrPieDataRequest{
+				Data: struct {
+					LibraryId   string `json:"libraryId"`
+					libraryName string `json:"-"`
+				}{
+					LibraryId:   lib.LibraryId,
+					libraryName: lib.Name,
 				},
-			})
+			}
 		}
+
+		// close channel to signal workers to stop
+		close(inChan)
+
+		// wait for workers to finish
+		dataWg.Wait()
+
+		// collect results
+		resultWg := &sync.WaitGroup{}
+		resultWg.Add(1)
+		go func() {
+			defer resultWg.Done()
+			for pie := range outChan {
+				pieData = append(pieData, pie)
+			}
+		}()
+
+		// close channel no longer needed
+		close(outChan)
+
+		// wait for results to be collected
+		resultWg.Wait()
+		log.Debug().Msg("All library stats gathered - setting cache")
+		c.statsCache.SetLibStats(pieData)
+
+		// set totals here after all data is collected
+		c.statsCache.SetTotals(tdarrCacheTotals{
+			totalFileCount:        metric.TotalFileCount,
+			totalTranscodeCount:   metric.TotalTranscodeCount,
+			totalHealthCheckCount: metric.TotalHealthCheckCount,
+			holdQueue:             metric.HoldQueue,
+			transcodeQueue:        metric.TranscodeQueue,
+			transcodeSuccess:      metric.TranscodeSuccess,
+			transcodeFailed:       metric.TranscodeFailed,
+			healthCheckQueue:      metric.HealthCheckQueue,
+			healthCheckSuccess:    metric.HealthCheckSuccess,
+			healthCheckFailed:     metric.HealthCheckFailed,
+		})
 	}
 
 	// add metrics to collector
@@ -549,21 +539,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
 		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
 		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
-		for _, pieSlice := range pie.PieStats.Status.Transcode {
-			var labelName string
-			statusName := strings.ToLower(pieSlice.Name)
-			if strings.HasPrefix(statusName, "transcode") {
-				// remove the Transcode prefix
-				labelName = cleanUpTranscodeStatus(statusName, true)
-			} else {
-				labelName = cleanUpTranscodeStatus(statusName, false)
-			}
-			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.libraryName, pie.libraryId, labelName)
+		// Emit transcode statuses from the normalized map (pre-cleaned labels, full enum coverage).
+		for status, count := range pie.NormalizedTranscodes {
+			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(count),
+				pie.libraryName, pie.libraryId, status)
 		}
-		for _, pieSlice := range pie.PieStats.Status.HealthCheck {
-			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
+		// Emit health check statuses from the normalized map (pre-cleaned labels, full enum coverage).
+		for status, count := range pie.NormalizedHealthChecks {
+			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(count),
+				pie.libraryName, pie.libraryId, status)
 		}
 		for _, pieSlice := range pie.PieStats.Video.Codecs {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
@@ -587,6 +571,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 
+	// Emit unknown-status counters (monotonically increasing across scrapes).
+	// A non-zero value means Tdarr returned a status label the exporter did not pre-init zeros for.
+	c.unknownStatusMu.Lock()
+	for key, count := range c.unknownStatusCounts {
+		ch <- prometheus.MustNewConstMetric(c.unknownStatusTotal, prometheus.CounterValue, count,
+			key.kind, key.status)
+	}
+	c.unknownStatusMu.Unlock()
+
 	// get all node metrics
 	nodeData, err := c.nodeCollector.GetNodeData()
 	if err != nil {
@@ -597,114 +590,126 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// node data parsing
 	for _, node := range nodeData {
-		// node info
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeInfo, prometheus.GaugeValue, 1,
-			node.Id, node.Name, node.GpuSelect, strconv.Itoa(node.Priority), strconv.Itoa(node.Config.Pid), strconv.FormatBool(node.Paused),
-			strconv.Itoa(node.WorkerLimits.HealthCheckGpu), strconv.Itoa(node.WorkerLimits.HealthCheckCpu),
-			strconv.Itoa(node.WorkerLimits.TranscodeGpu), strconv.Itoa(node.WorkerLimits.TranscodeCpu),
-			strconv.Itoa(node.QueueLengths.HealthCheckGpu), strconv.Itoa(node.QueueLengths.HealthCheckCpu),
-			strconv.Itoa(node.QueueLengths.TranscodeGpu), strconv.Itoa(node.QueueLengths.TranscodeCpu),
+		m := c.nodeCollector.metrics
+
+		// node identity info
+		ch <- prometheus.MustNewConstMetric(m.nodeInfo, prometheus.GaugeValue, 1,
+			node.Id, node.Name, node.GpuSelect,
+			strconv.Itoa(node.Config.Pid), strconv.Itoa(node.Priority),
+			strconv.FormatBool(node.AllowGpuDoCpu), strconv.FormatBool(node.Paused),
 		)
 
 		// node uptime
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeUptime, prometheus.GaugeValue, float64(node.ResourceStats.Process.Uptime),
-			node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodeUptime, prometheus.GaugeValue,
+			float64(node.ResourceStats.Process.Uptime), node.Id, node.Name)
 
-		// convert resource stats to float from string
-		// skip if fail to parse
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapUsedMb", node.ResourceStats.Process.HeapUsedMb).Msg("Node heap used mb")
-		if nodeHeapUsedMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapUsedMb, 64); floatErr == nil {
-			log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Float64("heapUsedMb", nodeHeapUsedMb).Msg("Node heap information")
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapUsedMb, prometheus.GaugeValue, nodeHeapUsedMb,
-				node.Id, node.Name)
+		// convert resource stats to float from string; skip on parse failure
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("heapUsedMb", node.ResourceStats.Process.HeapUsedMb).Msg("Node heap used mb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapUsedMb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHeapUsedMb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("heapTotalMb", node.ResourceStats.Process.HeapTotalMb).Msg("Node heap total mb")
-		if nodeHeapTotalMb, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapTotalMb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHeapTotalMb, prometheus.GaugeValue, nodeHeapTotalMb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("heapTotalMb", node.ResourceStats.Process.HeapTotalMb).Msg("Node heap total mb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Process.HeapTotalMb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHeapTotalMb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("cpuPercent", node.ResourceStats.Os.CpuPercent).Msg("Node cpu percent")
-		if nodeHostCpuPercent, floatErr := strconv.ParseFloat(node.ResourceStats.Os.CpuPercent, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostCpuPercent, prometheus.GaugeValue, nodeHostCpuPercent,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("cpuPercent", node.ResourceStats.Os.CpuPercent).Msg("Node cpu percent")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.CpuPercent, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostCpuPercent, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memUsedGb", node.ResourceStats.Os.MemUsedGb).Msg("Node mem used gb")
-		if nodeHostMemUsedGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemUsedGb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemUsedGb, prometheus.GaugeValue, nodeHostMemUsedGb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("memUsedGb", node.ResourceStats.Os.MemUsedGb).Msg("Node mem used gb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemUsedGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostMemUsedGb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
-		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).Str("memTotalGb", node.ResourceStats.Os.MemTotalGb).Msg("Node mem total gb")
-		if nodeHostMemTotalGb, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemTotalGb, 64); floatErr == nil {
-			ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeHostMemTotalGb, prometheus.GaugeValue, nodeHostMemTotalGb,
-				node.Id, node.Name)
+		log.Debug().Str("nodeId", node.Id).Str("nodeName", node.Name).
+			Str("memTotalGb", node.ResourceStats.Os.MemTotalGb).Msg("Node mem total gb")
+		if v, floatErr := strconv.ParseFloat(node.ResourceStats.Os.MemTotalGb, 64); floatErr == nil {
+			ch <- prometheus.MustNewConstMetric(m.nodeHostMemTotalGb, prometheus.GaugeValue, v, node.Id, node.Name)
 		}
 
-		// if node was busy processing metrics, update info metric
-		isBusy := 0.0
-		if len(node.Workers) > 0 {
-			isBusy = 1.0
+		// node state gauges
+		pausedVal := 0.0
+		if node.Paused {
+			pausedVal = 1.0
 		}
-		ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeIsBusy, prometheus.GaugeValue, isBusy,
-			node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodePaused, prometheus.GaugeValue, pausedVal, node.Id, node.Name)
+		ch <- prometheus.MustNewConstMetric(m.nodeMaxGpuWorkers, prometheus.GaugeValue, float64(node.MaxGpuWorkers), node.Id, node.Name)
+		schedVal := 0.0
+		if node.ScheduleEnabled {
+			schedVal = 1.0
+		}
+		ch <- prometheus.MustNewConstMetric(m.nodeScheduleEnabled, prometheus.GaugeValue, schedVal, node.Id, node.Name)
 
-		// node worker info
+		// per-type gauges — always emit all four types so zero-value series appear
+		emitPerType(ch, m.nodeWorkerLimit, node.Id, node.Name, node.WorkerLimits)
+		emitPerType(ch, m.nodeQueueLength, node.Id, node.Name, node.QueueLengths)
+
+		// worker count by type — count from active workers map
+		workerCounts := countWorkersByType(node.Workers)
+		for _, wType := range knownWorkerTypes {
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+				float64(workerCounts[wType]), node.Id, node.Name, wType)
+		}
+		// emit unknown bucket only if non-zero to avoid polluting metric with permanent zero
+		if unknownCount, hasUnknown := workerCounts[workerTypeUnknown]; hasUnknown && unknownCount > 0 {
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+				float64(unknownCount), node.Id, node.Name, workerTypeUnknown)
+		}
+
+		// per-worker metrics
 		for _, worker := range node.Workers {
 			log.Debug().Interface("worker", worker).Msg("Worker data")
-			// see if flow worker
-			// if flow worker then `LastPluginDetails` fields will be empty
+
+			// plugin labels: empty strings for flow workers (no plugin step concept)
+			pluginId := worker.LastPluginDetails.Id
+			pluginPosition := worker.LastPluginDetails.PositionNumber
 			if worker.FlowWorker {
-				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerFlowInfo, prometheus.GaugeValue, 1,
-					node.Id, node.Name, worker.Id, worker.WorkerType,
-					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
-					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
-					strconv.Itoa(worker.Fps), worker.Eta,
-					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
-					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
-				)
+				pluginId = ""
+				pluginPosition = ""
+			}
+
+			// unified worker info metric (all workers, flow or classic)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerInfo, prometheus.GaugeValue, 1,
+				node.Id, node.Name, worker.Id, worker.WorkerType,
+				strconv.FormatBool(worker.FlowWorker),
+				worker.Status, worker.File,
+				pluginId, pluginPosition,
+				strconv.FormatBool(worker.Process.Connected), strconv.FormatBool(worker.Idle),
+			)
+
+			// per-worker numeric gauges
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPercentage, prometheus.GaugeValue,
+				worker.Percentage, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerFps, prometheus.GaugeValue,
+				float64(worker.Fps), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOriginalFileSizeGb, prometheus.GaugeValue,
+				worker.OriginalfileSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOutputFileSizeGb, prometheus.GaugeValue,
+				worker.OutputFileSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerEstFileSizeGb, prometheus.GaugeValue,
+				worker.EstSizeGb, node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerJobStartTimestamp, prometheus.GaugeValue,
+				float64(worker.Job.StartTime), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStartTimestamp, prometheus.GaugeValue,
+				float64(worker.StartTime), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStatusTimestamp, prometheus.GaugeValue,
+				float64(worker.StatusTs), node.Id, node.Name, worker.Id)
+			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPid, prometheus.GaugeValue,
+				float64(worker.Process.Pid), node.Id, node.Name, worker.Id)
+
+			// ETA: parse "H:MM:SS" string into seconds; skip on parse failure
+			if etaSecs, ok := parseEtaSeconds(worker.Eta); ok {
+				ch <- prometheus.MustNewConstMetric(m.nodeWorkerEtaSeconds, prometheus.GaugeValue,
+					float64(etaSecs), node.Id, node.Name, worker.Id)
 			} else {
-				ch <- prometheus.MustNewConstMetric(c.nodeCollector.metrics.nodeWorkerInfo, prometheus.GaugeValue, 1,
-					node.Id, node.Name, worker.Id, worker.WorkerType,
-					worker.Status, strconv.FormatInt(worker.StatusTs, 10), strconv.FormatBool(worker.Idle),
-					worker.File, strconv.FormatFloat(worker.OriginalfileSizeGb, 'f', -1, 64),
-					strconv.Itoa(worker.Fps), worker.Eta,
-					strconv.FormatFloat(worker.Percentage, 'f', -1, 64), strconv.FormatBool(worker.Process.Connected), strconv.Itoa(worker.Process.Pid),
-					strconv.FormatInt(worker.Job.StartTime, 10), strconv.FormatInt(worker.StartTime, 10),
-					worker.LastPluginDetails.Id, worker.LastPluginDetails.PositionNumber,
-					strconv.FormatFloat(worker.OutputFileSizeGb, 'f', -1, 64), strconv.FormatFloat(worker.EstSizeGb, 'f', -1, 64),
-				)
+				log.Debug().Str("nodeId", node.Id).Str("workerId", worker.Id).
+					Str("eta", worker.Eta).Msg("Failed to parse worker ETA; skipping metric")
 			}
 		}
 	}
-}
-
-func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err error) {
-	for _, metricDetail := range data {
-		currSlice := TdarrPieSlice{}
-		err = loadKeyValue(metricDetail, &currSlice)
-		if err != nil {
-			log.Error().Err(err).Interface("metricDetail", metricDetail).Msg("Failed to unmarshal pie slice data")
-			return
-		}
-		pieSlice = append(pieSlice, currSlice)
-	}
-	return
-}
-
-func cleanUpTranscodeStatus(status string, transcodeFlag bool) (newStatus string) {
-	if transcodeFlag {
-		newStatus = strings.Replace(status, "transcode", "", 1)
-	} else {
-		newStatus = status
-	}
-	newStatus = strings.TrimSpace(newStatus)
-	return
-}
-
-func loadKeyValue(data interface{}, target *TdarrPieSlice) (err error) {
-	bodyBytes, _ := json.Marshal(data)
-	err = json.Unmarshal(bodyBytes, &target)
-	return
 }
 
 func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {

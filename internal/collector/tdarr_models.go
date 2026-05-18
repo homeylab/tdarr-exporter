@@ -25,24 +25,27 @@ type TdarrPieSlice struct {
 
 // core metrics
 type TdarrMetric struct {
-	TotalFileCount        int     `json:"totalFileCount"`
-	TotalTranscodeCount   int     `json:"totalTranscodeCount"`
-	TotalHealthCheckCount int     `json:"totalHealthCheckCount"`
-	SizeDiff              float64 `json:"sizeDiff"`
-	// support for old API
-	Pies             [][]interface{}  `json:"pies"`
-	TdarrScore       string           `json:"tdarrScore"`
-	HealthCheckScore string           `json:"healthCheckScore"`
-	AvgNumStreams    float64          `json:"avgNumberOfStreamsInVideo"`
-	StreamStats      TdarrStreamStats `json:"streamStats"`
-	// appears we can get below in other places and may not be necessary
-	// HoldQueue             int              `json:"table0Count"`
-	// TranscodeQueue int `json:"table1Count"`
-	// TranscodeSuccess      int              `json:"table2Count"`
-	// TranscodeFailed       int              `json:"table3Count"`
-	// HealthCheckQueue int `json:"table4Count"`
-	// HealthCheckSuccess    int              `json:"table5Count"`
-	// HealthCheckFailed     int              `json:"table6Count"`
+	TotalFileCount        int              `json:"totalFileCount"`
+	TotalTranscodeCount   int              `json:"totalTranscodeCount"`
+	TotalHealthCheckCount int              `json:"totalHealthCheckCount"`
+	SizeDiff              float64          `json:"sizeDiff"`
+	TdarrScore            string           `json:"tdarrScore"`
+	HealthCheckScore      string           `json:"healthCheckScore"`
+	AvgNumStreams         float64          `json:"avgNumberOfStreamsInVideo"`
+	StreamStats           TdarrStreamStats `json:"streamStats"`
+	// Per-bucket counts for cache invalidation. Returned by the StatisticsJSONDB cruddb endpoint.
+	// These map to Tdarr UI buckets: table0=Hold, table1=Transcode queue,
+	// table2=Transcode success+not required, table3=Transcode error+cancelled,
+	// table4=Health check queue, table5=Health check healthy, table6=Health check error+cancelled.
+	// Older Tdarr versions may omit these fields; Go's JSON decoder defaults them to 0,
+	// which means 0==0 comparisons never trigger spurious refetches (graceful degradation).
+	HoldQueue          int `json:"table0Count"`
+	TranscodeQueue     int `json:"table1Count"`
+	TranscodeSuccess   int `json:"table2Count"` // includes "not required" per Tdarr UI grouping
+	TranscodeFailed    int `json:"table3Count"` // includes "cancelled"
+	HealthCheckQueue   int `json:"table4Count"`
+	HealthCheckSuccess int `json:"table5Count"`
+	HealthCheckFailed  int `json:"table6Count"` // includes "cancelled"
 }
 
 // new api `api/v2/stats/get-pies` support
@@ -55,6 +58,12 @@ type TdarrPieStats struct {
 	PieStats    TdarrPieStat `json:"pieStats"`
 	libraryName string
 	libraryId   string
+	// NormalizedTranscodes maps cleaned transcode status labels to counts.
+	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
+	NormalizedTranscodes map[string]int
+	// NormalizedHealthChecks maps cleaned health check status labels to counts.
+	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
+	NormalizedHealthChecks map[string]int
 }
 
 type TdarrPieStat struct {
@@ -104,17 +113,20 @@ type TdarrResourceStats struct {
 }
 
 type TdarrNode struct {
-	Id            string                      `json:"_id"`
-	Name          string                      `json:"nodeName"`
-	RemoteAddress string                      `json:"remoteAddress"`
-	Config        TdarrNodeConfig             `json:"config"`
-	WorkerLimits  TdarrNodeJobs               `json:"workerLimits"`
-	GpuSelect     string                      `json:"gpuSelect"`
-	Paused        bool                        `json:"nodePaused"`
-	Priority      int                         `json:"priority"`
-	Workers       map[string]TdarrNodeWorkers `json:"workers"`
-	ResourceStats TdarrResourceStats          `json:"resStats"`
-	QueueLengths  TdarrNodeJobs               `json:"queueLengths"`
+	Id              string                      `json:"_id"`
+	Name            string                      `json:"nodeName"`
+	RemoteAddress   string                      `json:"remoteAddress"`
+	Config          TdarrNodeConfig             `json:"config"`
+	WorkerLimits    TdarrNodeJobs               `json:"workerLimits"`
+	GpuSelect       string                      `json:"gpuSelect"`
+	Paused          bool                        `json:"nodePaused"`
+	Priority        int                         `json:"priority"`
+	Workers         map[string]TdarrNodeWorkers `json:"workers"`
+	ResourceStats   TdarrResourceStats          `json:"resStats"`
+	QueueLengths    TdarrNodeJobs               `json:"queueLengths"`
+	MaxGpuWorkers   int                         `json:"maxGpuWorkers"`
+	ScheduleEnabled bool                        `json:"scheduleEnabled"`
+	AllowGpuDoCpu   bool                        `json:"allowGpuDoCpu"`
 }
 
 type TdarrNodeConfig struct {
@@ -168,4 +180,11 @@ type tdarrCacheTotals struct {
 	totalFileCount        int
 	totalTranscodeCount   int
 	totalHealthCheckCount int
+	holdQueue             int
+	transcodeQueue        int
+	transcodeSuccess      int
+	transcodeFailed       int
+	healthCheckQueue      int
+	healthCheckSuccess    int
+	healthCheckFailed     int
 }
