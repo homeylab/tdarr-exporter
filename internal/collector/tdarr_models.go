@@ -25,16 +25,14 @@ type TdarrPieSlice struct {
 
 // core metrics
 type TdarrMetric struct {
-	TotalFileCount        int     `json:"totalFileCount"`
-	TotalTranscodeCount   int     `json:"totalTranscodeCount"`
-	TotalHealthCheckCount int     `json:"totalHealthCheckCount"`
-	SizeDiff              float64 `json:"sizeDiff"`
-	// support for old API
-	Pies             [][]interface{}  `json:"pies"`
-	TdarrScore       string           `json:"tdarrScore"`
-	HealthCheckScore string           `json:"healthCheckScore"`
-	AvgNumStreams    float64          `json:"avgNumberOfStreamsInVideo"`
-	StreamStats      TdarrStreamStats `json:"streamStats"`
+	TotalFileCount        int              `json:"totalFileCount"`
+	TotalTranscodeCount   int              `json:"totalTranscodeCount"`
+	TotalHealthCheckCount int              `json:"totalHealthCheckCount"`
+	SizeDiff              float64          `json:"sizeDiff"`
+	TdarrScore            string           `json:"tdarrScore"`
+	HealthCheckScore      string           `json:"healthCheckScore"`
+	AvgNumStreams         float64          `json:"avgNumberOfStreamsInVideo"`
+	StreamStats           TdarrStreamStats `json:"streamStats"`
 	// Per-bucket counts for cache invalidation. Returned by the StatisticsJSONDB cruddb endpoint.
 	// These map to Tdarr UI buckets: table0=Hold, table1=Transcode queue,
 	// table2=Transcode success+not required, table3=Transcode error+cancelled,

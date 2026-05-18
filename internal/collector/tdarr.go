@@ -408,200 +408,113 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// api changed after v2.24.01+
-	if len(metric.Pies) == 0 {
-		log.Debug().Msgf("No pie data found in general stats response, attempting to parse via new API `%s`", c.config.TdarrPieStatsPath)
-		// already have total file count from general stats (`metric.TotalFileCount`)
-		// check cache for all libraries data
-		shouldCollect := false
+	// supports only api versions: v2.24.01+
+	log.Debug().Str("path", c.config.TdarrPieStatsPath).Msg("Fetching library pie stats")
+	// already have total file count from general stats (`metric.TotalFileCount`)
+	// check cache for all libraries data
+	shouldCollect := false
 
-		// this won't block other reads when checking
-		cacheTotals := c.statsCache.GetTotals()
-		// if total counts has changed from cache and cache is populated, need to re-collect
-		// also collect if cache is empty (first run)
-		// Compare all 10 totals. table0Count–table6Count cover every per-bucket state transition
-		// (e.g. files queued but not yet transcoded), catching invalidation cases the three top-level
-		// counts miss. Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means
-		// no spurious refetches — behavior degrades gracefully to original 3-totals logic.
-		if c.statsCache.libraryStats == nil ||
-			cacheTotals.totalFileCount != metric.TotalFileCount ||
-			cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount ||
-			cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount ||
-			cacheTotals.holdQueue != metric.HoldQueue ||
-			cacheTotals.transcodeQueue != metric.TranscodeQueue ||
-			cacheTotals.transcodeSuccess != metric.TranscodeSuccess ||
-			cacheTotals.transcodeFailed != metric.TranscodeFailed ||
-			cacheTotals.healthCheckQueue != metric.HealthCheckQueue ||
-			cacheTotals.healthCheckSuccess != metric.HealthCheckSuccess ||
-			cacheTotals.healthCheckFailed != metric.HealthCheckFailed {
-			log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
-			shouldCollect = true
+	// this won't block other reads when checking
+	cacheTotals := c.statsCache.GetTotals()
+	// if total counts has changed from cache and cache is populated, need to re-collect
+	// also collect if cache is empty (first run)
+	// Compare all 10 totals. table0Count–table6Count cover every per-bucket state transition
+	// (e.g. files queued but not yet transcoded), catching invalidation cases the three top-level
+	// counts miss. Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means
+	// no spurious refetches — behavior degrades gracefully to original 3-totals logic.
+	if c.statsCache.libraryStats == nil ||
+		cacheTotals.totalFileCount != metric.TotalFileCount ||
+		cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount ||
+		cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount ||
+		cacheTotals.holdQueue != metric.HoldQueue ||
+		cacheTotals.transcodeQueue != metric.TranscodeQueue ||
+		cacheTotals.transcodeSuccess != metric.TranscodeSuccess ||
+		cacheTotals.transcodeFailed != metric.TranscodeFailed ||
+		cacheTotals.healthCheckQueue != metric.HealthCheckQueue ||
+		cacheTotals.healthCheckSuccess != metric.HealthCheckSuccess ||
+		cacheTotals.healthCheckFailed != metric.HealthCheckFailed {
+		log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
+		shouldCollect = true
+	}
+	// if counts are the same use cache
+	if !shouldCollect {
+		log.Debug().Msg("Using cached library stats - api totals matches cached values")
+		pieData = c.statsCache.GetLibStats()
+	} else { // fetch new data and update cache
+		getLibsPayload := getGeneralReqPayload("library")
+		allLibs := []TdarrLibraryInfo{}
+		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get library details")
+			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
+			return
 		}
-		// if counts are the same use cache
-		if !shouldCollect {
-			log.Debug().Msg("Using cached library stats - api totals matches cached values")
-			pieData = c.statsCache.GetLibStats()
+
+		// add for default all lib stats
+		allLibs = append(allLibs, TdarrLibraryInfo{
+			LibraryId: "",
+			Name:      "",
+		})
+
+		dataWg := &sync.WaitGroup{}
+		inChan := make(chan TdarrPieDataRequest, len(allLibs))
+		outChan := make(chan *TdarrPieStats, len(allLibs))
+		// start workers
+		for i := 0; i < c.config.HttpMaxConcurrency; i++ {
+			dataWg.Add(1)
+			go c.getLibStats(dataWg, inChan, outChan)
 		}
-		// if no data from API returns no counts, nothing to do
-		// i mean technically there can be no more files because of deletion but still other stats?
-		if shouldCollect {
-			getLibsPayload := getGeneralReqPayload("library")
-			allLibs := []TdarrLibraryInfo{}
-			err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to get library details")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-				return
-			}
 
-			// add for default all lib stats
-			allLibs = append(allLibs, TdarrLibraryInfo{
-				LibraryId: "",
-				Name:      "",
-			})
-
-			dataWg := &sync.WaitGroup{}
-			inChan := make(chan TdarrPieDataRequest, len(allLibs))
-			outChan := make(chan *TdarrPieStats, len(allLibs))
-			// start workers
-			for i := 0; i < c.config.HttpMaxConcurrency; i++ {
-				dataWg.Add(1)
-				go c.getLibStats(dataWg, inChan, outChan)
-			}
-
-			// send data to workers
-			for _, lib := range allLibs {
-				inChan <- TdarrPieDataRequest{
-					Data: struct {
-						LibraryId   string `json:"libraryId"`
-						libraryName string `json:"-"`
-					}{
-						LibraryId:   lib.LibraryId,
-						libraryName: lib.Name,
-					},
-				}
-			}
-
-			// close channel to signal workers to stop
-			close(inChan)
-
-			// wait for workers to finish
-			dataWg.Wait()
-
-			// partialFailure flag check + emit handled by deferred handler at Collect entry —
-			// ensures consistent signaling across all code paths (new API, old API, early returns).
-
-			// collect results
-			resultWg := &sync.WaitGroup{}
-			resultWg.Add(1)
-			go func() {
-				defer resultWg.Done()
-				for pie := range outChan {
-					pieData = append(pieData, pie)
-				}
-			}()
-
-			// close channel no longer needed
-			close(outChan)
-
-			// wait for results to be collected
-			resultWg.Wait()
-			log.Debug().Msg("All library stats gathered - setting cache")
-			c.statsCache.SetLibStats(pieData)
-
-			// set totals here after all data is collected
-			c.statsCache.SetTotals(tdarrCacheTotals{
-				totalFileCount:        metric.TotalFileCount,
-				totalTranscodeCount:   metric.TotalTranscodeCount,
-				totalHealthCheckCount: metric.TotalHealthCheckCount,
-				holdQueue:             metric.HoldQueue,
-				transcodeQueue:        metric.TranscodeQueue,
-				transcodeSuccess:      metric.TranscodeSuccess,
-				transcodeFailed:       metric.TranscodeFailed,
-				healthCheckQueue:      metric.HealthCheckQueue,
-				healthCheckSuccess:    metric.HealthCheckSuccess,
-				healthCheckFailed:     metric.HealthCheckFailed,
-			})
-		}
-	} else {
-		// old api support
-		// have to create a usable struct from tdarr's structured slice response (not an object with keys)
-		var (
-			transcodePie        []TdarrPieSlice
-			healthPie           []TdarrPieSlice
-			videoCodecsPie      []TdarrPieSlice
-			videoContainersPie  []TdarrPieSlice
-			videoResolutionsPie []TdarrPieSlice
-			audioCodecsPie      []TdarrPieSlice
-			audioContainersPie  []TdarrPieSlice
-			pieMetricsErr       error
-		)
-		for _, pie := range metric.Pies {
-			log.Debug().Interface("pie", pie).Msg("Pie data to be parsed")
-
-			// ensure the data inside each slice adheres to the expected format
-			if transcodePie, pieMetricsErr = getPieMetricsFields(pie[6].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[6].([]interface{})).Msg("Failed to get transcode pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if healthPie, pieMetricsErr = getPieMetricsFields(pie[7].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[7].([]interface{})).Msg("Failed to get health pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoCodecsPie, pieMetricsErr = getPieMetricsFields(pie[8].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[8].([]interface{})).Msg("Failed to get video codecs pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoContainersPie, pieMetricsErr = getPieMetricsFields(pie[9].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[9].([]interface{})).Msg("Failed to get video containers pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if videoResolutionsPie, pieMetricsErr = getPieMetricsFields(pie[10].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[10].([]interface{})).Msg("Failed to get video resolutions pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if audioCodecsPie, pieMetricsErr = getPieMetricsFields(pie[11].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[11].([]interface{})).Msg("Failed to get audio codecs pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-			if audioContainersPie, pieMetricsErr = getPieMetricsFields(pie[12].([]interface{})); pieMetricsErr != nil {
-				log.Error().Interface("rawData", pie[12].([]interface{})).Msg("Failed to get audio containers pie metrics")
-				ch <- prometheus.NewInvalidMetric(c.errorMetric, pieMetricsErr)
-			}
-
-			// if we don't change, it errors with duplicate label value in single metric with `library_name` label
-			libId := pie[1].(string)
-			if strings.ToLower(libId) == "all" {
-				libId = "all_libraries"
-			}
-
-			entry := &TdarrPieStats{
-				libraryName: pie[0].(string),
-				libraryId:   libId,
-				PieStats: TdarrPieStat{
-					// convert to int for now to support old api that is still in use
-					TotalFiles:            int(pie[2].(float64)),
-					TotalTranscodeCount:   int(pie[3].(float64)),
-					SizeDiff:              pie[4].(float64),
-					TotalHealthCheckCount: int(pie[5].(float64)),
-					Status: TdarrPieStatusSlice{
-						Transcode:   transcodePie,
-						HealthCheck: healthPie,
-					},
-					Video: TdarrPieVideoSlice{
-						Codecs:      videoCodecsPie,
-						Containers:  videoContainersPie,
-						Resolutions: videoResolutionsPie,
-					},
-					Audio: TdarrPieVideoSlice{
-						Codecs:     audioCodecsPie,
-						Containers: audioContainersPie,
-					},
+		// send data to workers
+		for _, lib := range allLibs {
+			inChan <- TdarrPieDataRequest{
+				Data: struct {
+					LibraryId   string `json:"libraryId"`
+					libraryName string `json:"-"`
+				}{
+					LibraryId:   lib.LibraryId,
+					libraryName: lib.Name,
 				},
 			}
-			normalizePieStatuses(entry, c.bumpUnknownStatus)
-			pieData = append(pieData, entry)
 		}
+
+		// close channel to signal workers to stop
+		close(inChan)
+
+		// wait for workers to finish
+		dataWg.Wait()
+
+		// collect results
+		resultWg := &sync.WaitGroup{}
+		resultWg.Add(1)
+		go func() {
+			defer resultWg.Done()
+			for pie := range outChan {
+				pieData = append(pieData, pie)
+			}
+		}()
+
+		// close channel no longer needed
+		close(outChan)
+
+		// wait for results to be collected
+		resultWg.Wait()
+		log.Debug().Msg("All library stats gathered - setting cache")
+		c.statsCache.SetLibStats(pieData)
+
+		// set totals here after all data is collected
+		c.statsCache.SetTotals(tdarrCacheTotals{
+			totalFileCount:        metric.TotalFileCount,
+			totalTranscodeCount:   metric.TotalTranscodeCount,
+			totalHealthCheckCount: metric.TotalHealthCheckCount,
+			holdQueue:             metric.HoldQueue,
+			transcodeQueue:        metric.TranscodeQueue,
+			transcodeSuccess:      metric.TranscodeSuccess,
+			transcodeFailed:       metric.TranscodeFailed,
+			healthCheckQueue:      metric.HealthCheckQueue,
+			healthCheckSuccess:    metric.HealthCheckSuccess,
+			healthCheckFailed:     metric.HealthCheckFailed,
+		})
 	}
 
 	// add metrics to collector
@@ -797,25 +710,6 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 	}
-}
-
-func getPieMetricsFields(data []interface{}) (pieSlice []TdarrPieSlice, err error) {
-	for _, metricDetail := range data {
-		currSlice := TdarrPieSlice{}
-		err = loadKeyValue(metricDetail, &currSlice)
-		if err != nil {
-			log.Error().Err(err).Interface("metricDetail", metricDetail).Msg("Failed to unmarshal pie slice data")
-			return
-		}
-		pieSlice = append(pieSlice, currSlice)
-	}
-	return
-}
-
-func loadKeyValue(data interface{}, target *TdarrPieSlice) (err error) {
-	bodyBytes, _ := json.Marshal(data)
-	err = json.Unmarshal(bodyBytes, &target)
-	return
 }
 
 func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {
