@@ -38,9 +38,7 @@ var knownHealthCheckStatuses = map[string]struct{}{
 //	"Queued"          -> "queued"
 func cleanTranscodeLabel(rawName string) string {
 	lower := strings.ToLower(rawName)
-	if strings.HasPrefix(lower, "transcode") {
-		lower = strings.TrimPrefix(lower, "transcode")
-	}
+	lower = strings.TrimPrefix(lower, "transcode")
 	return strings.TrimSpace(lower)
 }
 
