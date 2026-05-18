@@ -14,13 +14,17 @@ var knownTranscodeStatuses = map[string]struct{}{
 	"queued":       {},
 	"error":        {},
 	"success":      {},
+	"ignored":      {},
+	"cancelled":    {},
+	"hold":         {},
 }
 
 // knownHealthCheckStatuses is the finite set of cleaned health check status label values.
 var knownHealthCheckStatuses = map[string]struct{}{
-	"queued":  {},
-	"error":   {},
-	"success": {},
+	"queued":    {},
+	"error":     {},
+	"success":   {},
+	"cancelled": {},
 }
 
 // cleanTranscodeLabel converts a raw API transcode status name into the cleaned label value

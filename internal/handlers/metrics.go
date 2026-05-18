@@ -50,8 +50,8 @@ func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrIn
 	h := promhttp.HandlerFor(reg, opts)
 
 	return func(c *gin.Context) {
+		start := time.Now()
 		defer func() {
-			start := time.Now()
 			scrapDuration.Set(time.Since(start).Seconds())
 			requestCount.WithLabelValues(fmt.Sprintf("%d", c.Writer.Status())).Inc()
 		}()

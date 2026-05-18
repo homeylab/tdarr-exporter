@@ -35,14 +35,19 @@ type TdarrMetric struct {
 	HealthCheckScore string           `json:"healthCheckScore"`
 	AvgNumStreams    float64          `json:"avgNumberOfStreamsInVideo"`
 	StreamStats      TdarrStreamStats `json:"streamStats"`
-	// appears we can get below in other places and may not be necessary
-	// HoldQueue             int              `json:"table0Count"`
-	// TranscodeQueue int `json:"table1Count"`
-	// TranscodeSuccess      int              `json:"table2Count"`
-	// TranscodeFailed       int              `json:"table3Count"`
-	// HealthCheckQueue int `json:"table4Count"`
-	// HealthCheckSuccess    int              `json:"table5Count"`
-	// HealthCheckFailed     int              `json:"table6Count"`
+	// Per-bucket counts for cache invalidation. Returned by the StatisticsJSONDB cruddb endpoint.
+	// These map to Tdarr UI buckets: table0=Hold, table1=Transcode queue,
+	// table2=Transcode success+not required, table3=Transcode error+cancelled,
+	// table4=Health check queue, table5=Health check healthy, table6=Health check error+cancelled.
+	// Older Tdarr versions may omit these fields; Go's JSON decoder defaults them to 0,
+	// which means 0==0 comparisons never trigger spurious refetches (graceful degradation).
+	HoldQueue          int `json:"table0Count"`
+	TranscodeQueue     int `json:"table1Count"`
+	TranscodeSuccess   int `json:"table2Count"` // includes "not required" per Tdarr UI grouping
+	TranscodeFailed    int `json:"table3Count"` // includes "cancelled"
+	HealthCheckQueue   int `json:"table4Count"`
+	HealthCheckSuccess int `json:"table5Count"`
+	HealthCheckFailed  int `json:"table6Count"` // includes "cancelled"
 }
 
 // new api `api/v2/stats/get-pies` support
@@ -177,4 +182,11 @@ type tdarrCacheTotals struct {
 	totalFileCount        int
 	totalTranscodeCount   int
 	totalHealthCheckCount int
+	holdQueue             int
+	transcodeQueue        int
+	transcodeSuccess      int
+	transcodeFailed       int
+	healthCheckQueue      int
+	healthCheckSuccess    int
+	healthCheckFailed     int
 }

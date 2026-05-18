@@ -67,12 +67,7 @@ type TdarrLibStatsCache struct {
 
 func NewTdarrLibStatsCache() *TdarrLibStatsCache {
 	return &TdarrLibStatsCache{
-		// if any of these overall counts change, we need to re-fetch all library stats
-		totals: tdarrCacheTotals{
-			totalFileCount:        0,
-			totalTranscodeCount:   0,
-			totalHealthCheckCount: 0,
-		},
+		totals:       tdarrCacheTotals{},
 		libraryStats: nil,
 	}
 }
@@ -424,16 +419,22 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		cacheTotals := c.statsCache.GetTotals()
 		// if total counts has changed from cache and cache is populated, need to re-collect
 		// also collect if cache is empty (first run)
-		if cacheTotals.totalFileCount != metric.TotalFileCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedFileCount", cacheTotals.totalFileCount).Int("apiFileCount", metric.TotalFileCount).Msg("Total files mismatch - gathering metrics")
-			shouldCollect = true
-		}
-		if cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedTranscodeCount", cacheTotals.totalTranscodeCount).Int("apiTranscodeCount", metric.TotalTranscodeCount).Msg("Total transcodes mismatch - gathering metrics")
-			shouldCollect = true
-		}
-		if cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount || c.statsCache.libraryStats == nil {
-			log.Debug().Int("cachedHealthCount", cacheTotals.totalHealthCheckCount).Int("apiHealthCount", metric.TotalHealthCheckCount).Msg("Total healthcheck mismatch - gathering metrics")
+		// Compare all 10 totals. table0Count–table6Count cover every per-bucket state transition
+		// (e.g. files queued but not yet transcoded), catching invalidation cases the three top-level
+		// counts miss. Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means
+		// no spurious refetches — behavior degrades gracefully to original 3-totals logic.
+		if c.statsCache.libraryStats == nil ||
+			cacheTotals.totalFileCount != metric.TotalFileCount ||
+			cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount ||
+			cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount ||
+			cacheTotals.holdQueue != metric.HoldQueue ||
+			cacheTotals.transcodeQueue != metric.TranscodeQueue ||
+			cacheTotals.transcodeSuccess != metric.TranscodeSuccess ||
+			cacheTotals.transcodeFailed != metric.TranscodeFailed ||
+			cacheTotals.healthCheckQueue != metric.HealthCheckQueue ||
+			cacheTotals.healthCheckSuccess != metric.HealthCheckSuccess ||
+			cacheTotals.healthCheckFailed != metric.HealthCheckFailed {
+			log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
 			shouldCollect = true
 		}
 		// if counts are the same use cache
@@ -511,8 +512,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			// set totals here after all data is collected
 			c.statsCache.SetTotals(tdarrCacheTotals{
 				totalFileCount:        metric.TotalFileCount,
-				totalHealthCheckCount: metric.TotalHealthCheckCount,
 				totalTranscodeCount:   metric.TotalTranscodeCount,
+				totalHealthCheckCount: metric.TotalHealthCheckCount,
+				holdQueue:             metric.HoldQueue,
+				transcodeQueue:        metric.TranscodeQueue,
+				transcodeSuccess:      metric.TranscodeSuccess,
+				transcodeFailed:       metric.TranscodeFailed,
+				healthCheckQueue:      metric.HealthCheckQueue,
+				healthCheckSuccess:    metric.HealthCheckSuccess,
+				healthCheckFailed:     metric.HealthCheckFailed,
 			})
 		}
 	} else {
