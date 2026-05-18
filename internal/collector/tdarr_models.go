@@ -55,6 +55,12 @@ type TdarrPieStats struct {
 	PieStats    TdarrPieStat `json:"pieStats"`
 	libraryName string
 	libraryId   string
+	// NormalizedTranscodes maps cleaned transcode status labels to counts.
+	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
+	NormalizedTranscodes map[string]int
+	// NormalizedHealthChecks maps cleaned health check status labels to counts.
+	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
+	NormalizedHealthChecks map[string]int
 }
 
 type TdarrPieStat struct {

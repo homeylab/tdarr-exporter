@@ -2,9 +2,11 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -16,9 +18,18 @@ var (
 	METRIC_PREFIX = "tdarr"
 )
 
+// unknownStatusKey identifies a unique (kind, status) pair for the unknown-status counter.
+type unknownStatusKey struct {
+	kind   string
+	status string
+}
+
 type TdarrCollector struct {
 	config                config.Config
 	statsCache            *TdarrLibStatsCache
+	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
+	unknownStatusMu       sync.Mutex
+	unknownStatusCounts   map[unknownStatusKey]float64 // monotonic counter for enum drift detection
 	totalFilesMetric      *prometheus.Desc
 	totalTranscodeCount   *prometheus.Desc
 	totalHealthCheckCount *prometheus.Desc
@@ -40,6 +51,7 @@ type TdarrCollector struct {
 	pieVideoResolutions   *prometheus.Desc
 	pieAudioCodecs        *prometheus.Desc
 	pieAudioContainers    *prometheus.Desc
+	unknownStatusTotal    *prometheus.Desc // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
 }
@@ -92,8 +104,9 @@ func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
 // collector
 func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 	return &TdarrCollector{
-		config:     runConfig,
-		statsCache: NewTdarrLibStatsCache(),
+		config:              runConfig,
+		statsCache:          NewTdarrLibStatsCache(),
+		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "files_total"),
 			"Tdarr total file count - includes files in ignore lists within each library",
@@ -220,9 +233,18 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"library_name", "library_id", "container_type"},
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
+		unknownStatusTotal: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "unknown_status_total"),
+			"Count of pie status values not in the known enum, by kind (transcode|healthcheck) and status label. "+
+				"A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. "+
+				"Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.",
+			[]string{"kind", "status"},
+			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+		),
 		errorMetric: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
-			"Error while collecting metrics",
+			"1 if exporter failed to fetch from Tdarr API on last scrape (including partial pie-stats failures), "+
+				"0 otherwise. Distinct from prometheus 'up' metric which indicates exporter reachability.",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
@@ -251,6 +273,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.pieVideoResolutions
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
+	ch <- c.unknownStatusTotal
 	ch <- c.nodeCollector.metrics.nodeInfo
 	ch <- c.nodeCollector.metrics.nodeUptime
 	ch <- c.nodeCollector.metrics.nodeHeapUsedMb
@@ -288,6 +311,15 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, targ
 	return nil
 }
 
+// bumpUnknownStatus increments the persistent unknown-status counter for the given kind and status.
+// Safe for concurrent use from multiple getLibStats goroutines.
+func (c *TdarrCollector) bumpUnknownStatus(kind, status string) {
+	key := unknownStatusKey{kind: kind, status: status}
+	c.unknownStatusMu.Lock()
+	c.unknownStatusCounts[key]++
+	c.unknownStatusMu.Unlock()
+}
+
 // support concurrency
 func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
 	defer wg.Done()
@@ -297,6 +329,10 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
+			// Signal partial failure so Collect() can emit tdarr_collector_error.
+			// Previously-cached normalized data for this library is preserved (acceptable:
+			// last-known zero-padded series keep emitting while tdarr_collector_error signals the issue).
+			c.partialFailure.Store(true)
 			continue
 		}
 		pieMetric.libraryName = piePayload.Data.libraryName
@@ -309,6 +345,10 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		if pieMetric.libraryId == "" {
 			pieMetric.libraryId = "all_libraries"
 		}
+		// Normalize status slices to cleaned-label maps covering the full known enum.
+		// This ensures zero values are emitted for all known statuses even when Tdarr
+		// omits them from the response (Tdarr only returns non-zero counts).
+		normalizePieStatuses(pieMetric, c.bumpUnknownStatus)
 		outChan <- pieMetric
 	}
 }
@@ -423,6 +463,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			// wait for workers to finish
 			dataWg.Wait()
 
+			// If any per-library fetch failed, signal via tdarr_collector_error so users can
+			// detect partial data. The flag is reset here so the next scrape starts clean.
+			if c.partialFailure.Swap(false) {
+				ch <- prometheus.NewInvalidMetric(c.errorMetric, errors.New("partial pie fetch failure: one or more library stats could not be retrieved"))
+			}
+
 			// collect results
 			resultWg := &sync.WaitGroup{}
 			resultWg.Add(1)
@@ -500,11 +546,11 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				libId = "all_libraries"
 			}
 
-			pieData = append(pieData, &TdarrPieStats{
+			entry := &TdarrPieStats{
 				libraryName: pie[0].(string),
 				libraryId:   libId,
 				PieStats: TdarrPieStat{
-					// convert to int for now to support old api that is still in usee
+					// convert to int for now to support old api that is still in use
 					TotalFiles:            int(pie[2].(float64)),
 					TotalTranscodeCount:   int(pie[3].(float64)),
 					SizeDiff:              pie[4].(float64),
@@ -523,7 +569,9 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 						Containers: audioContainersPie,
 					},
 				},
-			})
+			}
+			normalizePieStatuses(entry, c.bumpUnknownStatus)
+			pieData = append(pieData, entry)
 		}
 	}
 
@@ -549,21 +597,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
 		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
 		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
-		for _, pieSlice := range pie.PieStats.Status.Transcode {
-			var labelName string
-			statusName := strings.ToLower(pieSlice.Name)
-			if strings.HasPrefix(statusName, "transcode") {
-				// remove the Transcode prefix
-				labelName = cleanUpTranscodeStatus(statusName, true)
-			} else {
-				labelName = cleanUpTranscodeStatus(statusName, false)
-			}
-			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.libraryName, pie.libraryId, labelName)
+		// Emit transcode statuses from the normalized map (pre-cleaned labels, full enum coverage).
+		for status, count := range pie.NormalizedTranscodes {
+			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(count),
+				pie.libraryName, pie.libraryId, status)
 		}
-		for _, pieSlice := range pie.PieStats.Status.HealthCheck {
-			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(pieSlice.Value),
-				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
+		// Emit health check statuses from the normalized map (pre-cleaned labels, full enum coverage).
+		for status, count := range pie.NormalizedHealthChecks {
+			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(count),
+				pie.libraryName, pie.libraryId, status)
 		}
 		for _, pieSlice := range pie.PieStats.Video.Codecs {
 			ch <- prometheus.MustNewConstMetric(c.pieVideoCodecs, prometheus.GaugeValue, float64(pieSlice.Value),
@@ -586,6 +628,15 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 				pie.libraryName, pie.libraryId, strings.ToLower(pieSlice.Name))
 		}
 	}
+
+	// Emit unknown-status counters (monotonically increasing across scrapes).
+	// A non-zero value means Tdarr returned a status label the exporter did not pre-init zeros for.
+	c.unknownStatusMu.Lock()
+	for key, count := range c.unknownStatusCounts {
+		ch <- prometheus.MustNewConstMetric(c.unknownStatusTotal, prometheus.CounterValue, count,
+			key.kind, key.status)
+	}
+	c.unknownStatusMu.Unlock()
 
 	// get all node metrics
 	nodeData, err := c.nodeCollector.GetNodeData()
