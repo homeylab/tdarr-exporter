@@ -94,7 +94,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Filters by Prometheus job, not tdarr_instance \u2014 multi-deployment users may see all jobs.",
+      "description": "Filters by Prometheus job, not tdarr_instance — multi-deployment users may see all jobs.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -162,7 +162,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "up{job=~\"tdarr.*\"}",
+          "expr": "up{job=~\".*tdarr.*\"}",
           "instant": true,
           "legendFormat": "{{job}}",
           "refId": "A"
@@ -176,6 +176,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Custom gauge — 1 if the last collection cycle succeeded, 0 if any failure occurred (Tdarr API error, response parse error, or partial pie-stats fetch). Check exporter logs for root cause when 0.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -185,14 +186,14 @@
             {
               "options": {
                 "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAIL"
+                },
+                "1": {
                   "color": "green",
                   "index": 0,
                   "text": "OK"
-                },
-                "1": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "ERROR"
                 }
               },
               "type": "value"
@@ -202,11 +203,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "green",
                 "value": 1
               }
             ]
@@ -243,13 +244,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_collector_error",
+          "expr": "tdarr_up{tdarr_instance=~\"$tdarr_instance\"}",
           "instant": true,
-          "legendFormat": "collector error",
+          "legendFormat": "{{tdarr_instance}}",
           "refId": "A"
         }
       ],
-      "title": "Collector Error",
+      "title": "Tdarr Collector Success",
       "type": "stat"
     },
     {
@@ -313,7 +314,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_scrape_duration_seconds",
+          "expr": "tdarr_scrape_duration_seconds{tdarr_instance=~\"$tdarr_instance\"}",
           "instant": false,
           "range": true,
           "legendFormat": "scrape duration",
@@ -328,6 +329,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Rate of /metrics endpoint requests returning non-2xx/3xx (handler errors, misroutes, panics). Distinct from Tdarr API failures.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -403,13 +405,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(tdarr_unknown_status_total[24h]))",
+          "expr": "sum(rate(tdarr_scrape_requests_total{tdarr_instance=~\"$tdarr_instance\",code!~\"2..\"}[5m]))",
           "instant": true,
-          "legendFormat": "unknown status drift",
+          "legendFormat": "handler errors",
           "refId": "A"
         }
       ],
-      "title": "Unknown Status Drift (24h)",
+      "title": "Handler Errors (5m)",
       "type": "stat"
     },
     {
@@ -2458,9 +2460,43 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "thresholds"
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               },
               "mappings": [],
+              "max": 100,
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -2490,18 +2526,16 @@
           },
           "id": 51,
           "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
             },
-            "textMode": "auto"
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
           },
           "pluginVersion": "11.0.0",
           "targets": [
@@ -2519,7 +2553,7 @@
             }
           ],
           "title": "Host CPU %",
-          "type": "stat"
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -2777,57 +2811,94 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #A"
+              "options": "Progress %"
             },
             "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value #B"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Progress %"
-              },
               {
                 "id": "unit",
                 "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 25
+                    },
+                    {
+                      "color": "green",
+                      "value": 75
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #C"
+              "options": "FPS"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "FPS"
-              },
               {
                 "id": "unit",
                 "value": "short"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 1000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #D"
+              "options": "ETA"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "ETA"
-              },
               {
                 "id": "unit",
                 "value": "s"
@@ -2837,13 +2908,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #E"
+              "options": "Orig Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Orig Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -2853,13 +2920,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #F"
+              "options": "Est Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Est Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -2869,13 +2932,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #G"
+              "options": "Out Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Out Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -2885,13 +2944,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #H"
+              "options": "Job Start"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Job Start"
-              },
               {
                 "id": "unit",
                 "value": "dateTimeFromNow"
@@ -3012,7 +3067,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3024,7 +3079,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3036,7 +3091,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3048,7 +3103,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3060,7 +3115,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3072,7 +3127,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3084,7 +3139,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3094,8 +3149,37 @@
       "title": "Flow Workers",
       "transformations": [
         {
-          "id": "merge",
-          "options": {}
+          "id": "joinByField",
+          "options": {
+            "byField": "worker_id",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "worker_id",
+                "node_name",
+                "worker_type",
+                "worker_status",
+                "worker_file",
+                "worker_plugin_id",
+                "worker_plugin_position",
+                "worker_idle",
+                "worker_connected",
+                "flow_worker",
+                "Value #B",
+                "Value #C",
+                "Value #D",
+                "Value #E",
+                "Value #F",
+                "Value #G",
+                "Value #H"
+              ]
+            }
+          }
         },
         {
           "id": "organize",
@@ -3106,17 +3190,29 @@
               "node_name": 1,
               "worker_type": 2,
               "worker_status": 3,
-              "worker_idle": 4,
-              "worker_file": 5,
-              "Value #B": 6,
-              "Value #C": 7,
-              "Value #D": 8,
-              "Value #E": 9,
-              "Value #F": 10,
-              "Value #G": 11,
-              "Value #H": 12
+              "worker_file": 4,
+              "worker_plugin_id": 5,
+              "worker_plugin_position": 6,
+              "flow_worker": 7,
+              "worker_idle": 8,
+              "worker_connected": 9,
+              "Value #B": 10,
+              "Value #C": 11,
+              "Value #D": 12,
+              "Value #E": 13,
+              "Value #F": 14,
+              "Value #G": 15,
+              "Value #H": 16
             },
-            "renameByName": {}
+            "renameByName": {
+              "Value #B": "Progress %",
+              "Value #C": "FPS",
+              "Value #D": "ETA",
+              "Value #E": "Orig Size (GB)",
+              "Value #F": "Est Size (GB)",
+              "Value #G": "Out Size (GB)",
+              "Value #H": "Job Start"
+            }
           }
         }
       ],
@@ -3154,57 +3250,94 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #A"
+              "options": "Progress %"
             },
             "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value #B"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Progress %"
-              },
               {
                 "id": "unit",
                 "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 25
+                    },
+                    {
+                      "color": "green",
+                      "value": 75
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #C"
+              "options": "FPS"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "FPS"
-              },
               {
                 "id": "unit",
                 "value": "short"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 1000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #D"
+              "options": "ETA"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "ETA"
-              },
               {
                 "id": "unit",
                 "value": "s"
@@ -3214,13 +3347,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #E"
+              "options": "Orig Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Orig Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3230,13 +3359,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #F"
+              "options": "Est Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Est Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3246,13 +3371,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #G"
+              "options": "Out Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Out Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3262,13 +3383,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #H"
+              "options": "Job Start"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Job Start"
-              },
               {
                 "id": "unit",
                 "value": "dateTimeFromNow"
@@ -3365,7 +3482,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3377,7 +3494,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3389,7 +3506,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3401,7 +3518,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3413,7 +3530,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3425,7 +3542,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3437,7 +3554,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3447,8 +3564,37 @@
       "title": "Classic Plugin Workers",
       "transformations": [
         {
-          "id": "merge",
-          "options": {}
+          "id": "joinByField",
+          "options": {
+            "byField": "worker_id",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "worker_id",
+                "node_name",
+                "worker_type",
+                "worker_status",
+                "worker_file",
+                "worker_plugin_id",
+                "worker_plugin_position",
+                "worker_idle",
+                "worker_connected",
+                "flow_worker",
+                "Value #B",
+                "Value #C",
+                "Value #D",
+                "Value #E",
+                "Value #F",
+                "Value #G",
+                "Value #H"
+              ]
+            }
+          }
         },
         {
           "id": "organize",
@@ -3459,19 +3605,29 @@
               "node_name": 1,
               "worker_type": 2,
               "worker_status": 3,
-              "worker_idle": 4,
+              "worker_file": 4,
               "worker_plugin_id": 5,
               "worker_plugin_position": 6,
-              "worker_file": 7,
-              "Value #B": 8,
-              "Value #C": 9,
-              "Value #D": 10,
-              "Value #E": 11,
-              "Value #F": 12,
-              "Value #G": 13,
-              "Value #H": 14
+              "flow_worker": 7,
+              "worker_idle": 8,
+              "worker_connected": 9,
+              "Value #B": 10,
+              "Value #C": 11,
+              "Value #D": 12,
+              "Value #E": 13,
+              "Value #F": 14,
+              "Value #G": 15,
+              "Value #H": 16
             },
-            "renameByName": {}
+            "renameByName": {
+              "Value #B": "Progress %",
+              "Value #C": "FPS",
+              "Value #D": "ETA",
+              "Value #E": "Orig Size (GB)",
+              "Value #F": "Est Size (GB)",
+              "Value #G": "Out Size (GB)",
+              "Value #H": "Job Start"
+            }
           }
         }
       ],
@@ -3509,57 +3665,94 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #A"
+              "options": "Progress %"
             },
             "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value #B"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Progress %"
-              },
               {
                 "id": "unit",
                 "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 25
+                    },
+                    {
+                      "color": "green",
+                      "value": 75
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #C"
+              "options": "FPS"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "FPS"
-              },
               {
                 "id": "unit",
                 "value": "short"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 100
+                    },
+                    {
+                      "color": "green",
+                      "value": 1000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #D"
+              "options": "ETA"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "ETA"
-              },
               {
                 "id": "unit",
                 "value": "s"
@@ -3569,13 +3762,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #E"
+              "options": "Orig Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Orig Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3585,13 +3774,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #F"
+              "options": "Est Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Est Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3601,13 +3786,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #G"
+              "options": "Out Size (GB)"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Out Size (GB)"
-              },
               {
                 "id": "unit",
                 "value": "decgbytes"
@@ -3617,13 +3798,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Value #H"
+              "options": "Job Start"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Job Start"
-              },
               {
                 "id": "unit",
                 "value": "dateTimeFromNow"
@@ -3744,7 +3921,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3756,7 +3933,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3768,7 +3945,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3780,7 +3957,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3792,7 +3969,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3804,7 +3981,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3816,7 +3993,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -3826,8 +4003,37 @@
       "title": "Health Check Workers",
       "transformations": [
         {
-          "id": "merge",
-          "options": {}
+          "id": "joinByField",
+          "options": {
+            "byField": "worker_id",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "worker_id",
+                "node_name",
+                "worker_type",
+                "worker_status",
+                "worker_file",
+                "worker_plugin_id",
+                "worker_plugin_position",
+                "worker_idle",
+                "worker_connected",
+                "flow_worker",
+                "Value #B",
+                "Value #C",
+                "Value #D",
+                "Value #E",
+                "Value #F",
+                "Value #G",
+                "Value #H"
+              ]
+            }
+          }
         },
         {
           "id": "organize",
@@ -3838,17 +4044,29 @@
               "node_name": 1,
               "worker_type": 2,
               "worker_status": 3,
-              "worker_idle": 4,
-              "worker_file": 5,
-              "Value #B": 6,
-              "Value #C": 7,
-              "Value #D": 8,
-              "Value #E": 9,
-              "Value #F": 10,
-              "Value #G": 11,
-              "Value #H": 12
+              "worker_file": 4,
+              "worker_plugin_id": 5,
+              "worker_plugin_position": 6,
+              "flow_worker": 7,
+              "worker_idle": 8,
+              "worker_connected": 9,
+              "Value #B": 10,
+              "Value #C": 11,
+              "Value #D": 12,
+              "Value #E": 13,
+              "Value #F": 14,
+              "Value #G": 15,
+              "Value #H": 16
             },
-            "renameByName": {}
+            "renameByName": {
+              "Value #B": "Progress %",
+              "Value #C": "FPS",
+              "Value #D": "ETA",
+              "Value #E": "Orig Size (GB)",
+              "Value #F": "Est Size (GB)",
+              "Value #G": "Out Size (GB)",
+              "Value #H": "Job Start"
+            }
           }
         }
       ],
@@ -3863,7 +4081,7 @@
         "y": 72
       },
       "id": 32,
-      "title": "Per-Worker History",
+      "title": "Fleet Activity",
       "type": "row"
     },
     {
@@ -3909,8 +4127,6 @@
             }
           },
           "mappings": [],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -3920,7 +4136,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -3951,14 +4167,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (node_name, type) (tdarr_node_worker_count{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
           "instant": false,
           "range": true,
-          "legendFormat": "{{worker_id}}",
+          "legendFormat": "{{node_name}} / {{type}}",
           "refId": "A"
         }
       ],
-      "title": "Worker Progress (%)",
+      "title": "Active Workers by Type",
       "type": "timeseries"
     },
     {
@@ -4044,14 +4260,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "expr": "sum by (node_name, type) (tdarr_node_queue_length{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
           "instant": false,
           "range": true,
-          "legendFormat": "{{worker_id}}",
+          "legendFormat": "{{node_name}} / {{type}}",
           "refId": "A"
         }
       ],
-      "title": "Worker FPS",
+      "title": "Queue Depth by Type",
       "type": "timeseries"
     },
     {
@@ -4106,10 +4322,11 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
+      "description": "Sum of all active worker FPS. Variance reflects content mix (4K HDR vs 720p), but trend over time indicates fleet encoding throughput.",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -4137,10 +4354,292 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
+          "expr": "sum(tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
+          "instant": false,
+          "range": true,
+          "legendFormat": "total fps",
+          "refId": "A"
+        }
+      ],
+      "title": "Fleet Throughput (FPS)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Per-worker progress percentage over time. Useful for spotting stuck workers.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 81
+      },
+      "id": 56,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{node_name}} / {{worker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Worker Progress (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Per-worker frames-per-second over time. Complements fleet throughput by surfacing individual worker performance degradation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 81
+      },
+      "id": 57,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+          "instant": false,
+          "range": true,
+          "legendFormat": "{{node_name}} / {{worker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Worker FPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Per-worker estimated time remaining over time. Useful for tracking long-running encodes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 81
+      },
+      "id": 58,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
           "expr": "tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
           "instant": false,
           "range": true,
-          "legendFormat": "{{worker_id}}",
+          "legendFormat": "{{node_name}} / {{worker_id}}",
           "refId": "A"
         }
       ],
@@ -4153,7 +4652,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 81
+        "y": 89
       },
       "id": 36,
       "title": "Library History",
@@ -4218,7 +4717,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 82
+        "y": 90
       },
       "id": 37,
       "options": {
@@ -4310,7 +4809,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 82
+        "y": 90
       },
       "id": 38,
       "options": {
@@ -4349,51 +4848,27 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 90
+        "y": 98
       },
-      "id": 39,
+      "id": 54,
       "panels": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Counter bumps when Tdarr returns a status string not in the exporter's known enum. Non-zero values indicate Tdarr added/renamed a status — file an issue at homeylab/tdarr-exporter to update the enum. Status is still emitted under a normalized label; this is a maintainer signal, not an operator alert.",
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "thresholds"
               },
               "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
                 },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
+                "inspect": false
               },
               "mappings": [],
               "thresholds": {
@@ -4406,26 +4881,87 @@
                 ]
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "tdarr_instance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "job"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "instance"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "__name__"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 107
+            "y": 99
           },
-          "id": 40,
+          "id": 55,
           "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
             },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
+            "showHeader": true
           },
           "pluginVersion": "11.0.0",
           "targets": [
@@ -4435,18 +4971,39 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (kind, status) (rate(tdarr_unknown_status_total[$__rate_interval]))",
-              "instant": false,
-              "range": true,
-              "legendFormat": "{{kind}}: {{status}}",
+              "expr": "tdarr_unknown_status_total{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "",
               "refId": "A"
             }
           ],
-          "title": "Unknown Status Drift Rate",
-          "type": "timeseries"
+          "title": "Unknown Tdarr Statuses",
+          "transformations": [
+            {
+              "id": "labelsToFields",
+              "options": {
+                "keepLabels": ["kind", "status"],
+                "mode": "columns",
+                "valueLabel": ""
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "kind": 0,
+                  "status": 1,
+                  "Value": 2
+                },
+                "renameByName": {}
+              }
+            }
+          ],
+          "type": "table"
         }
       ],
-      "title": "Diagnostics",
+      "title": "Debug / API Drift",
       "type": "row"
     }
   ],
@@ -4477,7 +5034,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(tdarr_node_info, tdarr_instance)",
+        "definition": "label_values(tdarr_up, tdarr_instance)",
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
@@ -4485,7 +5042,7 @@
         "name": "tdarr_instance",
         "options": [],
         "query": {
-          "query": "label_values(tdarr_node_info, tdarr_instance)",
+          "query": "label_values(tdarr_up, tdarr_instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -4511,7 +5068,7 @@
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
-        "regex": "",
+        "regex": "/^(?!all$).+/",
         "sort": 1,
         "type": "query"
       },
