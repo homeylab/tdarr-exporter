@@ -36,6 +36,22 @@ update_dep:
 lint:
 	golangci-lint run
 
+test:
+	go test ./... -count=1
+
+test_verbose:
+	go test ./... -v -count=1
+
+test_race:
+	go test ./... -race -count=1
+
+test_cover:
+	go test ./... -count=1 -coverprofile=coverage.out
+	go tool cover -func=coverage.out
+
+test_collector:
+	go test ./internal/collector/... -v -count=1
+
 local_run:
 	go run cmd/exporter/main.go --url=${TDARR_TEST_URL}
 

@@ -4,7 +4,7 @@ ARG BASE_IMAGE_TAG=1.23.5-alpine
 ARG RUN_IMAGE=gcr.io/distroless/static
 ARG RUN_IMAGE_TAG=nonroot
 
-FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} as builder
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS builder
 
 # Reference: https://gist.github.com/asukakenji/f15ba7e588ac42795f421b48b8aede63
 # TARGETOS = GOOS (Go Operating System) target

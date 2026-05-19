@@ -2,7 +2,6 @@ package collector
 
 import (
 	"encoding/json"
-	"errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,7 +52,7 @@ type TdarrCollector struct {
 	pieAudioContainers    *prometheus.Desc
 	unknownStatusTotal    *prometheus.Desc    // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
-	errorMetric           *prometheus.Desc    // Error Description for use with InvalidMetric
+	upMetric              *prometheus.Desc
 }
 
 // Cache to store library stats and reduce excessive API calls
@@ -236,10 +235,10 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			[]string{"kind", "status"},
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
-		errorMetric: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "collector_error"),
-			"1 if exporter failed to fetch from Tdarr API on last scrape (including partial pie-stats failures), "+
-				"0 otherwise. Distinct from prometheus 'up' metric which indicates exporter reachability.",
+		upMetric: prometheus.NewDesc(
+			prometheus.BuildFQName(METRIC_PREFIX, "", "up"),
+			"1 if the last collection cycle succeeded, 0 otherwise (Tdarr API error, response parse error, or partial pie-stats fetch). "+
+				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
@@ -270,6 +269,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.pieAudioCodecs
 	ch <- c.pieAudioContainers
 	ch <- c.unknownStatusTotal
+	ch <- c.upMetric
 	ch <- c.nodeCollector.metrics.nodeInfo
 	ch <- c.nodeCollector.metrics.nodeUptime
 	ch <- c.nodeCollector.metrics.nodeHeapUsedMb
@@ -339,9 +339,9 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
-			// Signal partial failure so Collect() can emit tdarr_collector_error.
+			// Signal partial failure so Collect() can set tdarr_up=0.
 			// Previously-cached normalized data for this library is preserved (acceptable:
-			// last-known zero-padded series keep emitting while tdarr_collector_error signals the issue).
+			// last-known zero-padded series keep emitting while tdarr_up signals the issue).
 			c.partialFailure.Store(true)
 			continue
 		}
@@ -364,22 +364,23 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
-	// Reset partialFailure flag at end of every scrape regardless of code path.
-	// Flag is set by getLibStats workers during pie fan-out. Defer guarantees the
-	// flag never leaks across scrapes even if early returns skip the in-path reset.
-	defer func() {
-		if c.partialFailure.Swap(false) {
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, errors.New("partial pie fetch failure: one or more library stats could not be retrieved"))
-		}
-	}()
+	err := c.collect(ch)
+	// Always reset partialFailure flag — must NOT short-circuit via OR or the flag leaks across scrapes.
+	partial := c.partialFailure.Swap(false)
+	v := 1.0
+	if err != nil || partial {
+		v = 0.0
+	}
+	ch <- prometheus.MustNewConstMetric(c.upMetric, prometheus.GaugeValue, v)
+}
 
+func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
 	err := c.httpReqHelper(c.config.TdarrStatsPath, metricReqBody, &metric)
 	if err != nil {
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-		return
+		return err
 	}
 
 	log.Debug().Int("totalFiles", metric.TotalFileCount).
@@ -398,14 +399,12 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	score, floatConvertErr = strconv.ParseFloat(metric.TdarrScore, 64)
 	if floatConvertErr != nil {
 		log.Error().Str("tdarrScoreStr", metric.TdarrScore).Err(floatConvertErr).Msg("Failed to convert a tdarr score to float")
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, floatConvertErr)
-		return
+		return floatConvertErr
 	}
 	healthScore, floatConvertErr = strconv.ParseFloat(metric.HealthCheckScore, 64)
 	if floatConvertErr != nil {
 		log.Error().Str("healthCodeStr", metric.HealthCheckScore).Err(floatConvertErr).Msg("Failed to convert a health score to float")
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, floatConvertErr)
-		return
+		return floatConvertErr
 	}
 
 	// supports only api versions: v2.24.01+
@@ -446,8 +445,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get library details")
-			ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-			return
+			return err
 		}
 
 		// add for default all lib stats
@@ -583,8 +581,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// get all node metrics
 	nodeData, err := c.nodeCollector.GetNodeData()
 	if err != nil {
-		ch <- prometheus.NewInvalidMetric(c.errorMetric, err)
-		return
+		return err
 	}
 	// get worker data for each node
 
@@ -710,6 +707,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 	}
+	return nil
 }
 
 func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {
