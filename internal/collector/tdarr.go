@@ -347,13 +347,17 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 		}
 		pieMetric.libraryName = piePayload.Data.libraryName
 		pieMetric.libraryId = piePayload.Data.LibraryId
-		// if no name, set to all
-		if pieMetric.libraryName == "" {
-			pieMetric.libraryName = "all"
-		}
-		// if no id, set to all
-		if pieMetric.libraryId == "" {
-			pieMetric.libraryId = "all_libraries"
+		// Defensive skip: never emit a library series with an empty id or name.
+		// The synthetic aggregate sentinel has been removed; use sum() across
+		// per-library series in dashboards/queries instead. Tdarr's cruddb
+		// response always populates _id and name for real libraries, so this
+		// branch should never fire — log loudly if it does.
+		if pieMetric.libraryId == "" || pieMetric.libraryName == "" {
+			log.Warn().
+				Str("libraryId", pieMetric.libraryId).
+				Str("libraryName", pieMetric.libraryName).
+				Msg("Tdarr returned library with empty id or name; dropping series")
+			continue
 		}
 		// Normalize status slices to cleaned-label maps covering the full known enum.
 		// This ensures zero values are emitted for all known statuses even when Tdarr
@@ -447,12 +451,6 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 			log.Error().Err(err).Msg("Failed to get library details")
 			return err
 		}
-
-		// add for default all lib stats
-		allLibs = append(allLibs, TdarrLibraryInfo{
-			LibraryId: "",
-			Name:      "",
-		})
 
 		dataWg := &sync.WaitGroup{}
 		inChan := make(chan TdarrPieDataRequest, len(allLibs))
