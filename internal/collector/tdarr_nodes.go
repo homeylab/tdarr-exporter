@@ -42,7 +42,7 @@ type TdarrNodeMetrics struct {
 	nodePaused          *prometheus.Desc
 	nodeMaxGpuWorkers   *prometheus.Desc
 	nodeScheduleEnabled *prometheus.Desc
-	// per-type node gauges (type label = transcodecpu|transcodegpu|healthcheckcpu|healthcheckgpu)
+	// per-type node gauges (worker_type label = transcodecpu|transcodegpu|healthcheckcpu|healthcheckgpu)
 	nodeWorkerCount *prometheus.Desc
 	nodeWorkerLimit *prometheus.Desc
 	nodeQueueLength *prometheus.Desc
@@ -68,7 +68,7 @@ type TdarrNodeCollector struct {
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	nodeLabelPair := []string{"node_id", "node_name"}
-	nodeTypeLabelPair := []string{"node_id", "node_name", "type"}
+	nodeTypeLabelPair := []string{"node_id", "node_name", "worker_type"}
 	workerLabelPair := []string{"node_id", "node_name", "worker_id"}
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
@@ -77,7 +77,7 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_info"),
 			"Tdarr node identity information",
 			[]string{"node_id", "node_name", "gpu_select", "node_pid", "node_priority",
-				"allow_gpu_do_cpu", "node_paused"},
+				"gpu_can_do_cpu"},
 			instance,
 		),
 		nodeUptime: prometheus.NewDesc(

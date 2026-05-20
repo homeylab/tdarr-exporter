@@ -229,10 +229,10 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 		),
 		unknownStatusTotal: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "unknown_status_total"),
-			"Count of pie status values not in the known enum, by kind (transcode|healthcheck) and status label. "+
+			"Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. "+
 				"A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. "+
 				"Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.",
-			[]string{"kind", "status"},
+			[]string{"job_kind", "status"},
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
 		upMetric: prometheus.NewDesc(
@@ -593,7 +593,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 		ch <- prometheus.MustNewConstMetric(m.nodeInfo, prometheus.GaugeValue, 1,
 			node.Id, node.Name, node.GpuSelect,
 			strconv.Itoa(node.Config.Pid), strconv.Itoa(node.Priority),
-			strconv.FormatBool(node.AllowGpuDoCpu), strconv.FormatBool(node.Paused),
+			strconv.FormatBool(node.AllowGpuDoCpu),
 		)
 
 		// node uptime
