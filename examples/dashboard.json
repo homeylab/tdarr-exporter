@@ -5221,7 +5221,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "${datasource}"
         },
         "definition": "label_values(tdarr_up, tdarr_instance)",
         "includeAll": true,
@@ -5263,7 +5263,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "${datasource}"
         },
         "definition": "label_values(tdarr_node_info{tdarr_instance=~\"$tdarr_instance\"}, node_name)",
         "includeAll": true,
