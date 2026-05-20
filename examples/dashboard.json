@@ -2563,6 +2563,7 @@
                     "worker_id",
                     "node_name",
                     "worker_type",
+                    "compute_type",
                     "worker_status",
                     "worker_file",
                     "worker_plugin_id",
@@ -2586,22 +2587,23 @@
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "Value #B": 10,
-                  "Value #C": 11,
-                  "Value #D": 12,
-                  "Value #E": 13,
-                  "Value #F": 14,
-                  "Value #G": 15,
-                  "Value #H": 16,
-                  "flow_worker": 7,
+                  "Value #B": 11,
+                  "Value #C": 12,
+                  "Value #D": 13,
+                  "Value #E": 14,
+                  "Value #F": 15,
+                  "Value #G": 16,
+                  "Value #H": 17,
+                  "compute_type": 3,
+                  "flow_worker": 8,
                   "node_name": 1,
-                  "worker_connected": 9,
-                  "worker_file": 4,
+                  "worker_connected": 10,
+                  "worker_file": 5,
                   "worker_id": 0,
-                  "worker_idle": 8,
-                  "worker_plugin_id": 5,
-                  "worker_plugin_position": 6,
-                  "worker_status": 3,
+                  "worker_idle": 9,
+                  "worker_plugin_id": 6,
+                  "worker_plugin_position": 7,
+                  "worker_status": 4,
                   "worker_type": 2
                 },
                 "renameByName": {
@@ -2891,7 +2893,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", flow_worker=\"false\", worker_type=~\"healthcheck.*\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", flow_worker=\"false\", worker_type=\"healthcheck\", node_name=~\"$node_name\"}",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2903,7 +2905,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2915,7 +2917,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2927,7 +2929,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2939,7 +2941,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2951,7 +2953,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2963,7 +2965,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2975,7 +2977,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -2999,6 +3001,7 @@
                     "worker_id",
                     "node_name",
                     "worker_type",
+                    "compute_type",
                     "worker_status",
                     "worker_file",
                     "worker_plugin_id",
@@ -3022,22 +3025,23 @@
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "Value #B": 10,
-                  "Value #C": 11,
-                  "Value #D": 12,
-                  "Value #E": 13,
-                  "Value #F": 14,
-                  "Value #G": 15,
-                  "Value #H": 16,
-                  "flow_worker": 7,
+                  "Value #B": 11,
+                  "Value #C": 12,
+                  "Value #D": 13,
+                  "Value #E": 14,
+                  "Value #F": 15,
+                  "Value #G": 16,
+                  "Value #H": 17,
+                  "compute_type": 3,
+                  "flow_worker": 8,
                   "node_name": 1,
-                  "worker_connected": 9,
-                  "worker_file": 4,
+                  "worker_connected": 10,
+                  "worker_file": 5,
                   "worker_id": 0,
-                  "worker_idle": 8,
-                  "worker_plugin_id": 5,
-                  "worker_plugin_position": 6,
-                  "worker_status": 3,
+                  "worker_idle": 9,
+                  "worker_plugin_id": 6,
+                  "worker_plugin_position": 7,
+                  "worker_status": 4,
                   "worker_type": 2
                 },
                 "renameByName": {
@@ -3303,7 +3307,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", flow_worker=\"false\", worker_type!~\"healthcheck.*\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", flow_worker=\"false\", worker_type=\"transcode\", node_name=~\"$node_name\"}",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3315,7 +3319,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3327,7 +3331,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_fps{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3339,7 +3343,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_eta_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3351,7 +3355,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3363,7 +3367,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3375,7 +3379,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3387,7 +3391,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type!~\"healthcheck.*\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_job_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3411,6 +3415,7 @@
                     "worker_id",
                     "node_name",
                     "worker_type",
+                    "compute_type",
                     "worker_status",
                     "worker_file",
                     "worker_plugin_id",
@@ -3434,22 +3439,23 @@
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "Value #B": 10,
-                  "Value #C": 11,
-                  "Value #D": 12,
-                  "Value #E": 13,
-                  "Value #F": 14,
-                  "Value #G": 15,
-                  "Value #H": 16,
-                  "flow_worker": 7,
+                  "Value #B": 11,
+                  "Value #C": 12,
+                  "Value #D": 13,
+                  "Value #E": 14,
+                  "Value #F": 15,
+                  "Value #G": 16,
+                  "Value #H": 17,
+                  "compute_type": 3,
+                  "flow_worker": 8,
                   "node_name": 1,
-                  "worker_connected": 9,
-                  "worker_file": 4,
+                  "worker_connected": 10,
+                  "worker_file": 5,
                   "worker_id": 0,
-                  "worker_idle": 8,
-                  "worker_plugin_id": 5,
-                  "worker_plugin_position": 6,
-                  "worker_status": 3,
+                  "worker_idle": 9,
+                  "worker_plugin_id": 6,
+                  "worker_plugin_position": 7,
+                  "worker_status": 4,
                   "worker_type": 2
                 },
                 "renameByName": {
@@ -3564,9 +3570,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (node_name, worker_type) (tdarr_node_worker_count{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
+              "expr": "sum by (node_name, worker_type, compute_type) (tdarr_node_worker_count{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
               "instant": false,
-              "legendFormat": "{{node_name}} / {{worker_type}}",
+              "legendFormat": "{{node_name}} / {{worker_type}}-{{compute_type}}",
               "range": true,
               "refId": "A"
             }
@@ -3658,9 +3664,9 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (node_name, worker_type) (tdarr_node_queue_length{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
+              "expr": "sum by (node_name, worker_type, compute_type) (tdarr_node_queue_length{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"})",
               "instant": false,
-              "legendFormat": "{{node_name}} / {{worker_type}}",
+              "legendFormat": "{{node_name}} / {{worker_type}}-{{compute_type}}",
               "range": true,
               "refId": "A"
             }
@@ -4522,7 +4528,7 @@
               "editorMode": "code",
               "expr": "tdarr_node_queue_length{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
-              "legendFormat": "{{worker_type}}",
+              "legendFormat": "{{worker_type}}-{{compute_type}}",
               "range": true,
               "refId": "A"
             }
@@ -4598,7 +4604,7 @@
               "editorMode": "code",
               "expr": "tdarr_node_worker_count{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": true,
-              "legendFormat": "Active: {{worker_type}}",
+              "legendFormat": "Active: {{worker_type}}-{{compute_type}}",
               "refId": "A"
             },
             {
@@ -4610,7 +4616,7 @@
               "expr": "tdarr_node_worker_limit{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "hide": true,
               "instant": true,
-              "legendFormat": "Limit: {{worker_type}}",
+              "legendFormat": "Limit: {{worker_type}}-{{compute_type}}",
               "refId": "B"
             }
           ],
@@ -4686,7 +4692,7 @@
               "expr": "tdarr_node_worker_count{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "hide": true,
               "instant": true,
-              "legendFormat": "Active: {{worker_type}}",
+              "legendFormat": "Active: {{worker_type}}-{{compute_type}}",
               "refId": "A"
             },
             {
@@ -4697,7 +4703,7 @@
               "editorMode": "code",
               "expr": "tdarr_node_worker_limit{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": true,
-              "legendFormat": "Limit: {{worker_type}}",
+              "legendFormat": "Limit: {{worker_type}}-{{compute_type}}",
               "refId": "B"
             }
           ],

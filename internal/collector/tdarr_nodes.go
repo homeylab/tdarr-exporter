@@ -9,23 +9,50 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Known worker type label values used for per-type metric emission.
+// Known worker type / compute type label values used for per-type metric emission.
+// The two dimensions are kept as separate labels so Prometheus aggregations can
+// project either axis cleanly (e.g. sum by (worker_type) or sum by (compute_type)).
 const (
-	workerTypeTranscodeCpu   = "transcodecpu"
-	workerTypeTranscodeGpu   = "transcodegpu"
-	workerTypeHealthCheckCpu = "healthcheckcpu"
-	workerTypeHealthCheckGpu = "healthcheckgpu"
-	workerTypeUnknown        = "unknown"
+	workerTypeTranscode   = "transcode"
+	workerTypeHealthCheck = "healthcheck"
+	computeTypeCpu        = "cpu"
+	computeTypeGpu        = "gpu"
+	// computeTypeUnknown is the compute_type sentinel emitted when parseWorkerType
+	// cannot map Tdarr's compound API string to one of the four known compounds.
+	computeTypeUnknown = "unknown"
 )
 
-// knownWorkerTypes is the ordered list of all known worker types emitted for
-// per-type gauges (worker_count, worker_limit, queue_length). Always emitting
-// all four ensures zero-value series appear even when no workers are active.
-var knownWorkerTypes = []string{
-	workerTypeTranscodeCpu,
-	workerTypeTranscodeGpu,
-	workerTypeHealthCheckCpu,
-	workerTypeHealthCheckGpu,
+// workerTypeDim is one (worker_type, compute_type) coordinate emitted for
+// per-type gauges so zero-value series appear even when no workers are active.
+type workerTypeDim struct {
+	workerType  string
+	computeType string
+}
+
+// knownWorkerTypeDims is the ordered list of all known (worker_type, compute_type)
+// pairs emitted for per-type gauges (worker_count, worker_limit, queue_length).
+var knownWorkerTypeDims = []workerTypeDim{
+	{workerTypeTranscode, computeTypeCpu},
+	{workerTypeTranscode, computeTypeGpu},
+	{workerTypeHealthCheck, computeTypeCpu},
+	{workerTypeHealthCheck, computeTypeGpu},
+}
+
+// parseWorkerType splits Tdarr's compound worker-type string into the two
+// label dimensions. Returns the raw input as worker_type and computeTypeUnknown
+// for compute_type when the value is not one of the four known compounds.
+func parseWorkerType(api string) (workerType, computeType string) {
+	switch api {
+	case "transcodecpu":
+		return workerTypeTranscode, computeTypeCpu
+	case "transcodegpu":
+		return workerTypeTranscode, computeTypeGpu
+	case "healthcheckcpu":
+		return workerTypeHealthCheck, computeTypeCpu
+	case "healthcheckgpu":
+		return workerTypeHealthCheck, computeTypeGpu
+	}
+	return api, computeTypeUnknown
 }
 
 type TdarrNodeMetrics struct {
@@ -42,7 +69,10 @@ type TdarrNodeMetrics struct {
 	nodePaused          *prometheus.Desc
 	nodeMaxGpuWorkers   *prometheus.Desc
 	nodeScheduleEnabled *prometheus.Desc
-	// per-type node gauges (worker_type label = transcodecpu|transcodegpu|healthcheckcpu|healthcheckgpu)
+	// per-type node gauges; split across two labels:
+	//   worker_type  ∈ {transcode, healthcheck}
+	//   compute_type ∈ {cpu, gpu}
+	// Unknown API values from Tdarr emit the raw string as worker_type with compute_type="unknown".
 	nodeWorkerCount *prometheus.Desc
 	nodeWorkerLimit *prometheus.Desc
 	nodeQueueLength *prometheus.Desc
@@ -68,7 +98,7 @@ type TdarrNodeCollector struct {
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	nodeLabelPair := []string{"node_id", "node_name"}
-	nodeTypeLabelPair := []string{"node_id", "node_name", "worker_type"}
+	nodeTypeLabelPair := []string{"node_id", "node_name", "worker_type", "compute_type"}
 	workerLabelPair := []string{"node_id", "node_name", "worker_id"}
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
@@ -136,26 +166,26 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 		),
 		nodeWorkerCount: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_count"),
-			"Number of active workers on the Tdarr node by type",
+			"Number of active workers on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair,
 			instance,
 		),
 		nodeWorkerLimit: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
-			"Configured worker limit on the Tdarr node by type",
+			"Configured worker limit on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair,
 			instance,
 		),
 		nodeQueueLength: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
-			"Current queue length on the Tdarr node by type",
+			"Current queue length on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair,
 			instance,
 		),
 		nodeWorkerInfo: prometheus.NewDesc(
 			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_info"),
 			"Tdarr node worker identity and categorical state (always 1)",
-			[]string{"node_id", "node_name", "worker_id", "worker_type", "flow_worker",
+			[]string{"node_id", "node_name", "worker_id", "worker_type", "compute_type", "flow_worker",
 				"worker_status", "worker_file",
 				"worker_plugin_id", "worker_plugin_position",
 				"worker_connected", "worker_idle"},
@@ -249,35 +279,48 @@ func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
 	return nodeData, nil
 }
 
-// emitPerType emits a gauge metric for all four known worker types using values
-// from the provided TdarrNodeJobs struct. This ensures zero values are always
-// emitted even when no workers of a given type are active.
+// emitPerType emits a gauge metric for all four known (worker_type, compute_type)
+// dimensions using values from the provided TdarrNodeJobs struct. This ensures
+// zero-value series are always emitted even when no workers of a given type are active.
 func emitPerType(ch chan<- prometheus.Metric, desc *prometheus.Desc, nodeId, nodeName string, jobs TdarrNodeJobs) {
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscodeCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscodeGpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheckCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheckGpu)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscode, computeTypeCpu)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscode, computeTypeGpu)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeCpu)
+	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
+}
+
+// workerCountResult is the per-dim aggregate returned by countWorkersByType.
+// known holds counts for the four canonical dims (always present, zero allowed
+// for zero-emission). unknown holds counts keyed by the raw API string Tdarr
+// emitted, so two distinct unknown strings produce two distinct series instead
+// of being collapsed.
+type workerCountResult struct {
+	known   map[workerTypeDim]int
+	unknown map[string]int // raw API string -> count
 }
 
 // countWorkersByType counts active workers in the provided workers map grouped
-// by their WorkerType field. Unknown types are bucketed under workerTypeUnknown
-// and a warning is logged for each distinct unknown type encountered.
-func countWorkersByType(workers map[string]TdarrNodeWorkers) map[string]int {
-	counts := map[string]int{
-		workerTypeTranscodeCpu:   0,
-		workerTypeTranscodeGpu:   0,
-		workerTypeHealthCheckCpu: 0,
-		workerTypeHealthCheckGpu: 0,
+// by their WorkerType field (parsed into worker_type + compute_type). Unknown
+// API strings are bucketed by raw value so caller can emit (raw, "unknown", count)
+// series. A warning is logged for each occurrence of an unknown type.
+func countWorkersByType(workers map[string]TdarrNodeWorkers) workerCountResult {
+	result := workerCountResult{
+		known:   make(map[workerTypeDim]int, len(knownWorkerTypeDims)),
+		unknown: map[string]int{},
+	}
+	for _, d := range knownWorkerTypeDims {
+		result.known[d] = 0
 	}
 	for _, w := range workers {
-		if _, known := counts[w.WorkerType]; known {
-			counts[w.WorkerType]++
-		} else {
+		wt, ct := parseWorkerType(w.WorkerType)
+		if ct == computeTypeUnknown {
 			log.Warn().Str("workerType", w.WorkerType).Msg("Unknown worker type encountered; bucketing under 'unknown'")
-			counts[workerTypeUnknown]++
+			result.unknown[w.WorkerType]++
+			continue
 		}
+		result.known[workerTypeDim{wt, ct}]++
 	}
-	return counts
+	return result
 }
 
 // parseEtaSeconds converts Tdarr's "H:MM:SS" ETA string to integer seconds.

@@ -644,16 +644,20 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 		emitPerType(ch, m.nodeWorkerLimit, node.Id, node.Name, node.WorkerLimits)
 		emitPerType(ch, m.nodeQueueLength, node.Id, node.Name, node.QueueLengths)
 
-		// worker count by type — count from active workers map
+		// worker count by type — count from active workers map.
+		// Always emit zeros for the four known dims; emit unknown buckets only when non-zero
+		// (raw API string preserved as worker_type, "unknown" as compute_type).
 		workerCounts := countWorkersByType(node.Workers)
-		for _, wType := range knownWorkerTypes {
+		for _, d := range knownWorkerTypeDims {
 			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
-				float64(workerCounts[wType]), node.Id, node.Name, wType)
+				float64(workerCounts.known[d]), node.Id, node.Name, d.workerType, d.computeType)
 		}
-		// emit unknown bucket only if non-zero to avoid polluting metric with permanent zero
-		if unknownCount, hasUnknown := workerCounts[workerTypeUnknown]; hasUnknown && unknownCount > 0 {
+		for rawType, count := range workerCounts.unknown {
+			if count == 0 {
+				continue
+			}
 			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
-				float64(unknownCount), node.Id, node.Name, workerTypeUnknown)
+				float64(count), node.Id, node.Name, rawType, computeTypeUnknown)
 		}
 
 		// per-worker metrics
@@ -668,9 +672,11 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 				pluginPosition = ""
 			}
 
-			// unified worker info metric (all workers, flow or classic)
+			// unified worker info metric (all workers, flow or classic).
+			// Split Tdarr's compound workerType string into worker_type + compute_type labels.
+			wType, cType := parseWorkerType(worker.WorkerType)
 			ch <- prometheus.MustNewConstMetric(m.nodeWorkerInfo, prometheus.GaugeValue, 1,
-				node.Id, node.Name, worker.Id, worker.WorkerType,
+				node.Id, node.Name, worker.Id, wType, cType,
 				strconv.FormatBool(worker.FlowWorker),
 				worker.Status, worker.File,
 				pluginId, pluginPosition,
