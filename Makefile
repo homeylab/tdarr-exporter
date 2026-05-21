@@ -34,7 +34,23 @@ update_dep:
 	go get -u ./...
 
 lint:
-	golangci-lint run
+	docker run --rm -i -v $(CURDIR):/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
+
+test:
+	go test ./... -count=1
+
+test_verbose:
+	go test ./... -v -count=1
+
+test_race:
+	go test ./... -race -count=1
+
+test_cover:
+	go test ./... -count=1 -coverprofile=coverage.out
+	go tool cover -func=coverage.out
+
+test_collector:
+	go test ./internal/collector/... -v -count=1
 
 local_run:
 	go run cmd/exporter/main.go --url=${TDARR_TEST_URL}
