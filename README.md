@@ -18,8 +18,9 @@
 3. Progress updates for running transcode and health check jobs.
 
 Some samples below from Grafana, check `examples/` for more samples and a complete view of metrics.
-<img src="./examples/images/demo_3.png" alt="overview" width="1050"/>
-<img src="./examples/images/demo_1.png" alt="overview" width="1050"/>
+<img src="./examples/images/demo-1.png" alt="overview" width="1050"/>
+<img src="./examples/images/demo-3.png" alt="overview" width="1050"/>
+<img src="./examples/images/demo-5.png" alt="overview" width="1050"/>
 
 Progress updates are provided for following:
 1. CPU/GPU Flow plugin jobs
