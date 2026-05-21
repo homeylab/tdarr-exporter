@@ -124,7 +124,7 @@ func newDefaults() Config {
 func parseUrl(urlString string) *url.URL {
 	// get hostname from url
 	if !strings.HasPrefix(urlString, "http") {
-		log.Warn().Str("url", urlString).Msg("No scheme provided, defaulting to https")
+		log.Warn().Str("url", urlString).Msg("No URL scheme provided, defaulting to https")
 		urlString = "https://" + urlString
 	}
 	url, err := url.Parse(urlString)
