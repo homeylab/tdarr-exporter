@@ -34,7 +34,7 @@ update_dep:
 	go get -u ./...
 
 lint:
-	golangci-lint run
+	docker run --rm -i -v $(CURDIR):/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
 
 test:
 	go test ./... -count=1

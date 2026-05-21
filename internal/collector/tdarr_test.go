@@ -156,20 +156,20 @@ func newFullSuccessServer(t *testing.T) *httptest.Server {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
-			w.Write(validStatsBody())
+			_, _ = w.Write(validStatsBody())
 		}
 	})
 
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 
 	srv := httptest.NewServer(mux)
@@ -203,11 +203,11 @@ func TestCollect_StatsAPIReturns404_UpEquals0(t *testing.T) {
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -222,7 +222,7 @@ func TestCollect_StatsAPIReturns404_UpEquals0(t *testing.T) {
 		t.Fatalf("gather: %v", err)
 	}
 
-	var upVal float64 = -1.0
+	upVal := -1.0
 	for _, mf := range mfs {
 		if mf.GetName() == "tdarr_up" {
 			upVal = mf.GetMetric()[0].GetGauge().GetValue()
@@ -246,15 +246,15 @@ func TestCollect_LibraryListFails_UpEquals0(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validStatsBody())
+		_, _ = w.Write(validStatsBody())
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -276,14 +276,14 @@ func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
-			w.Write(validStatsBody())
+			_, _ = w.Write(validStatsBody())
 		}
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -301,7 +301,7 @@ func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
 		t.Fatalf("gather: %v", err)
 	}
 
-	var upVal float64 = -1.0
+	upVal := -1.0
 	hasTotalFiles := false
 	for _, mf := range mfs {
 		switch mf.GetName() {
@@ -329,9 +329,9 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
-			w.Write(validStatsBody())
+			_, _ = w.Write(validStatsBody())
 		}
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
@@ -339,7 +339,7 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -376,9 +376,9 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
-			w.Write(validStatsBody())
+			_, _ = w.Write(validStatsBody())
 		}
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
@@ -387,11 +387,11 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -450,7 +450,7 @@ func TestCollect_StatsScoreUnparseable_UpEquals0(t *testing.T) {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
 			m := TdarrMetric{
 				TotalFileCount:   10,
@@ -458,16 +458,16 @@ func TestCollect_StatsScoreUnparseable_UpEquals0(t *testing.T) {
 				HealthCheckScore: "0",
 			}
 			b, _ := json.Marshal(m)
-			w.Write(b)
+			_, _ = w.Write(b)
 		}
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -493,7 +493,7 @@ func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
 		mode := parseCruddbMode(r)
 		w.Header().Set("Content-Type", "application/json")
 		if mode == "getAll" {
-			w.Write(validLibraryListBody())
+			_, _ = w.Write(validLibraryListBody())
 		} else {
 			m := TdarrMetric{
 				TotalFileCount:   10,
@@ -501,16 +501,16 @@ func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
 				HealthCheckScore: "garbage",
 			}
 			b, _ := json.Marshal(m)
-			w.Write(b)
+			_, _ = w.Write(b)
 		}
 	})
 	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validPieBody())
+		_, _ = w.Write(validPieBody())
 	})
 	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(validNodeBody())
+		_, _ = w.Write(validNodeBody())
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
