@@ -17,9 +17,9 @@ Dashboard example is also provided in the `dashboard.json` file in case the dash
 ## Dashboard Preview
 ![overview](./images/demo-1.png)
 ![overview2](./images/demo-2.png)
-![node](./images/demo-3.png)
-![library](./images/demo-4.png)
-![library2](./images/demo-5.png)
+![overview3](./images/demo-3.png)
+![overview4](./images/demo-4.png)
+![overview5](./images/demo-5.png)
 
 ## What the Dashboard Shows
 
@@ -34,7 +34,7 @@ Dashboard example is also provided in the `dashboard.json` file in case the dash
 ## Modifying Tables
 For the `worker` tables, there are hidden fields that you can optionally show. You can choose to customize the table and hide the default fields as well. In the table edit view, click on the `Transformations` tab and then click the eye icon to toggle the visibility of the fields.
 
-![transformations](./images/demo_6.png)
+![transformations](./images/demo-6.png)
 
 `Flow Workers` and `Classic Plugin Workers` use the same column order as `Health Check Workers`. Use the `Organize fields` transformation to reorder if you prefer a different layout.
 

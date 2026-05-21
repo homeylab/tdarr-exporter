@@ -289,7 +289,7 @@ func emitPerType(ch chan<- prometheus.Metric, desc *prometheus.Desc, nodeId, nod
 	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
 }
 
-// workerCountResult is the per-dim aggregate returned by countWorkersByType.
+// workerCountResult is the per-dim aggregate returned by  countWorkersByType.
 // known holds counts for the four canonical dims (always present, zero allowed
 // for zero-emission). unknown holds counts keyed by the raw API string Tdarr
 // emitted, so two distinct unknown strings produce two distinct series instead
