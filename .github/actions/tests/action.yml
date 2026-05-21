@@ -36,4 +36,7 @@ runs:
       with:
         version: latest
         args: --timeout 5m
-    # add tests in future
+    # run unit tests
+    - name: Run Go Tests
+      shell: bash
+      run: go test ./... -count=1
