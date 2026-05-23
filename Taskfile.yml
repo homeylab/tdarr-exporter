@@ -1,0 +1,158 @@
+# Local dev/test tasks. Requires go-task (https://taskfile.dev).
+# config sourced from local/local.env (gitignored) via dotenv below.
+version: '3'
+
+dotenv: ['local/local.env']
+
+vars:
+  # Build args for Dockerfile
+  BASE_IMAGE: golang
+  BASE_IMAGE_TAG: 1.26.3-alpine
+  RUN_IMAGE: gcr.io/distroless/static
+  RUN_IMAGE_TAG: nonroot
+
+  # For local e2e testing (smoke tests)
+  TEST_IMAGE_NAME: docker.homeylab.org/tdarr-exporter
+  TEST_IMAGE_TAG: test
+  PORT: '9090'
+  CONTAINER: tdarr-exporter-smoke
+  
+  # Git info for build args
+  VERSION:
+    sh: git describe --tags --always --dirty
+  REVISION:
+    sh: git rev-parse HEAD
+  BUILDTIME:
+    sh: date -u +%Y-%m-%dT%H:%M:%SZ
+
+tasks:
+  dev:
+    desc: Live-reload dev loop (air), env from local/local.env
+    cmds:
+      - air
+
+  dev_docker:
+    desc: Build image, run detached, curl /metrics once, then tear down
+    deps:
+      - task: docker_build_local
+    cmds:
+      - docker run -it -p {{.PORT}}:{{.PORT}} --rm --name {{.CONTAINER}}  -e TDARR_URL={{.TDARR_URL}} {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
+
+  curl:
+    desc: Curl /metrics endpoint on localhost:{{.PORT}}
+    cmds:
+      - curl -s http://localhost:{{.PORT}}/metrics
+
+  tidy:
+    desc: Run go mod tidy
+    cmds:
+      - go mod tidy
+
+  fmt:
+    desc: Run go fmt on all packages
+    cmds:
+      - go fmt ./...
+
+  update_deps:
+    desc: Upgrade all dependencies to latest then tidy
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+
+  lint:
+    desc: Run golangci-lint via Docker (latest image)
+    cmds:
+      - docker run --rm -i -v {{.TASKFILE_DIR}}:/app -w /app golangci/golangci-lint:latest golangci-lint run
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -count=1
+
+  test_verbose:
+    desc: Run all tests with verbose output
+    cmds:
+      - go test ./... -v -count=1
+
+  test_race:
+    desc: Run all tests with race detector
+    cmds:
+      - go test ./... -race -count=1
+
+  test_cover:
+    desc: Run all tests with coverage and print per-function summary
+    cmds:
+      - go test ./... -count=1 -coverprofile=coverage.out
+      - go tool cover -func=coverage.out
+
+  test_collector:
+    desc: Run collector package tests with verbose output
+    cmds:
+      - go test ./internal/collector/... -v -count=1
+
+  docker_build_local:
+    desc: Build image for local platform only (linux/amd64 or linux/arm64) without pushing
+    cmds:
+      - docker build
+          --build-arg BASE_IMAGE={{.BASE_IMAGE}}
+          --build-arg BASE_IMAGE_TAG={{.BASE_IMAGE_TAG}}
+          --build-arg RUN_IMAGE={{.RUN_IMAGE}}
+          --build-arg RUN_IMAGE_TAG={{.RUN_IMAGE_TAG}}
+          --build-arg VERSION={{.VERSION}}
+          --build-arg REVISION={{.REVISION}}
+          --build-arg BUILDTIME={{.BUILDTIME}}
+          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}} .
+
+  docker_build:
+    desc: Build multi-arch image (linux/amd64,linux/arm64) without pushing
+    cmds:
+      - task: buildx_setup
+      - docker buildx build
+          --platform linux/amd64,linux/arm64
+          --output "type=image,push=false"
+          --build-arg BASE_IMAGE={{.BASE_IMAGE}}
+          --build-arg BASE_IMAGE_TAG={{.BASE_IMAGE_TAG}}
+          --build-arg RUN_IMAGE={{.RUN_IMAGE}}
+          --build-arg RUN_IMAGE_TAG={{.RUN_IMAGE_TAG}}
+          --build-arg VERSION={{.VERSION}}
+          --build-arg REVISION={{.REVISION}}
+          --build-arg BUILDTIME={{.BUILDTIME}}
+          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
+          --no-cache .
+
+  docker_build_latest:
+    desc: Build multi-arch image (linux/amd64,linux/arm64) and PUSH to registry with :test and :latest tags
+    cmds:
+      - task: buildx_setup
+      - docker buildx build
+          --platform linux/amd64,linux/arm64
+          --output "type=image,push=false"
+          --build-arg BASE_IMAGE={{.BASE_IMAGE}}
+          --build-arg BASE_IMAGE_TAG={{.BASE_IMAGE_TAG}}
+          --build-arg RUN_IMAGE={{.RUN_IMAGE}}
+          --build-arg RUN_IMAGE_TAG={{.RUN_IMAGE_TAG}}
+          --build-arg VERSION={{.VERSION}}
+          --build-arg REVISION={{.REVISION}}
+          --build-arg BUILDTIME={{.BUILDTIME}}
+          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
+          -t {{.TEST_IMAGE_NAME}}:latest
+          --no-cache .
+
+  buildx_setup:
+    desc: Create and activate the crossplat buildx builder (internal)
+    internal: true
+    cmds:
+      - docker buildx create --use --name=crossplat --node=crossplat || true
+
+  docker_cleanup:
+    desc: Remove the crossplat buildx builder
+    cmds:
+      - docker buildx rm crossplat
+
+  ci:
+    desc: Run fmt, lint, test_race, and test_cover in order (CI aggregate)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test_race
+      - task: test_cover

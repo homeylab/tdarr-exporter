@@ -8,6 +8,10 @@
   - [Configuration](#configuration)
   - [Caching and Concurrency](#caching-and-concurrency)
   - [Dashboard](#dashboard)
+  - [Development](#development)
+    - [Prerequisites](#prerequisites)
+    - [Local Config](#local-config)
+    - [Common Tasks](#common-tasks)
   - [Breaking Updates](#breaking-updates)
 
 ## Background
@@ -119,6 +123,29 @@ Dashboard example can be found on Grafana's portal [here](https://grafana.com/gr
 Dashboard example is also provided in the `examples/dashboard.json` file in case the dashboard from [Grafana](https://grafana.com/grafana/dashboards/20388) is not available.
 - In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.
 - Use `archive/dashboard.v1.json` for a `v1.X.X` compatible dashboard
+
+## Development
+
+### Prerequisites
+- [go-task](https://taskfile.dev) — replaces Makefile as the local task runner
+- [air](https://github.com/air-verse/air) — live-reload for local dev (used by `task dev`)
+- Docker — required for lint and Docker build tasks
+
+### Local Config
+
+Create `local/local.env` (gitignored) with any env vars needed for local runs, e.g.: `TDARR_URL=http://tdarr.local:8265`
+
+### Common Tasks
+
+| Task | Description |
+| ---- | ----------- |
+| `task dev` | Live-reload dev loop (requires `local/local.env` with `TDARR_URL`) |
+| `task dev_docker` | Build local image image and run for live testing |
+| `task test` | Run all tests |
+| `task ci` | Run fmt, lint, test_race, test_cover (CI aggregate) |
+
+Run `task --list` to see all available tasks.
+
 
 ## Breaking Updates
 | Version | Target Version | Description |
