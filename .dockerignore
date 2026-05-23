@@ -1,8 +1,12 @@
-.git
+.git/
 .github/
 .gitignore
 .devcontainer/
+.claude/
 Dockerfile
 LICENSE
 README.md
+*.md
 local/
+coverage.out
+.goreleaser.yml

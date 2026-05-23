@@ -4,6 +4,10 @@ GIT_REPO=github.com/homeylab/tdarr-exporter
 # Module
 MOD_NAME=${GIT_REPO}
 
+VERSION ?= $(shell git describe --tags --always --dirty)
+REVISION ?= $(shell git rev-parse HEAD)
+BUILDTIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
 # Docker
 BASE_IMAGE=golang
 BASE_IMAGE_TAG=1.26.3-alpine
@@ -63,8 +67,10 @@ local_docker_build:
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
-	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
-	--build-arg TARGETOS=${GOOS} \
+	--build-arg RUN_IMAGE_TAG=${RUN_IMAGE_TAG} \
+	--build-arg VERSION=${VERSION} \
+	--build-arg REVISION=${REVISION} \
+	--build-arg BUILDTIME=${BUILDTIME} \
 	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	--no-cache .
 
@@ -79,8 +85,10 @@ docker_build:
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
 	--build-arg RUN_IMAGE=${RUN_IMAGE} \
-	--build-arg RUN_TAG=${RUN_IMAGE_TAG} \
-	# --build-arg TARGETOS=${GOOS} \
+	--build-arg RUN_IMAGE_TAG=${RUN_IMAGE_TAG} \
+	--build-arg VERSION=${VERSION} \
+	--build-arg REVISION=${REVISION} \
+	--build-arg BUILDTIME=${BUILDTIME} \
 	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	--no-cache .
 
@@ -91,9 +99,11 @@ docker_build_latest:
 	--output "type=image,push=true" \
 	--build-arg BASE_IMAGE=${BASE_IMAGE} \
 	--build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
-	--build-arg DOCKER_WORK_DIR=${DOCKER_WORK_DIR} \
-	--build-arg DOCKER_CONFIG_DIR=${DOCKER_CONFIG_DIR} \
-	--build-arg DOCKER_EXPORT_DIR=${DOCKER_EXPORT_DIR} \
+	--build-arg RUN_IMAGE=${RUN_IMAGE} \
+	--build-arg RUN_IMAGE_TAG=${RUN_IMAGE_TAG} \
+	--build-arg VERSION=${VERSION} \
+	--build-arg REVISION=${REVISION} \
+	--build-arg BUILDTIME=${BUILDTIME} \
 	-t ${TEST_IMAGE_NAME}:${TEST_IMAGE_TAG} \
 	-t ${TEST_IMAGE_NAME}:latest \
 	--no-cache .

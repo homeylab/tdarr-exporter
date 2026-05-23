@@ -16,10 +16,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Build metadata injected by the linker via -X flags.
+var (
+	version   string
+	buildTime string
+	revision  string
+)
+
 func main() {
 	defer os.Exit(0)
 	userConfig := config.NewConfig()
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
+	log.Info().Str("version", version).Str("buildTime", buildTime).Str("revision", revision).Msg("Starting tdarr-exporter")
 
 	// prometheus set up
 	tdarrCollector := collector.NewTdarrCollector(userConfig)
