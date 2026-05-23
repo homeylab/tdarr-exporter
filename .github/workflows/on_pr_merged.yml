@@ -13,6 +13,11 @@ on:
     branches:
       - main
 
+# cancel a stale in-flight build so :main reflects the newest commit on rapid merges
+concurrency:
+  group: main-image
+  cancel-in-progress: true
+
 # maybe trigger build/push on release tags?
 # but this also works for my use case
 jobs:

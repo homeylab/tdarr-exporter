@@ -60,9 +60,9 @@ tasks:
       - go mod tidy
 
   lint:
-    desc: Run golangci-lint via Docker (latest image)
+    desc: Run golangci-lint via Docker (pinned, matches CI)
     cmds:
-      - docker run --rm -i -v {{.TASKFILE_DIR}}:/app -w /app golangci/golangci-lint:latest golangci-lint run
+      - docker run --rm -i -v {{.TASKFILE_DIR}}:/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
 
   test:
     desc: Run all tests
@@ -150,9 +150,13 @@ tasks:
       - docker buildx rm crossplat
 
   ci:
-    desc: Run fmt, lint, test_race, and test_cover in order (CI aggregate)
+    desc: Run fmt, mod-tidy check, lint, test_race, and test_cover in order (CI aggregate)
     cmds:
       - task: fmt
+      - task: tidy
+      # fail if fmt/tidy changed go sources or modules, matching CI's git diff --exit-code gate
+      # scoped to go artifacts so unrelated WIP doesn't trip the local run
+      - git diff --exit-code -- '*.go' go.mod go.sum
       - task: lint
       - task: test_race
       - task: test_cover
