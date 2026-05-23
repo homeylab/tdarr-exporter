@@ -34,7 +34,7 @@ tasks:
   dev:docker:
     desc: Build image, run detached, curl /metrics once, then tear down
     deps:
-      - task: docker:build-local
+      - task: docker:build:local
     cmds:
       - docker run -it -p {{.PORT}}:{{.PORT}} --rm --name {{.CONTAINER}}  -e TDARR_URL={{.TDARR_URL}} {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
 
@@ -64,7 +64,7 @@ tasks:
     cmds:
       - docker run --rm -i -v {{.TASKFILE_DIR}}:/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
 
-  test:all:
+  test:
     desc: Run all tests
     cmds:
       - go test ./... -count=1
@@ -96,7 +96,7 @@ tasks:
     cmds:
       - go test ./internal/collector/... -v -count=1
 
-  docker:build-local:
+  docker:build:local:
     desc: Build image for local platform only (linux/amd64 or linux/arm64) without pushing
     cmds:
       - docker build
@@ -126,7 +126,7 @@ tasks:
           -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
           --no-cache .
 
-  docker:build-latest:
+  docker:build:latest:
     desc: Build multi-arch image (linux/amd64,linux/arm64) and PUSH to registry with :test and :latest tags
     cmds:
       - task: docker:buildx-setup
