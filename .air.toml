@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/exporter ./cmd/exporter"
+entrypoint = ["./tmp/exporter"]
+include_ext = ["go"]
+exclude_dir = ["tmp", "local", "examples", ".github", ".claude"]
+exclude_regex = ["_test\\.go"]   # don't rebuild on test-only edits
+delay = 1000
+stop_on_error = true
