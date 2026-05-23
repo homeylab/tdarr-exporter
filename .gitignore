@@ -23,3 +23,4 @@ go.work
 local/
 .claude
 .vscode/
+tmp/
