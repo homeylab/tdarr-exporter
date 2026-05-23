@@ -16,7 +16,7 @@ vars:
   TEST_IMAGE_TAG: test
   PORT: '9090'
   CONTAINER: tdarr-exporter-smoke
-  
+
   # Git info for build args
   VERSION:
     sh: git describe --tags --always --dirty
@@ -31,10 +31,10 @@ tasks:
     cmds:
       - air
 
-  dev_docker:
+  dev:docker:
     desc: Build image, run detached, curl /metrics once, then tear down
     deps:
-      - task: docker_build_local
+      - task: docker:build-local
     cmds:
       - docker run -it -p {{.PORT}}:{{.PORT}} --rm --name {{.CONTAINER}}  -e TDARR_URL={{.TDARR_URL}} {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
 
@@ -53,7 +53,7 @@ tasks:
     cmds:
       - go fmt ./...
 
-  update_deps:
+  update-deps:
     desc: Upgrade all dependencies to latest then tidy
     cmds:
       - go get -u ./...
@@ -64,39 +64,39 @@ tasks:
     cmds:
       - docker run --rm -i -v {{.TASKFILE_DIR}}:/app -w /app golangci/golangci-lint:v2.12.2 golangci-lint run
 
-  test:
+  test:all:
     desc: Run all tests
     cmds:
       - go test ./... -count=1
 
-  test_verbose:
+  test:verbose:
     desc: Run all tests with verbose output
     cmds:
       - go test ./... -v -count=1
 
-  test_race:
+  test:race:
     desc: Run all tests with race detector
     cmds:
       - go test ./... -race -count=1
 
-  test_cover:
+  test:cover:
     desc: Run all tests with coverage and print per-function summary
     cmds:
       - go test ./... -count=1 -coverprofile=coverage.out
       - go tool cover -func=coverage.out
 
-  test_all:
+  test:full:
     desc: Run all tests once with both race detector and coverage, then print summary
     cmds:
       - go test ./... -race -count=1 -coverprofile=coverage.out
       - go tool cover -func=coverage.out
 
-  test_collector:
+  test:collector:
     desc: Run collector package tests with verbose output
     cmds:
       - go test ./internal/collector/... -v -count=1
 
-  docker_build_local:
+  docker:build-local:
     desc: Build image for local platform only (linux/amd64 or linux/arm64) without pushing
     cmds:
       - docker build
@@ -109,10 +109,10 @@ tasks:
           --build-arg BUILDTIME={{.BUILDTIME}}
           -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}} .
 
-  docker_build:
+  docker:build:
     desc: Build multi-arch image (linux/amd64,linux/arm64) without pushing
     cmds:
-      - task: buildx_setup
+      - task: docker:buildx-setup
       - docker buildx build
           --platform linux/amd64,linux/arm64
           --output "type=image,push=false"
@@ -126,10 +126,10 @@ tasks:
           -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
           --no-cache .
 
-  docker_build_latest:
+  docker:build-latest:
     desc: Build multi-arch image (linux/amd64,linux/arm64) and PUSH to registry with :test and :latest tags
     cmds:
-      - task: buildx_setup
+      - task: docker:buildx-setup
       - docker buildx build
           --platform linux/amd64,linux/arm64
           --output "type=image,push=false"
@@ -144,13 +144,13 @@ tasks:
           -t {{.TEST_IMAGE_NAME}}:latest
           --no-cache .
 
-  buildx_setup:
+  docker:buildx-setup:
     desc: Create and activate the crossplat buildx builder (internal)
     internal: true
     cmds:
       - docker buildx create --use --name=crossplat --node=crossplat || true
 
-  docker_cleanup:
+  docker:cleanup:
     desc: Remove the crossplat buildx builder
     cmds:
       - docker buildx rm crossplat
@@ -164,4 +164,4 @@ tasks:
       # scoped to go artifacts so unrelated WIP doesn't trip the local run
       - git diff --exit-code -- '*.go' go.mod go.sum
       - task: lint
-      - task: test_all
+      - task: test:full
