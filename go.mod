@@ -1,6 +1,6 @@
 module github.com/homeylab/tdarr-exporter
 
-go 1.23.5
+go 1.26.3
 
 require (
 	github.com/gin-gonic/gin v1.10.0
