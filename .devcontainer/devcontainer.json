@@ -3,7 +3,7 @@
     // Or use a Dockerfile or Docker Compose file. More info: http s://containers.dev/guide/dockerfile
     // image: https://github.com/microsoft/vscode-dev-containers/tree/main/containers/go
     // features: https://github.com/devcontainers/features?tab=readme-ov-file
-    "image": "mcr.microsoft.com/devcontainers/go:1.26-bookworm",
+    "image": "mcr.microsoft.com/devcontainers/go:2.1-bookworm",
     "features": {
             "ghcr.io/devcontainers/features/go:latest": {
                 "version": "1.26.3"
