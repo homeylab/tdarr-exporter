@@ -18,7 +18,7 @@ jobs:
     #     golangci-version: ["v1.51.2"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Tests
         uses: ./.github/actions/tests
   create_release:
@@ -28,7 +28,7 @@ jobs:
         contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Run Docker Build
         uses: ./.github/actions/docker
         with:
@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Release
         uses: ./.github/actions/go
         with:
