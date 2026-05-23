@@ -85,6 +85,12 @@ tasks:
       - go test ./... -count=1 -coverprofile=coverage.out
       - go tool cover -func=coverage.out
 
+  test_all:
+    desc: Run all tests once with both race detector and coverage, then print summary
+    cmds:
+      - go test ./... -race -count=1 -coverprofile=coverage.out
+      - go tool cover -func=coverage.out
+
   test_collector:
     desc: Run collector package tests with verbose output
     cmds:
@@ -150,7 +156,7 @@ tasks:
       - docker buildx rm crossplat
 
   ci:
-    desc: Run fmt, mod-tidy check, lint, test_race, and test_cover in order (CI aggregate)
+    desc: Run fmt, mod-tidy check, lint, and race+coverage tests in order (CI aggregate)
     cmds:
       - task: fmt
       - task: tidy
@@ -158,5 +164,4 @@ tasks:
       # scoped to go artifacts so unrelated WIP doesn't trip the local run
       - git diff --exit-code -- '*.go' go.mod go.sum
       - task: lint
-      - task: test_race
-      - task: test_cover
+      - task: test_all
