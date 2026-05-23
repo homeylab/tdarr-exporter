@@ -1,3 +1,4 @@
+version: 2
 project_name: "tdarr-exporter"
 archives:
   - id: main
@@ -8,8 +9,12 @@ builds:
   - main: "./cmd/exporter"
     binary: "tdarr-exporter"
 
+    # -trimpath: strip absolute build paths for reproducible builds
+    flags:
+      - -trimpath
+    # CGO disabled (env below) -> pure-Go static binary, so -extldflags is not needed
     ldflags:
-      - -w -s -extldflags '-static' -X main.version={{.Version}} -X main.revision={{.Commit}} -X main.buildTime={{.CommitTimestamp}}
+      - -w -s -X main.version={{.Version}} -X main.revision={{.Commit}} -X main.buildTime={{.Date}}
 
     goarch:
       - "386"

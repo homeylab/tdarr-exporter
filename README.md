@@ -140,9 +140,9 @@ Create `local/local.env` (gitignored) with any env vars needed for local runs, e
 | Task | Description |
 | ---- | ----------- |
 | `task dev` | Live-reload dev loop (requires `local/local.env` with `TDARR_URL`) |
-| `task dev_docker` | Build local image image and run for live testing |
+| `task dev:docker` | Build local image image and run for live testing |
 | `task test` | Run all tests |
-| `task ci` | Run fmt, lint, test_race, test_cover (CI aggregate) |
+| `task ci` | Run fmt, mod-tidy check, lint, and race+coverage tests (CI aggregate) |
 
 Run `task --list` to see all available tasks.
 

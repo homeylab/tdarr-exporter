@@ -7,11 +7,11 @@ description: Runs actions to test go code
 runs:
   using: "composite" # allows inputs/outputs to be passed between steps
   steps:
-    - uses: actions/checkout@v4
+    # calling workflows already checkout; no redundant checkout here
     # https://github.com/actions/runner/issues/2238
     # use `fromJSON`
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
     # get version
@@ -34,9 +34,9 @@ runs:
     - name: Lint code
       uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        version: v2.12.2
         args: --timeout 5m
-    # run unit tests
+    # run unit tests with race detector
     - name: Run Go Tests
       shell: bash
-      run: go test ./... -count=1
+      run: go test ./... -race -count=1

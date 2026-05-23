@@ -5,7 +5,7 @@
     // features: https://github.com/devcontainers/features?tab=readme-ov-file
     "image": "mcr.microsoft.com/devcontainers/go:2.1-bookworm",
     "features": {
-            "ghcr.io/devcontainers/features/go:latest": {
+            "ghcr.io/devcontainers/features/go:1": {
                 "version": "1.26.3"
             }
     },

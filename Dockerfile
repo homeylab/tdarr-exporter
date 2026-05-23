@@ -27,7 +27,9 @@ RUN go mod download
 
 COPY . .
 RUN go build \
-    # ldlflags: `-w -s` disable debugging and `pprof` for minimal binary, 
+    # -trimpath: strip absolute build paths for reproducible builds
+    -trimpath \
+    # ldlflags: `-w -s` disable debugging and `pprof` for minimal binary,
     -ldflags "-w -s -X main.version=${VERSION} -X main.buildTime=${BUILDTIME} -X main.revision=${REVISION}" \
     -o exporter /build/cmd/exporter/.
 
