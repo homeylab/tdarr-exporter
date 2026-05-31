@@ -17,6 +17,14 @@ var (
 	METRIC_PREFIX = "tdarr"
 )
 
+// tdarrAPI is the HTTP-client seam used by the collectors. *client.RequestClient
+// satisfies it directly; tests inject an in-memory fake instead of a real client
+// plus httptest server.
+type tdarrAPI interface {
+	DoRequest(path string, target interface{}, queryParams ...client.QueryParams) error
+	DoPostRequest(path string, target interface{}, payload []byte) error
+}
+
 // unknownStatusKey identifies a unique (kind, status) pair for the unknown-status counter.
 type unknownStatusKey struct {
 	kind   string
@@ -25,6 +33,7 @@ type unknownStatusKey struct {
 
 type TdarrCollector struct {
 	config                config.Config
+	api                   tdarrAPI // shared HTTP client, built once in the constructor
 	statsCache            *TdarrLibStatsCache
 	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
@@ -96,9 +105,28 @@ func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
 }
 
 // collector
-func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
+//
+// NewTdarrCollector builds the shared HTTP client once from runConfig and wires it
+// into both the top-level collector and the embedded node collector. The client is
+// surfaced as a tdarrAPI; the error from client.NewRequestClient is propagated so the
+// composition root (main) can fail fast on a bad URL.
+func NewTdarrCollector(runConfig config.Config) (*TdarrCollector, error) {
+	api, err := client.NewRequestClient(runConfig.UrlParsed, runConfig.VerifySsl, runConfig.HttpTimeoutSeconds, runConfig.ApiKey)
+	if err != nil {
+		log.Error().
+			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
+		return nil, err
+	}
+	return newTdarrCollectorWithAPI(runConfig, api), nil
+}
+
+// newTdarrCollectorWithAPI is the test-injection seam: it builds a fully wired
+// TdarrCollector around an already-constructed tdarrAPI. The same api is shared with
+// the node collector since both hit the same base URL.
+func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrCollector {
 	return &TdarrCollector{
 		config:              runConfig,
+		api:                 api,
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: prometheus.NewDesc(
@@ -242,7 +270,7 @@ func NewTdarrCollector(runConfig config.Config) *TdarrCollector {
 			nil,
 			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
 		),
-		nodeCollector: NewTdarrNodeCollector(runConfig),
+		nodeCollector: NewTdarrNodeCollector(runConfig, api),
 	}
 }
 
@@ -297,12 +325,6 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
-	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.HttpTimeoutSeconds, c.config.ApiKey)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return err
-	}
 	log.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
@@ -312,7 +334,7 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, targ
 		return err
 	}
 	// make request
-	httpErr := httpClient.DoPostRequest(path, target, payload)
+	httpErr := c.api.DoPostRequest(path, target, payload)
 	if httpErr != nil {
 		log.Error().Str("urlPath", path).Interface("payload", reqPayload).Err(httpErr).Msg("Failed to get data for Tdarr exporter")
 		return httpErr

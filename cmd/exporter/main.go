@@ -30,7 +30,10 @@ func main() {
 	log.Info().Str("version", version).Str("buildTime", buildTime).Str("revision", revision).Msg("Starting tdarr-exporter")
 
 	// prometheus set up
-	tdarrCollector := collector.NewTdarrCollector(userConfig)
+	tdarrCollector, err := collector.NewTdarrCollector(userConfig)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create Tdarr collector")
+	}
 	registry := prometheus.NewRegistry()
 	// registering a collector uses JIT and first scrape will be slower
 	registry.MustRegister(tdarrCollector)

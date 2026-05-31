@@ -3,7 +3,6 @@ package collector
 import (
 	"fmt"
 
-	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -93,6 +92,7 @@ type TdarrNodeMetrics struct {
 
 type TdarrNodeCollector struct {
 	config  config.Config
+	api     tdarrAPI // shared with the parent TdarrCollector (same base URL)
 	metrics *TdarrNodeMetrics
 }
 
@@ -254,23 +254,20 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	}
 }
 
-func NewTdarrNodeCollector(runConfig config.Config) *TdarrNodeCollector {
+// NewTdarrNodeCollector wires the shared tdarrAPI (built by the parent collector)
+// into the node collector so node requests reuse the same HTTP client.
+func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI) *TdarrNodeCollector {
 	return &TdarrNodeCollector{
 		config:  runConfig,
+		api:     api,
 		metrics: NewTdarrNodeMetrics(runConfig),
 	}
 }
 
 func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl, n.config.HttpTimeoutSeconds, n.config.ApiKey)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
-	}
 	// get node data
 	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := httpClient.DoRequest(n.config.TdarrNodePath, &nodeData)
+	nodeHttpErr := n.api.DoRequest(n.config.TdarrNodePath, &nodeData)
 	if nodeHttpErr != nil {
 		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
 		return nil, nodeHttpErr

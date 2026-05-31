@@ -1,10 +1,6 @@
 package collector
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -77,80 +73,13 @@ func readFixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// newGoldenTestServer builds a fake Tdarr API server backed by testdata fixtures.
-// Routing:
-//   - POST /api/v2/cruddb  collection=StatisticsJSONDB  → general_stats.json
-//   - POST /api/v2/cruddb  collection=LibrarySettingsJSONDB → library_list.json
-//   - POST /api/v2/stats/get-pies  libraryId=lib-video-01 → pie_stats_lib_video_01.json
-//   - POST /api/v2/stats/get-pies  libraryId=lib-audio-01 → pie_stats_lib_audio_01.json
-//   - GET  /api/v2/get-nodes → nodes.json
-func newGoldenTestServer(t *testing.T) *httptest.Server {
-	t.Helper()
-
-	generalStats := readFixture(t, "general_stats.json")
-	libraryList := readFixture(t, "library_list.json")
-	pieVideo := readFixture(t, "pie_stats_lib_video_01.json")
-	pieAudio := readFixture(t, "pie_stats_lib_audio_01.json")
-	nodesData := readFixture(t, "nodes.json")
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "read body error", http.StatusBadRequest)
-			return
-		}
-		var req TdarrMetricRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			http.Error(w, "unmarshal error", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		switch req.Data.Collection {
-		case "LibrarySettingsJSONDB":
-			_, _ = w.Write(libraryList)
-		default: // StatisticsJSONDB
-			_, _ = w.Write(generalStats)
-		}
-	})
-
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "read body error", http.StatusBadRequest)
-			return
-		}
-		var req TdarrPieDataRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			http.Error(w, "unmarshal error", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		switch req.Data.LibraryId {
-		case "lib-audio-01":
-			_, _ = w.Write(pieAudio)
-		default: // lib-video-01
-			_, _ = w.Write(pieVideo)
-		}
-	})
-
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(nodesData)
-	})
-
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// newGoldenTestConfig returns a config.Config pointing at serverURL with deterministic settings.
+// newGoldenTestConfig returns a config.Config with deterministic settings.
 // HttpMaxConcurrency=1 ensures per-library pie requests are processed sequentially,
-// making pieData slice ordering fully deterministic.
-func newGoldenTestConfig(t *testing.T, serverURL string) config.Config {
+// making pieData slice ordering fully deterministic. UrlParsed is set so the config
+// is well-formed even though the injected fake never makes a network call.
+func newGoldenTestConfig(t *testing.T) config.Config {
 	t.Helper()
-	u, err := url.Parse(serverURL)
+	u, err := url.Parse("http://tdarr.test")
 	if err != nil {
 		t.Fatalf("parse url: %v", err)
 	}
@@ -165,6 +94,24 @@ func newGoldenTestConfig(t *testing.T, serverURL string) config.Config {
 		TdarrNodePath:      "/api/v2/get-nodes",
 		HttpMaxConcurrency: 1,
 	}
+}
+
+// newGoldenFakeAPI builds a fakeTdarrAPI backed by the testdata fixtures, mirroring
+// the routing the real Tdarr API performs:
+//   - POST /api/v2/cruddb  collection=StatisticsJSONDB      → general_stats.json
+//   - POST /api/v2/cruddb  collection=LibrarySettingsJSONDB → library_list.json
+//   - POST /api/v2/stats/get-pies  libraryId=lib-video-01   → pie_stats_lib_video_01.json
+//   - POST /api/v2/stats/get-pies  libraryId=lib-audio-01   → pie_stats_lib_audio_01.json
+//   - GET  /api/v2/get-nodes                                → nodes.json
+func newGoldenFakeAPI(t *testing.T, cfg config.Config) *fakeTdarrAPI {
+	t.Helper()
+	api := newFakeTdarrAPI()
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, readFixture(t, "general_stats.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, readFixture(t, "library_list.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-video-01"}, readFixture(t, "pie_stats_lib_video_01.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-audio-01"}, readFixture(t, "pie_stats_lib_audio_01.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, readFixture(t, "nodes.json"))
+	return api
 }
 
 // TestCollect_Golden_FullFixture is a characterization test that pins the exact
@@ -183,9 +130,9 @@ func newGoldenTestConfig(t *testing.T, serverURL string) config.Config {
 //     percentage, fps, original/output/est file sizes, job_start/start/status timestamps, pid, eta_seconds
 //   - tdarr_up = 1 on success path
 func TestCollect_Golden_FullFixture(t *testing.T) {
-	srv := newGoldenTestServer(t)
-	cfg := newGoldenTestConfig(t, srv.URL)
-	collector := NewTdarrCollector(cfg)
+	cfg := newGoldenTestConfig(t)
+	api := newGoldenFakeAPI(t, cfg)
+	collector := newTdarrCollectorWithAPI(cfg, api)
 
 	expectedFile, err := os.Open("testdata/expected_output.txt")
 	if err != nil {
