@@ -46,7 +46,10 @@
         {"name": "mkv", "value": 490},
         {"name": "m4a", "value": 10}
       ],
-      "resolutions": []
+      "resolutions": [
+        {"name": "1080p", "value": 460},
+        {"name": "720p", "value": 40}
+      ]
     }
   }
 }

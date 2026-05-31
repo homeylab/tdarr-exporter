@@ -366,9 +366,9 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 		fqNames[descFqName(t, d)]++
 	}
 
-	// 23 collector descs + 24 node descs. Adding/removing a metric must update this number,
+	// 24 collector descs + 24 node descs. Adding/removing a metric must update this number,
 	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
-	const wantCollectorDescs = 23
+	const wantCollectorDescs = 24
 	const wantNodeDescs = 24
 	wantTotal := wantCollectorDescs + wantNodeDescs
 	if len(descs) != wantTotal {
@@ -389,6 +389,7 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 		"tdarr_files_total",
 		"tdarr_up",
 		"tdarr_unknown_status_total",
+		"tdarr_library_audio_resolutions",
 		"tdarr_node_info",
 		"tdarr_node_worker_info",
 	}
