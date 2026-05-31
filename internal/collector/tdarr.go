@@ -307,7 +307,13 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 // so a metric is described in exactly one place. TestDescribe_EmitsAllDescs guards the
 // count, since Prometheus does not flag a desc that silently drops out of Describe.
 func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range append(c.descsList, c.nodeCollector.metrics.descs()...) {
+	// Range over the two sources separately rather than append()-ing them into one
+	// slice: appending to c.descsList could alias/overwrite its backing array if it
+	// ever had spare capacity. Two loops are allocation-free and alias-free.
+	for _, d := range c.descsList {
+		ch <- d
+	}
+	for _, d := range c.nodeCollector.metrics.descs() {
 		ch <- d
 	}
 }
@@ -406,10 +412,11 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 	// close channel to signal workers to stop
 	close(inChan)
 
-	// wait for workers to finish
-	dataWg.Wait()
-
-	// collect results
+	// Drain results concurrently with the workers. Starting the drain before
+	// dataWg.Wait() means correctness no longer depends on outChan being buffered
+	// to len(allLibs): even with a smaller (or unbuffered) outChan, workers never
+	// block on send because the drain is always consuming. pieData is written only
+	// by this goroutine and read only after resultWg.Wait(), so there is no race.
 	resultWg := &sync.WaitGroup{}
 	resultWg.Add(1)
 	go func() {
@@ -419,7 +426,8 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 		}
 	}()
 
-	// close channel no longer needed
+	// wait for workers to finish producing, then close outChan to stop the drain
+	dataWg.Wait()
 	close(outChan)
 
 	// wait for results to be collected
@@ -505,10 +513,11 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	// this won't block other reads when checking
 	cacheTotals := c.statsCache.GetTotals()
 	// Refetch if the cache is empty (first run) or any of the 10 totals changed.
-	// table0Count–table6Count cover every per-bucket state transition (e.g. files queued
-	// but not yet transcoded), catching invalidation cases the three top-level counts miss.
-	// Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means no spurious
-	// refetches — behavior degrades gracefully to original 3-totals logic.
+	// Beyond the three top-level counts, the seven per-bucket queue fields
+	// (holdQueue/transcodeQueue/… on TdarrMetric) catch state transitions the totals miss
+	// (e.g. files queued but not yet transcoded). Their Tdarr JSON source (table0Count–table6Count)
+	// and bucket meanings are documented on TdarrMetric in tdarr_models.go. Older Tdarr versions
+	// omit those fields; they decode to 0, so 0==0 never triggers a spurious refetch.
 	shouldCollect := shouldRefetch(cacheTotals, c.statsCache.GetLibStats() == nil, metric)
 	if shouldCollect {
 		log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
