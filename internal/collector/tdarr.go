@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,8 +64,8 @@ func newCounter(name, help string, varLabels []string, instance prometheus.Label
 // satisfies it directly; tests inject an in-memory fake instead of a real client
 // plus httptest server.
 type tdarrAPI interface {
-	DoRequest(path string, target any, queryParams ...client.QueryParams) error
-	DoPostRequest(path string, target any, payload []byte) error
+	DoRequest(ctx context.Context, path string, target any, queryParams ...client.QueryParams) error
+	DoPostRequest(ctx context.Context, path string, target any, payload []byte) error
 }
 
 // unknownStatusKey identifies a unique (kind, status) pair for the unknown-status counter.
@@ -77,10 +78,14 @@ type TdarrCollector struct {
 	// Only the config values read at collect time are stored, not the whole
 	// config.Config bag — the URL/SSL/timeout/api-key and instance label are
 	// consumed once in the constructor (client + descs) and never needed again.
-	statsPath             string
-	pieStatsPath          string
-	maxConcurrency        int
-	api                   tdarrAPI // shared HTTP client, built once in the constructor
+	statsPath      string
+	pieStatsPath   string
+	maxConcurrency int
+	api            tdarrAPI // shared HTTP client, built once in the constructor
+	// baseCtx is the parent context for every scrape's HTTP requests. main wires in
+	// a context cancelled on shutdown so in-flight scrapes abort promptly; tests and
+	// the WithAPI constructor default it to context.Background().
+	baseCtx               context.Context
 	statsCache            *TdarrLibStatsCache
 	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
@@ -162,14 +167,18 @@ func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
 // into both the top-level collector and the embedded node collector. The client is
 // surfaced as a tdarrAPI; the error from client.NewRequestClient is propagated so the
 // composition root (main) can fail fast on a bad URL.
-func NewTdarrCollector(runConfig config.Config) (*TdarrCollector, error) {
+func NewTdarrCollector(ctx context.Context, runConfig config.Config) (*TdarrCollector, error) {
 	api, err := client.NewRequestClient(runConfig.UrlParsed, runConfig.VerifySsl, runConfig.HttpTimeoutSeconds, runConfig.ApiKey)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
 		return nil, err
 	}
-	return newTdarrCollectorWithAPI(runConfig, api), nil
+	c := newTdarrCollectorWithAPI(runConfig, api)
+	// Wire the shutdown-cancellable context from the composition root so a scrape
+	// in flight when the process is terminating aborts instead of running to completion.
+	c.baseCtx = ctx
+	return c, nil
 }
 
 // newTdarrCollectorWithAPI is the test-injection seam: it builds a fully wired
@@ -183,6 +192,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		pieStatsPath:        runConfig.TdarrPieStatsPath,
 		maxConcurrency:      runConfig.HttpMaxConcurrency,
 		api:                 api,
+		baseCtx:             context.Background(),
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: newGauge(
@@ -361,7 +371,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
-func (c *TdarrCollector) httpReqHelper(path string, reqPayload any, target any) error {
+func (c *TdarrCollector) httpReqHelper(ctx context.Context, path string, reqPayload any, target any) error {
 	log.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
@@ -369,7 +379,7 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload any, target any) 
 		return fmt.Errorf("marshal payload: %w: %w", ErrParse, err)
 	}
 	// make request
-	httpErr := c.api.DoPostRequest(path, target, payload)
+	httpErr := c.api.DoPostRequest(ctx, path, target, payload)
 	if httpErr != nil {
 		return fmt.Errorf("request %s: %w: %w", path, ErrUpstream, httpErr)
 	}
@@ -387,12 +397,12 @@ func (c *TdarrCollector) bumpUnknownStatus(kind, status string) {
 }
 
 // support concurrency
-func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
+func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
 	defer wg.Done()
 	for piePayload := range inChan {
 		pieMetric := &TdarrPieStats{}
 		log.Debug().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
-		err := c.httpReqHelper(c.pieStatsPath, piePayload, pieMetric)
+		err := c.httpReqHelper(ctx, c.pieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
 			// Signal partial failure so Collect() can set tdarr_up=0.
@@ -427,7 +437,7 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 // fans the results back in. Per-library fetch failures are handled inside getLibStats
 // (it sets partialFailure and skips that library), so this returns only the gathered
 // pie stats — the same set collect() previously assembled inline before caching.
-func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats {
+func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryInfo) []*TdarrPieStats {
 	var pieData []*TdarrPieStats
 
 	dataWg := &sync.WaitGroup{}
@@ -436,7 +446,7 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 	// start workers
 	for i := 0; i < c.maxConcurrency; i++ {
 		dataWg.Add(1)
-		go c.getLibStats(dataWg, inChan, outChan)
+		go c.getLibStats(ctx, dataWg, inChan, outChan)
 	}
 
 	// send data to workers
@@ -479,7 +489,12 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
-	err := c.collect(ch)
+	// Derive a per-scrape context from baseCtx (cancelled on shutdown). The defer
+	// releases the context tree when the scrape returns; if baseCtx is cancelled
+	// mid-scrape, the in-flight HTTP requests abort.
+	ctx, cancel := context.WithCancel(c.baseCtx)
+	defer cancel()
+	err := c.collect(ctx, ch)
 	if err != nil {
 		log.Error().Err(err).Msg("Collection cycle failed")
 	}
@@ -518,11 +533,11 @@ func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetri
 	return libStatsNil || cached != totalsFromMetric(metric)
 }
 
-func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
+func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
-	err := c.httpReqHelper(c.statsPath, metricReqBody, &metric)
+	err := c.httpReqHelper(ctx, c.statsPath, metricReqBody, &metric)
 	if err != nil {
 		return err
 	}
@@ -572,12 +587,12 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	} else { // fetch new data and update cache
 		getLibsPayload := getGeneralReqPayload("library")
 		allLibs := []TdarrLibraryInfo{}
-		err := c.httpReqHelper(c.statsPath, getLibsPayload, &allLibs)
+		err := c.httpReqHelper(ctx, c.statsPath, getLibsPayload, &allLibs)
 		if err != nil {
 			return fmt.Errorf("get library details: %w", err)
 		}
 
-		pieData = c.fetchPies(allLibs)
+		pieData = c.fetchPies(ctx, allLibs)
 		log.Debug().Msg("All library stats gathered - setting cache")
 		c.statsCache.SetLibStats(pieData)
 
@@ -599,7 +614,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	c.unknownStatusMu.Unlock()
 
 	// get all node metrics
-	nodeData, err := c.nodeCollector.GetNodeData()
+	nodeData, err := c.nodeCollector.GetNodeData(ctx)
 	if err != nil {
 		return err
 	}

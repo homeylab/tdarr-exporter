@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -73,8 +74,9 @@ func (c *RequestClient) unmarshalBody(body io.Reader, target any) (err error) {
 	return
 }
 
-// DoRequest - Take a HTTP Request and return Unmarshaled data
-func (c *RequestClient) DoRequest(path string, target any, queryParams ...QueryParams) error {
+// DoRequest - Take a HTTP Request and return Unmarshaled data. The ctx is
+// attached to the request so a cancelled/expired context aborts it in flight.
+func (c *RequestClient) DoRequest(ctx context.Context, path string, target any, queryParams ...QueryParams) error {
 	values := c.URL.Query()
 	// add query params
 	for _, m := range queryParams {
@@ -88,7 +90,7 @@ func (c *RequestClient) DoRequest(path string, target any, queryParams ...QueryP
 	url.RawQuery = values.Encode()
 
 	log.Debug().Str("url", url.String()).Msg("Sending HTTP request")
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
@@ -110,11 +112,12 @@ func (c *RequestClient) DoRequest(path string, target any, queryParams ...QueryP
 	return c.unmarshalBody(resp.Body, target)
 }
 
-// DoRequest - Take a HTTP Request and return Unmarshaled data
-func (c *RequestClient) DoPostRequest(path string, target any, payload []byte) error {
+// DoPostRequest - Take a HTTP Request and return Unmarshaled data. The ctx is
+// attached to the request so a cancelled/expired context aborts it in flight.
+func (c *RequestClient) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
 	url := c.URL.JoinPath(path)
 	log.Debug().Str("url", url.String()).Msg("Sending HTTP POST request")
-	req, err := http.NewRequest(http.MethodPost, url.String(), bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}

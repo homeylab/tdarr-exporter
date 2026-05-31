@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -362,7 +363,7 @@ func TestCollect_ErrorCause(t *testing.T) {
 
 			// Drain emissions into a buffered channel so collect() never blocks.
 			ch := make(chan prometheus.Metric, 512)
-			err := c.collect(ch)
+			err := c.collect(context.Background(), ch)
 			close(ch)
 
 			if err == nil {
@@ -372,6 +373,36 @@ func TestCollect_ErrorCause(t *testing.T) {
 				t.Errorf("collect error = %v; want errors.Is(..., %v)", err, tc.wantCause)
 			}
 		})
+	}
+}
+
+// TestCollect_ContextCancelled_Aborts verifies the context seam: when the
+// collector's baseCtx is already cancelled, the very first request aborts and
+// collect() returns an error that carries both the cancellation cause and the
+// ErrUpstream category — i.e. a scrape in flight at shutdown unwinds instead of
+// running to completion.
+func TestCollect_ContextCancelled_Aborts(t *testing.T) {
+	t.Parallel()
+
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before collecting
+	c.baseCtx = ctx
+
+	ch := make(chan prometheus.Metric, 512)
+	err := c.collect(ctx, ch)
+	close(ch)
+
+	if err == nil {
+		t.Fatal("collect: want error from cancelled context, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("collect error = %v; want errors.Is(..., context.Canceled)", err)
+	}
+	if !errors.Is(err, ErrUpstream) {
+		t.Errorf("collect error = %v; want errors.Is(..., ErrUpstream)", err)
 	}
 }
 

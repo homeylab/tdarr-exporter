@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func TestDoRequest_HappyPath(t *testing.T) {
 	c := newTestClient(t, srv.URL, "secret-key")
 
 	var target payloadTarget
-	if err := c.DoRequest("/api/v2/status", &target); err != nil {
+	if err := c.DoRequest(context.Background(), "/api/v2/status", &target); err != nil {
 		t.Fatalf("DoRequest: unexpected error: %v", err)
 	}
 
@@ -82,7 +83,7 @@ func TestDoRequest_QueryParams(t *testing.T) {
 		"fields": []string{"id", "name"},
 	}
 	var target payloadTarget
-	if err := c.DoRequest("/api/v2/list", &target, params); err != nil {
+	if err := c.DoRequest(context.Background(), "/api/v2/list", &target, params); err != nil {
 		t.Fatalf("DoRequest: unexpected error: %v", err)
 	}
 
@@ -130,7 +131,7 @@ func TestDoRequest_ApiKeyHeader(t *testing.T) {
 			c := newTestClient(t, srv.URL, tt.apiKey)
 
 			var target payloadTarget
-			if err := c.DoRequest("/api/v2/status", &target); err != nil {
+			if err := c.DoRequest(context.Background(), "/api/v2/status", &target); err != nil {
 				t.Fatalf("DoRequest: unexpected error: %v", err)
 			}
 
@@ -162,7 +163,7 @@ func TestDoRequest_UnmarshalError(t *testing.T) {
 	c := newTestClient(t, srv.URL, "secret-key")
 
 	var target payloadTarget
-	if err := c.DoRequest("/api/v2/status", &target); err == nil {
+	if err := c.DoRequest(context.Background(), "/api/v2/status", &target); err == nil {
 		t.Fatal("DoRequest: want error for invalid JSON, got nil")
 	}
 }
@@ -196,7 +197,7 @@ func TestDoPostRequest_HappyPath(t *testing.T) {
 
 	payload := []byte(`{"query":"value"}`)
 	var target payloadTarget
-	if err := c.DoPostRequest("/api/v2/cruddb", &target, payload); err != nil {
+	if err := c.DoPostRequest(context.Background(), "/api/v2/cruddb", &target, payload); err != nil {
 		t.Fatalf("DoPostRequest: unexpected error: %v", err)
 	}
 

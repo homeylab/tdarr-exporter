@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -71,7 +72,12 @@ func keyForPost(path string, payload []byte) (fakeKey, error) {
 	return fakeKey{}, fmt.Errorf("fakeTdarrAPI: could not derive key for POST %s payload %s", path, payload)
 }
 
-func (f *fakeTdarrAPI) DoPostRequest(path string, target any, payload []byte) error {
+func (f *fakeTdarrAPI) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
+	// Honor a cancelled/expired context like the real client does, so cancellation
+	// propagation through the collector is testable without a network.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	key, err := keyForPost(path, payload)
 	if err != nil {
 		return err
@@ -86,7 +92,10 @@ func (f *fakeTdarrAPI) DoPostRequest(path string, target any, payload []byte) er
 	return json.Unmarshal(body, target)
 }
 
-func (f *fakeTdarrAPI) DoRequest(path string, target any, queryParams ...client.QueryParams) error {
+func (f *fakeTdarrAPI) DoRequest(ctx context.Context, path string, target any, queryParams ...client.QueryParams) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	key := fakeKey{path: path}
 	if e, ok := f.errors[key]; ok {
 		return e

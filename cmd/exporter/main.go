@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -35,8 +36,14 @@ func main() {
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 	log.Info().Str("version", version.Version).Str("revision", version.Revision).Str("buildDate", version.BuildDate).Str("goVersion", version.GoVersion).Msg("Starting tdarr-exporter")
 
+	// scrapeCtx is the parent context for all collector HTTP requests; cancelling
+	// it (on shutdown, below) aborts any scrape in flight instead of letting it
+	// run to completion against a Tdarr instance we are disconnecting from.
+	scrapeCtx, cancelScrapes := context.WithCancel(context.Background())
+	defer cancelScrapes()
+
 	// prometheus set up
-	tdarrCollector, err := collector.NewTdarrCollector(userConfig)
+	tdarrCollector, err := collector.NewTdarrCollector(scrapeCtx, userConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create Tdarr collector")
 	}
@@ -87,6 +94,8 @@ func main() {
 		<-quitServer
 		log.Fatal().Msg("Killing app on 2nd forced interrupt...")
 	}()
+	// Abort any in-flight scrape before tearing down the HTTP server.
+	cancelScrapes()
 	stopHttpChan <- true
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")

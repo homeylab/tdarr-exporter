@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -276,10 +277,10 @@ func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI) *TdarrNodeColl
 	}
 }
 
-func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
+func (n *TdarrNodeCollector) GetNodeData(ctx context.Context) (map[string]TdarrNode, error) {
 	// get node data
 	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := n.api.DoRequest(n.nodePath, &nodeData)
+	nodeHttpErr := n.api.DoRequest(ctx, n.nodePath, &nodeData)
 	if nodeHttpErr != nil {
 		return nil, fmt.Errorf("get node data: %w: %w", ErrUpstream, nodeHttpErr)
 	}
