@@ -17,6 +17,13 @@ var (
 	METRIC_PREFIX = "tdarr"
 )
 
+// newDesc builds a *prometheus.Desc with the METRIC_PREFIX-prefixed fqName and the
+// shared const instance label. It collapses the repeated NewDesc/BuildFQName boilerplate
+// in both the collector and node-metrics constructors to a single call per metric.
+func newDesc(name, help string, varLabels []string, instance prometheus.Labels) *prometheus.Desc {
+	return prometheus.NewDesc(prometheus.BuildFQName(METRIC_PREFIX, "", name), help, varLabels, instance)
+}
+
 // tdarrAPI is the HTTP-client seam used by the collectors. *client.RequestClient
 // satisfies it directly; tests inject an in-memory fake instead of a real client
 // plus httptest server.
@@ -62,6 +69,10 @@ type TdarrCollector struct {
 	unknownStatusTotal    *prometheus.Desc    // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	upMetric              *prometheus.Desc
+	// descsList is the collector's own descs in Describe order, assembled once in the
+	// constructor. Describe ranges over this plus the node collector's descs(), so a
+	// metric is registered for Describe in exactly one place (no field-by-field hand-list).
+	descsList []*prometheus.Desc
 }
 
 // Cache to store library stats and reduce excessive API calls
@@ -124,204 +135,175 @@ func NewTdarrCollector(runConfig config.Config) (*TdarrCollector, error) {
 // TdarrCollector around an already-constructed tdarrAPI. The same api is shared with
 // the node collector since both hit the same base URL.
 func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrCollector {
-	return &TdarrCollector{
+	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
+
+	c := &TdarrCollector{
 		config:              runConfig,
 		api:                 api,
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
-		totalFilesMetric: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "files_total"),
+		totalFilesMetric: newDesc(
+			"files_total",
 			"Tdarr total file count - includes files in ignore lists within each library",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		totalTranscodeCount: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "transcodes_total"),
+		totalTranscodeCount: newDesc(
+			"transcodes_total",
 			"Tdarr total transcode count for all libraries",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		totalHealthCheckCount: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "health_checks_total"),
+		totalHealthCheckCount: newDesc(
+			"health_checks_total",
 			"Tdarr total health check count for all libraries",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		sizeDiff: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "size_diff_gb"),
+		sizeDiff: newDesc(
+			"size_diff_gb",
 			"Tdarr size difference (+/-) in GB",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		tdarrScore: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "score_pct"),
+		tdarrScore: newDesc(
+			"score_pct",
 			"Tdarr score percentage - how much of your libraries has been handled by tdarr",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		healthCheckScore: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "health_check_score_pct"),
+		healthCheckScore: newDesc(
+			"health_check_score_pct",
 			"Tdarr health check score percentage - how much of your libraries has been health checked by tdarr",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		avgNumStreams: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "avg_num_streams"),
+		avgNumStreams: newDesc(
+			"avg_num_streams",
 			"Tdarr average number of streams in video",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
-		streamStatsDuration: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_duration"),
+		streamStatsDuration: newDesc(
+			"stream_stats_duration",
 			"Tdarr stream stats duration",
-			[]string{"stat_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"stat_type"}, instance,
 		),
-		streamStatsBitRate: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_bit_rate"),
+		streamStatsBitRate: newDesc(
+			"stream_stats_bit_rate",
 			"Tdarr stream stats bit rate",
-			[]string{"stat_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"stat_type"}, instance,
 		),
-		streamStatsNumFrames: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "stream_stats_num_frames"),
+		streamStatsNumFrames: newDesc(
+			"stream_stats_num_frames",
 			"Tdarr stream stats number of frames",
-			[]string{"stat_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"stat_type"}, instance,
 		),
-		pieNumFiles: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_files_total"),
+		pieNumFiles: newDesc(
+			"library_files_total",
 			"Tdarr total files in library",
-			[]string{"library_name", "library_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumTranscodes: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_transcodes_total"),
+		pieNumTranscodes: newDesc(
+			"library_transcodes_total",
 			"Tdarr total transcodes for library by status",
-			[]string{"library_name", "library_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumHealthChecks: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_health_checks_total"),
+		pieNumHealthChecks: newDesc(
+			"library_health_checks_total",
 			"Tdarr total health checks for library by status",
-			[]string{"library_name", "library_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id"}, instance,
 		),
-		pieSizeDiff: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_size_diff_gb"),
+		pieSizeDiff: newDesc(
+			"library_size_diff_gb",
 			"Tdarr size difference (+/-) in GB for library",
-			[]string{"library_name", "library_id"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id"}, instance,
 		),
-		pieTranscodes: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_transcodes"),
+		pieTranscodes: newDesc(
+			"library_transcodes",
 			"Tdarr transcodes for library by status",
-			[]string{"library_name", "library_id", "status"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "status"}, instance,
 		),
-		pieHealthChecks: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_health_checks"),
+		pieHealthChecks: newDesc(
+			"library_health_checks",
 			"Tdarr health checks for library by status",
-			[]string{"library_name", "library_id", "status"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "status"}, instance,
 		),
-		pieVideoCodecs: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_video_codecs"),
+		pieVideoCodecs: newDesc(
+			"library_video_codecs",
 			"Tdarr video codecs for library by type",
-			[]string{"library_name", "library_id", "codec"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "codec"}, instance,
 		),
-		pieVideoContainers: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_video_containers"),
+		pieVideoContainers: newDesc(
+			"library_video_containers",
 			"Tdarr video containers for library by type",
-			[]string{"library_name", "library_id", "container_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
-		pieVideoResolutions: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_video_resolutions"),
+		pieVideoResolutions: newDesc(
+			"library_video_resolutions",
 			"Tdarr video resolutions for library by type",
-			[]string{"library_name", "library_id", "resolution"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "resolution"}, instance,
 		),
-		pieAudioCodecs: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_audio_codecs"),
+		pieAudioCodecs: newDesc(
+			"library_audio_codecs",
 			"Tdarr audio codecs for library by type",
-			[]string{"library_name", "library_id", "codec"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "codec"}, instance,
 		),
-		pieAudioContainers: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "library_audio_containers"),
+		pieAudioContainers: newDesc(
+			"library_audio_containers",
 			"Tdarr video containers for library by type",
-			[]string{"library_name", "library_id", "container_type"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
-		unknownStatusTotal: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "unknown_status_total"),
+		unknownStatusTotal: newDesc(
+			"unknown_status_total",
 			"Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. "+
 				"A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. "+
 				"Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.",
-			[]string{"job_kind", "status"},
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			[]string{"job_kind", "status"}, instance,
 		),
-		upMetric: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "up"),
+		upMetric: newDesc(
+			"up",
 			"1 if the last collection cycle succeeded, 0 otherwise (Tdarr API error, response parse error, or partial pie-stats fetch). "+
 				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
-			nil,
-			prometheus.Labels{"tdarr_instance": runConfig.InstanceName},
+			nil, instance,
 		),
 		nodeCollector: NewTdarrNodeCollector(runConfig, api),
 	}
+
+	// Assemble the collector's own descs once, in Describe order. Describe ranges over
+	// this list plus the node collector's descs() — adding a metric means appending here
+	// in exactly one place. The order matches the historical hand-written Describe list.
+	c.descsList = []*prometheus.Desc{
+		c.totalFilesMetric,
+		c.totalTranscodeCount,
+		c.totalHealthCheckCount,
+		c.sizeDiff,
+		c.tdarrScore,
+		c.healthCheckScore,
+		c.pieNumFiles,
+		c.pieNumTranscodes,
+		c.pieNumHealthChecks,
+		c.pieSizeDiff,
+		c.pieTranscodes,
+		c.pieHealthChecks,
+		c.avgNumStreams,
+		c.streamStatsDuration,
+		c.streamStatsBitRate,
+		c.streamStatsNumFrames,
+		c.pieVideoCodecs,
+		c.pieVideoContainers,
+		c.pieVideoResolutions,
+		c.pieAudioCodecs,
+		c.pieAudioContainers,
+		c.unknownStatusTotal,
+		c.upMetric,
+	}
+
+	return c
 }
 
+// Describe emits every registered desc by ranging over a single ordered slice: the
+// collector's own descs (assembled in the constructor) followed by the node collector's
+// descs(). There is no field-by-field hand-list and no reach-in to nodeCollector.metrics.*,
+// so a metric is described in exactly one place. TestDescribe_EmitsAllDescs guards the
+// count, since Prometheus does not flag a desc that silently drops out of Describe.
 func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.totalFilesMetric
-	ch <- c.totalTranscodeCount
-	ch <- c.totalHealthCheckCount
-	ch <- c.sizeDiff
-	ch <- c.tdarrScore
-	ch <- c.healthCheckScore
-	ch <- c.pieNumFiles
-	ch <- c.pieNumTranscodes
-	ch <- c.pieNumHealthChecks
-	ch <- c.pieSizeDiff
-	ch <- c.pieTranscodes
-	ch <- c.pieHealthChecks
-	ch <- c.avgNumStreams
-	ch <- c.streamStatsDuration
-	ch <- c.streamStatsBitRate
-	ch <- c.streamStatsNumFrames
-	ch <- c.pieVideoCodecs
-	ch <- c.pieVideoContainers
-	ch <- c.pieVideoResolutions
-	ch <- c.pieAudioCodecs
-	ch <- c.pieAudioContainers
-	ch <- c.unknownStatusTotal
-	ch <- c.upMetric
-	ch <- c.nodeCollector.metrics.nodeInfo
-	ch <- c.nodeCollector.metrics.nodeUptime
-	ch <- c.nodeCollector.metrics.nodeHeapUsedMb
-	ch <- c.nodeCollector.metrics.nodeHeapTotalMb
-	ch <- c.nodeCollector.metrics.nodeHostCpuPercent
-	ch <- c.nodeCollector.metrics.nodeHostMemUsedGb
-	ch <- c.nodeCollector.metrics.nodeHostMemTotalGb
-	ch <- c.nodeCollector.metrics.nodePaused
-	ch <- c.nodeCollector.metrics.nodeMaxGpuWorkers
-	ch <- c.nodeCollector.metrics.nodeScheduleEnabled
-	ch <- c.nodeCollector.metrics.nodeWorkerCount
-	ch <- c.nodeCollector.metrics.nodeWorkerLimit
-	ch <- c.nodeCollector.metrics.nodeQueueLength
-	ch <- c.nodeCollector.metrics.nodeWorkerInfo
-	ch <- c.nodeCollector.metrics.nodeWorkerPercentage
-	ch <- c.nodeCollector.metrics.nodeWorkerFps
-	ch <- c.nodeCollector.metrics.nodeWorkerOriginalFileSizeGb
-	ch <- c.nodeCollector.metrics.nodeWorkerOutputFileSizeGb
-	ch <- c.nodeCollector.metrics.nodeWorkerEstFileSizeGb
-	ch <- c.nodeCollector.metrics.nodeWorkerJobStartTimestamp
-	ch <- c.nodeCollector.metrics.nodeWorkerStartTimestamp
-	ch <- c.nodeCollector.metrics.nodeWorkerStatusTimestamp
-	ch <- c.nodeCollector.metrics.nodeWorkerEtaSeconds
-	ch <- c.nodeCollector.metrics.nodeWorkerPid
+	for _, d := range append(c.descsList, c.nodeCollector.metrics.descs()...) {
+		ch <- d
+	}
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {

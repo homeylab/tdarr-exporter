@@ -3,6 +3,7 @@ package collector
 import (
 	"encoding/json"
 	"net/url"
+	"regexp"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -327,5 +328,73 @@ func TestCollect_RegisteredInRegistry_NoDescribeError(t *testing.T) {
 	}
 	if _, err := reg.Gather(); err != nil {
 		t.Fatalf("gather: %v", err)
+	}
+}
+
+// descFqNameRe extracts the fqName from a *prometheus.Desc's String() form, e.g.
+// `Desc{fqName: "tdarr_files_total", ...}`. The fqName is not exported any other way.
+var descFqNameRe = regexp.MustCompile(`fqName: "([^"]*)"`)
+
+func descFqName(t *testing.T, d *prometheus.Desc) string {
+	t.Helper()
+	m := descFqNameRe.FindStringSubmatch(d.String())
+	if m == nil {
+		t.Fatalf("could not extract fqName from desc: %s", d.String())
+	}
+	return m[1]
+}
+
+// TestDescribe_EmitsAllDescs locks the Describe drift hazard: Prometheus does NOT flag a
+// desc that silently drops out of Describe (it only errors on a Collect desc that was never
+// described), so a missing Describe entry is invisible without an explicit count assertion.
+// This test calls Describe, collects every emitted desc, and asserts both the exact total
+// count (collector + node descs) and that a representative sample of fqNames is present.
+func TestDescribe_EmitsAllDescs(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	// Drain Describe into a slice. Buffer generously so the send never blocks.
+	ch := make(chan *prometheus.Desc, 256)
+	c.Describe(ch)
+	close(ch)
+
+	var descs []*prometheus.Desc
+	fqNames := make(map[string]int)
+	for d := range ch {
+		descs = append(descs, d)
+		fqNames[descFqName(t, d)]++
+	}
+
+	// 23 collector descs + 24 node descs. Adding/removing a metric must update this number,
+	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
+	const wantCollectorDescs = 23
+	const wantNodeDescs = 24
+	wantTotal := wantCollectorDescs + wantNodeDescs
+	if len(descs) != wantTotal {
+		t.Fatalf("Describe emitted %d descs, want %d (collector %d + node %d)",
+			len(descs), wantTotal, wantCollectorDescs, wantNodeDescs)
+	}
+
+	// No duplicate fqName should appear — each metric is described exactly once.
+	for name, n := range fqNames {
+		if n != 1 {
+			t.Errorf("fqName %q described %d times, want 1", name, n)
+		}
+	}
+
+	// Representative sample spanning collector totals, the up gauge, the drift counter,
+	// and both node-level and worker-level node descs.
+	wantPresent := []string{
+		"tdarr_files_total",
+		"tdarr_up",
+		"tdarr_unknown_status_total",
+		"tdarr_node_info",
+		"tdarr_node_worker_info",
+	}
+	for _, name := range wantPresent {
+		if fqNames[name] == 0 {
+			t.Errorf("Describe missing expected desc %q", name)
+		}
 	}
 }
