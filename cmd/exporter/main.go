@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -13,22 +14,26 @@ import (
 	"github.com/homeylab/tdarr-exporter/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
+	"github.com/prometheus/common/version"
 
 	"github.com/rs/zerolog/log"
 )
 
-// Build metadata injected by the linker via -X flags.
-var (
-	version   string
-	buildTime string
-	revision  string
-)
-
 func main() {
+	// Handle --version before config parsing so it doesn't interfere with
+	// config.NewConfig's own flag set.
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-version" {
+			fmt.Println(version.Print("tdarr_exporter"))
+			os.Exit(0)
+		}
+	}
+
 	defer os.Exit(0)
 	userConfig := config.NewConfig()
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
-	log.Info().Str("version", version).Str("buildTime", buildTime).Str("revision", revision).Msg("Starting tdarr-exporter")
+	log.Info().Str("version", version.Version).Str("revision", version.Revision).Str("buildDate", version.BuildDate).Str("goVersion", version.GoVersion).Msg("Starting tdarr-exporter")
 
 	// prometheus set up
 	tdarrCollector, err := collector.NewTdarrCollector(userConfig)
@@ -41,6 +46,8 @@ func main() {
 	// standard Go runtime + process metrics (go_*, process_*)
 	registry.MustRegister(collectors.NewGoCollector())
 	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	// build info metric (tdarr_exporter_build_info)
+	registry.MustRegister(versioncollector.NewCollector("tdarr_exporter"))
 
 	// http server
 	stopHttpChan := make(chan bool)
