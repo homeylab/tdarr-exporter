@@ -13,6 +13,7 @@ import (
 	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -85,7 +86,10 @@ type TdarrCollector struct {
 	// baseCtx is the parent context for every scrape's HTTP requests. main wires in
 	// a context cancelled on shutdown so in-flight scrapes abort promptly; tests and
 	// the WithAPI constructor default it to context.Background().
-	baseCtx               context.Context
+	baseCtx context.Context
+	// logger defaults to the package-global log.Logger and is shared with the node
+	// collector at construction. Injected so tests can silence or capture logs.
+	logger                zerolog.Logger
 	statsCache            *TdarrLibStatsCache
 	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
@@ -193,6 +197,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		maxConcurrency:      runConfig.HttpMaxConcurrency,
 		api:                 api,
 		baseCtx:             context.Background(),
+		logger:              log.Logger,
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: newGauge(
@@ -318,7 +323,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
 			nil, instance,
 		),
-		nodeCollector: NewTdarrNodeCollector(runConfig, api),
+		nodeCollector: NewTdarrNodeCollector(runConfig, api, log.Logger),
 	}
 
 	// Assemble the collector's own descs once, in Describe order. Describe ranges over
@@ -372,7 +377,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *TdarrCollector) httpReqHelper(ctx context.Context, path string, reqPayload any, target any) error {
-	log.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
+	c.logger.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
 	if err != nil {
@@ -383,7 +388,7 @@ func (c *TdarrCollector) httpReqHelper(ctx context.Context, path string, reqPayl
 	if httpErr != nil {
 		return fmt.Errorf("request %s: %w: %w", path, ErrUpstream, httpErr)
 	}
-	log.Debug().Str("urlPath", path).Interface("payload", reqPayload).Interface("response", target).Msg("Stats API Response")
+	c.logger.Debug().Str("urlPath", path).Interface("payload", reqPayload).Interface("response", target).Msg("Stats API Response")
 	return nil
 }
 
@@ -401,10 +406,10 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 	defer wg.Done()
 	for piePayload := range inChan {
 		pieMetric := &TdarrPieStats{}
-		log.Debug().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
+		c.logger.Debug().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
 		err := c.httpReqHelper(ctx, c.pieStatsPath, piePayload, pieMetric)
 		if err != nil {
-			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
+			c.logger.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
 			// Signal partial failure so Collect() can set tdarr_up=0.
 			// Previously-cached normalized data for this library is preserved (acceptable:
 			// last-known zero-padded series keep emitting while tdarr_up signals the issue).
@@ -419,7 +424,7 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 		// response always populates _id and name for real libraries, so this
 		// branch should never fire — log loudly if it does.
 		if pieMetric.libraryId == "" || pieMetric.libraryName == "" {
-			log.Warn().
+			c.logger.Warn().
 				Str("libraryId", pieMetric.libraryId).
 				Str("libraryName", pieMetric.libraryName).
 				Msg("Tdarr returned library with empty id or name; dropping series")
@@ -496,7 +501,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	defer cancel()
 	err := c.collect(ctx, ch)
 	if err != nil {
-		log.Error().Err(err).Msg("Collection cycle failed")
+		c.logger.Error().Err(err).Msg("Collection cycle failed")
 	}
 	// Always reset partialFailure flag — must NOT short-circuit via OR or the flag leaks across scrapes.
 	partial := c.partialFailure.Swap(false)
@@ -542,7 +547,7 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 		return err
 	}
 
-	log.Debug().Int("totalFiles", metric.TotalFileCount).
+	c.logger.Debug().Int("totalFiles", metric.TotalFileCount).
 		Int("totalTranscodes", metric.TotalTranscodeCount).
 		Int("totalHealthChecks", metric.TotalHealthCheckCount).
 		Msg("General stats totals")
@@ -565,7 +570,7 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	}
 
 	// supports only api versions: v2.24.01+
-	log.Debug().Str("path", c.pieStatsPath).Msg("Fetching library pie stats")
+	c.logger.Debug().Str("path", c.pieStatsPath).Msg("Fetching library pie stats")
 	// already have total file count from general stats (`metric.TotalFileCount`)
 	// check cache for all libraries data
 	// this won't block other reads when checking
@@ -578,11 +583,11 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// omit those fields; they decode to 0, so 0==0 never triggers a spurious refetch.
 	shouldCollect := shouldRefetch(cacheTotals, c.statsCache.GetLibStats() == nil, metric)
 	if shouldCollect {
-		log.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
+		c.logger.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
 	}
 	// if counts are the same use cache
 	if !shouldCollect {
-		log.Debug().Msg("Using cached library stats - api totals matches cached values")
+		c.logger.Debug().Msg("Using cached library stats - api totals matches cached values")
 		pieData = c.statsCache.GetLibStats()
 	} else { // fetch new data and update cache
 		getLibsPayload := getGeneralReqPayload("library")
@@ -593,7 +598,7 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 		}
 
 		pieData = c.fetchPies(ctx, allLibs)
-		log.Debug().Msg("All library stats gathered - setting cache")
+		c.logger.Debug().Msg("All library stats gathered - setting cache")
 		c.statsCache.SetLibStats(pieData)
 
 		// set totals here after all data is collected
@@ -683,11 +688,11 @@ func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*
 // emitParsedFloat parses raw as a float64 and, on success, emits a node-scoped gauge.
 // On parse failure it debug-logs and silently skips the metric (intentional: Tdarr may
 // send empty/non-numeric resource strings for nodes that haven't reported yet).
-func emitParsedFloat(ch chan<- prometheus.Metric, desc typedDesc, raw string, nodeId, nodeName string) {
+func (c *TdarrCollector) emitParsedFloat(ch chan<- prometheus.Metric, desc typedDesc, raw string, nodeId, nodeName string) {
 	if v, floatErr := strconv.ParseFloat(raw, 64); floatErr == nil {
 		ch <- desc.mustNewConstMetric(v, nodeId, nodeName)
 	} else {
-		log.Debug().Str("nodeId", nodeId).Str("nodeName", nodeName).
+		c.logger.Debug().Str("nodeId", nodeId).Str("nodeName", nodeName).
 			Str("raw", raw).Err(floatErr).Msg("Failed to parse node resource stat; skipping metric")
 	}
 }
@@ -711,11 +716,11 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			float64(node.ResourceStats.Process.Uptime), node.Id, node.Name)
 
 		// convert resource stats to float from string; skip on parse failure
-		emitParsedFloat(ch, m.nodeHeapUsedMb, node.ResourceStats.Process.HeapUsedMb, node.Id, node.Name)
-		emitParsedFloat(ch, m.nodeHeapTotalMb, node.ResourceStats.Process.HeapTotalMb, node.Id, node.Name)
-		emitParsedFloat(ch, m.nodeHostCpuPercent, node.ResourceStats.Os.CpuPercent, node.Id, node.Name)
-		emitParsedFloat(ch, m.nodeHostMemUsedGb, node.ResourceStats.Os.MemUsedGb, node.Id, node.Name)
-		emitParsedFloat(ch, m.nodeHostMemTotalGb, node.ResourceStats.Os.MemTotalGb, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHeapUsedMb, node.ResourceStats.Process.HeapUsedMb, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHeapTotalMb, node.ResourceStats.Process.HeapTotalMb, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostCpuPercent, node.ResourceStats.Os.CpuPercent, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostMemUsedGb, node.ResourceStats.Os.MemUsedGb, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostMemTotalGb, node.ResourceStats.Os.MemTotalGb, node.Id, node.Name)
 
 		// node state gauges
 		pausedVal := 0.0
@@ -746,13 +751,15 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			if count == 0 {
 				continue
 			}
+			c.logger.Warn().Str("workerType", rawType).Int("count", count).
+				Msg("Unknown worker type encountered; bucketing under 'unknown'")
 			ch <- m.nodeWorkerCount.mustNewConstMetric(
 				float64(count), node.Id, node.Name, rawType, computeTypeUnknown)
 		}
 
 		// per-worker metrics
 		for _, worker := range node.Workers {
-			log.Debug().Interface("worker", worker).Msg("Worker data")
+			c.logger.Debug().Interface("worker", worker).Msg("Worker data")
 
 			// plugin labels: empty strings for flow workers (no plugin step concept)
 			pluginId := worker.LastPluginDetails.Id
@@ -798,7 +805,7 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 				ch <- m.nodeWorkerEtaSeconds.mustNewConstMetric(
 					float64(etaSecs), node.Id, node.Name, worker.Id)
 			} else {
-				log.Debug().Str("nodeId", node.Id).Str("workerId", worker.Id).
+				c.logger.Debug().Str("nodeId", node.Id).Str("workerId", worker.Id).
 					Str("eta", worker.Eta).Msg("Failed to parse worker ETA; skipping metric")
 			}
 		}

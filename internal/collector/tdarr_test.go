@@ -1,16 +1,19 @@
 package collector
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/rs/zerolog"
 )
 
 // newTestConfig builds a Config with sane test defaults. UrlParsed is set so the
@@ -373,6 +376,29 @@ func TestCollect_ErrorCause(t *testing.T) {
 				t.Errorf("collect error = %v; want errors.Is(..., %v)", err, tc.wantCause)
 			}
 		})
+	}
+}
+
+// TestCollect_InjectedLogger_CapturesOutput verifies the logger seam: a logger
+// injected into the collector receives its log output, so tests can capture or
+// silence logs without touching the package global. Drives the Collect error path
+// and asserts the "Collection cycle failed" line lands in the injected buffer.
+func TestCollect_InjectedLogger_CapturesOutput(t *testing.T) {
+	t.Parallel()
+
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, statErr{"boom"})
+	c := newTdarrCollectorWithAPI(cfg, api)
+
+	var buf bytes.Buffer
+	c.logger = zerolog.New(&buf)
+
+	// Collect swallows the error after logging it via the injected logger.
+	gatherMetricFamilies(t, c)
+
+	if !strings.Contains(buf.String(), "Collection cycle failed") {
+		t.Errorf("injected logger did not capture the failure log; buffer = %q", buf.String())
 	}
 }
 

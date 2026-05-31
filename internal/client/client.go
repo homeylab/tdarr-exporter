@@ -21,6 +21,10 @@ type RequestClient struct {
 	httpClient http.Client
 	apiKey     string
 	URL        url.URL
+	// logger is the client's logger, defaulting to the package-global log.Logger.
+	// Injected (not read from the global at each call) so tests can silence or
+	// capture client logs deterministically.
+	logger zerolog.Logger
 }
 
 type QueryParams = url.Values
@@ -48,6 +52,7 @@ func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, ap
 		},
 		URL:    *parsedUrl,
 		apiKey: apiKeyAuth,
+		logger: log.Logger,
 	}, nil
 }
 
@@ -57,16 +62,16 @@ func (c *RequestClient) unmarshalBody(body io.Reader, target any) (err error) {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered from panic: %s", r)
 			// if debug, log body
-			if log.Logger.GetLevel() == zerolog.DebugLevel {
+			if c.logger.GetLevel() == zerolog.DebugLevel {
 				// try to copy io.Reader to string for troubleshooting
 				s := new(strings.Builder)
 				_, copyErr := io.Copy(s, body)
 				if copyErr != nil {
-					log.Error().Err(copyErr).Interface("recover", r).Msg("Failed to copy body to string in recover for troubleshooting")
+					c.logger.Error().Err(copyErr).Interface("recover", r).Msg("Failed to copy body to string in recover for troubleshooting")
 				}
-				log.Error().Str("body", s.String()).Msg("Problem body")
+				c.logger.Error().Str("body", s.String()).Msg("Problem body")
 			}
-			log.Error().Err(err).Interface("recover", r).Msg("Recovered while unmarshalling response")
+			c.logger.Error().Err(err).Interface("recover", r).Msg("Recovered while unmarshalling response")
 		}
 	}()
 	// read body into target
@@ -89,14 +94,14 @@ func (c *RequestClient) DoRequest(ctx context.Context, path string, target any, 
 	url := c.URL.JoinPath(path)
 	url.RawQuery = values.Encode()
 
-	log.Debug().Str("url", url.String()).Msg("Sending HTTP request")
+	c.logger.Debug().Str("url", url.String()).Msg("Sending HTTP request")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
-		log.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
+		c.logger.Error().Err(err).Str("url", url.String()).Msg("Failed to create HTTP Request")
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
 	}
 	if c.apiKey != "" {
-		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
+		c.logger.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
 		req.Header.Set("x-api-key", c.apiKey)
 	}
 	resp, err := c.httpClient.Do(req)
@@ -106,7 +111,7 @@ func (c *RequestClient) DoRequest(ctx context.Context, path string, target any, 
 
 	defer func() {
 		if cErr := resp.Body.Close(); cErr != nil {
-			log.Error().Err(cErr).Msg("Failed to close response body")
+			c.logger.Error().Err(cErr).Msg("Failed to close response body")
 		}
 	}()
 	return c.unmarshalBody(resp.Body, target)
@@ -116,7 +121,7 @@ func (c *RequestClient) DoRequest(ctx context.Context, path string, target any, 
 // attached to the request so a cancelled/expired context aborts it in flight.
 func (c *RequestClient) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
 	url := c.URL.JoinPath(path)
-	log.Debug().Str("url", url.String()).Msg("Sending HTTP POST request")
+	c.logger.Debug().Str("url", url.String()).Msg("Sending HTTP POST request")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP Request(%s): %w", url, err)
@@ -125,7 +130,7 @@ func (c *RequestClient) DoPostRequest(ctx context.Context, path string, target a
 	// json content
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
-		log.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
+		c.logger.Debug().Str("authHeaderField", "x-api-key").Msg("Setting Authorization header - api token is set")
 		req.Header.Set("x-api-key", c.apiKey)
 	}
 	resp, err := c.httpClient.Do(req)
@@ -134,7 +139,7 @@ func (c *RequestClient) DoPostRequest(ctx context.Context, path string, target a
 	}
 	defer func() {
 		if cErr := resp.Body.Close(); cErr != nil {
-			log.Error().Err(cErr).Msg("Failed to close response body")
+			c.logger.Error().Err(cErr).Msg("Failed to close response body")
 		}
 	}()
 	return c.unmarshalBody(resp.Body, target)

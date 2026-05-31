@@ -6,7 +6,7 @@ import (
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 // Known worker type / compute type label values used for per-type metric emission.
@@ -97,6 +97,7 @@ type TdarrNodeCollector struct {
 	nodePath string
 	api      tdarrAPI // shared with the parent TdarrCollector (same base URL)
 	metrics  *TdarrNodeMetrics
+	logger   zerolog.Logger // shared with the parent TdarrCollector
 }
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
@@ -269,11 +270,12 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 
 // NewTdarrNodeCollector wires the shared tdarrAPI (built by the parent collector)
 // into the node collector so node requests reuse the same HTTP client.
-func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI) *TdarrNodeCollector {
+func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI, logger zerolog.Logger) *TdarrNodeCollector {
 	return &TdarrNodeCollector{
 		nodePath: runConfig.TdarrNodePath,
 		api:      api,
 		metrics:  NewTdarrNodeMetrics(runConfig),
+		logger:   logger,
 	}
 }
 
@@ -284,7 +286,7 @@ func (n *TdarrNodeCollector) GetNodeData(ctx context.Context) (map[string]TdarrN
 	if nodeHttpErr != nil {
 		return nil, fmt.Errorf("get node data: %w: %w", ErrUpstream, nodeHttpErr)
 	}
-	log.Debug().Interface("response", nodeData).Msg("Node Api Response")
+	n.logger.Debug().Interface("response", nodeData).Msg("Node Api Response")
 	return nodeData, nil
 }
 
@@ -310,8 +312,8 @@ type workerCountResult struct {
 
 // countWorkersByType counts active workers in the provided workers map grouped
 // by their WorkerType field (parsed into worker_type + compute_type). Unknown
-// API strings are bucketed by raw value so caller can emit (raw, "unknown", count)
-// series. A warning is logged for each occurrence of an unknown type.
+// API strings are bucketed by raw value so the caller can emit (raw, "unknown",
+// count) series and warn on them. Pure: no logging or I/O.
 func countWorkersByType(workers map[string]TdarrNodeWorkers) workerCountResult {
 	result := workerCountResult{
 		known:   make(map[workerTypeDim]int, len(knownWorkerTypeDims)),
@@ -323,7 +325,6 @@ func countWorkersByType(workers map[string]TdarrNodeWorkers) workerCountResult {
 	for _, w := range workers {
 		wt, ct := parseWorkerType(w.WorkerType)
 		if ct == computeTypeUnknown {
-			log.Warn().Str("workerType", w.WorkerType).Msg("Unknown worker type encountered; bucketing under 'unknown'")
 			result.unknown[w.WorkerType]++
 			continue
 		}

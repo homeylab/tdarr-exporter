@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/rs/zerolog"
 )
 
 // panicReader is an io.Reader whose Read method panics, used to drive the
@@ -23,7 +25,10 @@ func (panicReader) Read([]byte) (int, error) {
 func TestUnmarshalBody(t *testing.T) {
 	t.Parallel()
 
-	c := &RequestClient{}
+	// Explicit logger so the test does not depend on ambient log level. Nop()
+	// keeps the debug-only body-copy branch (which would re-read the panicking
+	// body) disabled; the recover-into-error behavior is what this test asserts.
+	c := &RequestClient{logger: zerolog.Nop()}
 
 	tests := []struct {
 		name      string
