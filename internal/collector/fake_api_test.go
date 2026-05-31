@@ -71,7 +71,7 @@ func keyForPost(path string, payload []byte) (fakeKey, error) {
 	return fakeKey{}, fmt.Errorf("fakeTdarrAPI: could not derive key for POST %s payload %s", path, payload)
 }
 
-func (f *fakeTdarrAPI) DoPostRequest(path string, target interface{}, payload []byte) error {
+func (f *fakeTdarrAPI) DoPostRequest(path string, target any, payload []byte) error {
 	key, err := keyForPost(path, payload)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (f *fakeTdarrAPI) DoPostRequest(path string, target interface{}, payload []
 	return json.Unmarshal(body, target)
 }
 
-func (f *fakeTdarrAPI) DoRequest(path string, target interface{}, queryParams ...client.QueryParams) error {
+func (f *fakeTdarrAPI) DoRequest(path string, target any, queryParams ...client.QueryParams) error {
 	key := fakeKey{path: path}
 	if e, ok := f.errors[key]; ok {
 		return e

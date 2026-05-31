@@ -12,6 +12,7 @@ import (
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/homeylab/tdarr-exporter/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 
 	"github.com/rs/zerolog/log"
 )
@@ -37,6 +38,9 @@ func main() {
 	registry := prometheus.NewRegistry()
 	// registering a collector uses JIT and first scrape will be slower
 	registry.MustRegister(tdarrCollector)
+	// standard Go runtime + process metrics (go_*, process_*)
+	registry.MustRegister(collectors.NewGoCollector())
+	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
 	// http server
 	stopHttpChan := make(chan bool)

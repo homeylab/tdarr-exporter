@@ -13,9 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	METRIC_PREFIX = "tdarr"
-)
+const METRIC_PREFIX = "tdarr"
 
 // newDesc builds a *prometheus.Desc with the METRIC_PREFIX-prefixed fqName and the
 // shared const instance label. It collapses the repeated NewDesc/BuildFQName boilerplate
@@ -28,8 +26,8 @@ func newDesc(name, help string, varLabels []string, instance prometheus.Labels) 
 // satisfies it directly; tests inject an in-memory fake instead of a real client
 // plus httptest server.
 type tdarrAPI interface {
-	DoRequest(path string, target interface{}, queryParams ...client.QueryParams) error
-	DoPostRequest(path string, target interface{}, payload []byte) error
+	DoRequest(path string, target any, queryParams ...client.QueryParams) error
+	DoPostRequest(path string, target any, payload []byte) error
 }
 
 // unknownStatusKey identifies a unique (kind, status) pair for the unknown-status counter.
@@ -306,7 +304,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
-func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
+func (c *TdarrCollector) httpReqHelper(path string, reqPayload any, target any) error {
 	log.Debug().Interface("payload", reqPayload).Msg("Requesting statistics data from Tdarr")
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
@@ -741,7 +739,7 @@ func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {
 				Collection: "LibrarySettingsJSONDB",
 				Mode:       "getAll",
 				DocId:      "",
-				Obj:        map[string]interface{}{},
+				Obj:        map[string]any{},
 			},
 		}
 	} else {
@@ -750,7 +748,7 @@ func getGeneralReqPayload(payloadRequestType string) TdarrMetricRequest {
 				Collection: "StatisticsJSONDB",
 				Mode:       "getById",
 				DocId:      "statistics",
-				Obj:        map[string]interface{}{},
+				Obj:        map[string]any{},
 			},
 		}
 	}

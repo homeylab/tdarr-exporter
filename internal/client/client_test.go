@@ -1,11 +1,86 @@
 package client
 
 import (
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 )
+
+// panicReader is an io.Reader whose Read method panics, used to drive the
+// defer/recover branch in unmarshalBody.
+type panicReader struct{}
+
+func (panicReader) Read([]byte) (int, error) {
+	panic("boom from Read")
+}
+
+// TestUnmarshalBody exercises unmarshalBody's three branches: a successful
+// decode, a malformed-JSON decode error, and the panic-recover path where the
+// body's Read panics and must be converted into an error rather than crashing.
+func TestUnmarshalBody(t *testing.T) {
+	t.Parallel()
+
+	c := &RequestClient{}
+
+	tests := []struct {
+		name      string
+		body      io.Reader
+		wantErr   bool
+		errSubstr string // checked only when wantErr is true
+		wantField string // checked only on success
+	}{
+		{
+			name:      "valid json decodes into target",
+			body:      strings.NewReader(`{"name":"tdarr"}`),
+			wantErr:   false,
+			wantField: "tdarr",
+		},
+		{
+			name:      "malformed json returns error",
+			body:      strings.NewReader(`{not-json`),
+			wantErr:   true,
+			errSubstr: "", // any decode error is acceptable
+		},
+		{
+			name:      "panicking reader is recovered into an error",
+			body:      panicReader{},
+			wantErr:   true,
+			errSubstr: "recovered",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var target struct {
+				Name string `json:"name"`
+			}
+			err := c.unmarshalBody(tt.body, &target)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("unmarshalBody: expected error, got nil")
+				}
+				if tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Fatalf("unmarshalBody error = %q, want substring %q", err.Error(), tt.errSubstr)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unmarshalBody: unexpected error: %v", err)
+			}
+			if target.Name != tt.wantField {
+				t.Fatalf("decoded Name = %q, want %q", target.Name, tt.wantField)
+			}
+		})
+	}
+}
 
 // TestNewRequestClient_DoesNotLeakInsecureIntoDefaultTransport proves that
 // constructing a RequestClient with verifySsl=false (InsecureSkipVerify=true) does

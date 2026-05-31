@@ -64,8 +64,8 @@ func TestParseEtaSeconds(t *testing.T) {
 			wantValid: false,
 		},
 		{
-			name:      "too many segments",
-			input:     "1:2:3:4",
+			name:  "too many segments",
+			input: "1:2:3:4",
 			// fmt.Sscanf reads exactly three integers and succeeds; the trailing ":4" is ignored.
 			// Actual behavior: n==3, err==nil -> returns (1*3600+2*60+3, true).
 			wantSecs:  1*3600 + 2*60 + 3,
