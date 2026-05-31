@@ -38,8 +38,13 @@ type unknownStatusKey struct {
 }
 
 type TdarrCollector struct {
-	config                config.Config
-	api                   tdarrAPI // shared HTTP client, built once in the constructor
+	// Only the config values read at collect time are stored, not the whole
+	// config.Config bag — the URL/SSL/timeout/api-key and instance label are
+	// consumed once in the constructor (client + descs) and never needed again.
+	statsPath      string
+	pieStatsPath   string
+	maxConcurrency int
+	api            tdarrAPI // shared HTTP client, built once in the constructor
 	statsCache            *TdarrLibStatsCache
 	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
@@ -138,7 +143,9 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
 	c := &TdarrCollector{
-		config:              runConfig,
+		statsPath:           runConfig.TdarrStatsPath,
+		pieStatsPath:        runConfig.TdarrPieStatsPath,
+		maxConcurrency:      runConfig.HttpMaxConcurrency,
 		api:                 api,
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
@@ -349,7 +356,7 @@ func (c *TdarrCollector) getLibStats(wg *sync.WaitGroup, inChan <-chan TdarrPieD
 	for piePayload := range inChan {
 		pieMetric := &TdarrPieStats{}
 		log.Debug().Interface("payload", piePayload).Msg("Requesting Lib stats pie data from Tdarr")
-		err := c.httpReqHelper(c.config.TdarrPieStatsPath, piePayload, pieMetric)
+		err := c.httpReqHelper(c.pieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			log.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
 			// Signal partial failure so Collect() can set tdarr_up=0.
@@ -391,7 +398,7 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 	inChan := make(chan TdarrPieDataRequest, len(allLibs))
 	outChan := make(chan *TdarrPieStats, len(allLibs))
 	// start workers
-	for i := 0; i < c.config.HttpMaxConcurrency; i++ {
+	for i := 0; i < c.maxConcurrency; i++ {
 		dataWg.Add(1)
 		go c.getLibStats(dataWg, inChan, outChan)
 	}
@@ -479,7 +486,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
-	err := c.httpReqHelper(c.config.TdarrStatsPath, metricReqBody, &metric)
+	err := c.httpReqHelper(c.statsPath, metricReqBody, &metric)
 	if err != nil {
 		return err
 	}
@@ -507,7 +514,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	}
 
 	// supports only api versions: v2.24.01+
-	log.Debug().Str("path", c.config.TdarrPieStatsPath).Msg("Fetching library pie stats")
+	log.Debug().Str("path", c.pieStatsPath).Msg("Fetching library pie stats")
 	// already have total file count from general stats (`metric.TotalFileCount`)
 	// check cache for all libraries data
 	// this won't block other reads when checking
@@ -529,7 +536,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	} else { // fetch new data and update cache
 		getLibsPayload := getGeneralReqPayload("library")
 		allLibs := []TdarrLibraryInfo{}
-		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
+		err := c.httpReqHelper(c.statsPath, getLibsPayload, &allLibs)
 		if err != nil {
 			return fmt.Errorf("get library details: %w", err)
 		}

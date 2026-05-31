@@ -91,9 +91,11 @@ type TdarrNodeMetrics struct {
 }
 
 type TdarrNodeCollector struct {
-	config  config.Config
-	api     tdarrAPI // shared with the parent TdarrCollector (same base URL)
-	metrics *TdarrNodeMetrics
+	// Only the node API path is read at collect time; the instance label is
+	// baked into the descs at construction, so the full config bag is not stored.
+	nodePath string
+	api      tdarrAPI // shared with the parent TdarrCollector (same base URL)
+	metrics  *TdarrNodeMetrics
 }
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
@@ -268,16 +270,16 @@ func (m *TdarrNodeMetrics) descs() []*prometheus.Desc {
 // into the node collector so node requests reuse the same HTTP client.
 func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI) *TdarrNodeCollector {
 	return &TdarrNodeCollector{
-		config:  runConfig,
-		api:     api,
-		metrics: NewTdarrNodeMetrics(runConfig),
+		nodePath: runConfig.TdarrNodePath,
+		api:      api,
+		metrics:  NewTdarrNodeMetrics(runConfig),
 	}
 }
 
 func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
 	// get node data
 	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := n.api.DoRequest(n.config.TdarrNodePath, &nodeData)
+	nodeHttpErr := n.api.DoRequest(n.nodePath, &nodeData)
 	if nodeHttpErr != nil {
 		return nil, fmt.Errorf("get node data: %w", nodeHttpErr)
 	}
