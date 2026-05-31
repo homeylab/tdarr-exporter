@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,19 @@ import (
 )
 
 const METRIC_PREFIX = "tdarr"
+
+// Sentinel categories for collection failures so callers and tests can branch
+// on the cause with errors.Is instead of matching error strings. Boundary errors
+// wrap one of these alongside the underlying cause (via multi-%w), so the original
+// error chain (e.g. a transport or JSON error) stays inspectable.
+var (
+	// ErrUpstream marks a failure talking to the Tdarr API: request construction,
+	// transport, a non-2xx status, or an unreadable/undecodable response body.
+	ErrUpstream = errors.New("tdarr upstream request failed")
+	// ErrParse marks a failure interpreting an otherwise-successful response:
+	// payload marshalling or a numeric field that could not be converted.
+	ErrParse = errors.New("tdarr response parse failed")
+)
 
 // buildDesc builds a *prometheus.Desc with the METRIC_PREFIX-prefixed fqName and the
 // shared const instance label. It collapses the repeated NewDesc/BuildFQName boilerplate
@@ -352,12 +366,12 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload any, target any) 
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
 	if err != nil {
-		return fmt.Errorf("marshal payload: %w", err)
+		return fmt.Errorf("marshal payload: %w: %w", ErrParse, err)
 	}
 	// make request
 	httpErr := c.api.DoPostRequest(path, target, payload)
 	if httpErr != nil {
-		return fmt.Errorf("request %s failed: %w", path, httpErr)
+		return fmt.Errorf("request %s: %w: %w", path, ErrUpstream, httpErr)
 	}
 	log.Debug().Str("urlPath", path).Interface("payload", reqPayload).Interface("response", target).Msg("Stats API Response")
 	return nil
@@ -528,11 +542,11 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 
 	score, floatConvertErr = strconv.ParseFloat(metric.TdarrScore, 64)
 	if floatConvertErr != nil {
-		return fmt.Errorf("parse tdarr score %q: %w", metric.TdarrScore, floatConvertErr)
+		return fmt.Errorf("parse tdarr score %q: %w: %w", metric.TdarrScore, ErrParse, floatConvertErr)
 	}
 	healthScore, floatConvertErr = strconv.ParseFloat(metric.HealthCheckScore, 64)
 	if floatConvertErr != nil {
-		return fmt.Errorf("parse health score %q: %w", metric.HealthCheckScore, floatConvertErr)
+		return fmt.Errorf("parse health score %q: %w: %w", metric.HealthCheckScore, ErrParse, floatConvertErr)
 	}
 
 	// supports only api versions: v2.24.01+

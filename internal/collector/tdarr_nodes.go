@@ -281,7 +281,7 @@ func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
 	nodeData := map[string]TdarrNode{}
 	nodeHttpErr := n.api.DoRequest(n.nodePath, &nodeData)
 	if nodeHttpErr != nil {
-		return nil, fmt.Errorf("get node data: %w", nodeHttpErr)
+		return nil, fmt.Errorf("get node data: %w: %w", ErrUpstream, nodeHttpErr)
 	}
 	log.Debug().Interface("response", nodeData).Msg("Node Api Response")
 	return nodeData, nil

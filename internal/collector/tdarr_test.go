@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"net/url"
 	"regexp"
 	"testing"
@@ -312,6 +313,65 @@ func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
 	}
 	if hasMetricFamily(mfs, "tdarr_files_total") {
 		t.Error("expected no tdarr_files_total: health score parse failure should return before any data emissions")
+	}
+}
+
+// TestCollect_ErrorCause verifies that collect() wraps the sentinel matching the
+// failure category, so callers/tests can branch on the cause via errors.Is rather
+// than matching error strings. Each case drives a distinct failure boundary.
+func TestCollect_ErrorCause(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		setup     func(cfg config.Config, api *fakeTdarrAPI)
+		wantCause error
+	}{
+		{
+			name: "stats API failure is ErrUpstream",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, statErr{"boom"})
+			},
+			wantCause: ErrUpstream,
+		},
+		{
+			name: "node fetch failure is ErrUpstream",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				api.setError(fakeKey{path: cfg.TdarrNodePath}, statErr{"boom"})
+			},
+			wantCause: ErrUpstream,
+		},
+		{
+			name: "unparseable score is ErrParse",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				m := TdarrMetric{TotalFileCount: 1, TdarrScore: "not-a-float", HealthCheckScore: "0"}
+				b, _ := json.Marshal(m)
+				api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, b)
+			},
+			wantCause: ErrParse,
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			api := newSuccessFakeAPI(cfg)
+			tc.setup(cfg, api)
+			c := newTdarrCollectorWithAPI(cfg, api)
+
+			// Drain emissions into a buffered channel so collect() never blocks.
+			ch := make(chan prometheus.Metric, 512)
+			err := c.collect(ch)
+			close(ch)
+
+			if err == nil {
+				t.Fatalf("collect: want error wrapping %v, got nil", tc.wantCause)
+			}
+			if !errors.Is(err, tc.wantCause) {
+				t.Errorf("collect error = %v; want errors.Is(..., %v)", err, tc.wantCause)
+			}
+		})
 	}
 }
 
