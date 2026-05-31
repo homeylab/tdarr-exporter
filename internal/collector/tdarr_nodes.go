@@ -279,8 +279,7 @@ func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
 	nodeData := map[string]TdarrNode{}
 	nodeHttpErr := n.api.DoRequest(n.config.TdarrNodePath, &nodeData)
 	if nodeHttpErr != nil {
-		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
-		return nil, nodeHttpErr
+		return nil, fmt.Errorf("get node data: %w", nodeHttpErr)
 	}
 	log.Debug().Interface("response", nodeData).Msg("Node Api Response")
 	return nodeData, nil

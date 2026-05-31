@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -309,15 +310,12 @@ func (c *TdarrCollector) httpReqHelper(path string, reqPayload any, target any) 
 	// Marshal it into JSON prior to requesting
 	payload, err := json.Marshal(reqPayload)
 	if err != nil {
-		log.Error().Err(err).Interface("payload", reqPayload).
-			Msg("Failed to marshal payload for statistics request")
-		return err
+		return fmt.Errorf("marshal payload: %w", err)
 	}
 	// make request
 	httpErr := c.api.DoPostRequest(path, target, payload)
 	if httpErr != nil {
-		log.Error().Str("urlPath", path).Interface("payload", reqPayload).Err(httpErr).Msg("Failed to get data for Tdarr exporter")
-		return httpErr
+		return fmt.Errorf("request %s failed: %w", path, httpErr)
 	}
 	log.Debug().Str("urlPath", path).Interface("payload", reqPayload).Interface("response", target).Msg("Stats API Response")
 	return nil
@@ -424,6 +422,9 @@ func (c *TdarrCollector) fetchPies(allLibs []TdarrLibraryInfo) []*TdarrPieStats 
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	err := c.collect(ch)
+	if err != nil {
+		log.Error().Err(err).Msg("Collection cycle failed")
+	}
 	// Always reset partialFailure flag — must NOT short-circuit via OR or the flag leaks across scrapes.
 	partial := c.partialFailure.Swap(false)
 	v := 1.0
@@ -483,13 +484,11 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 
 	score, floatConvertErr = strconv.ParseFloat(metric.TdarrScore, 64)
 	if floatConvertErr != nil {
-		log.Error().Str("tdarrScoreStr", metric.TdarrScore).Err(floatConvertErr).Msg("Failed to convert a tdarr score to float")
-		return floatConvertErr
+		return fmt.Errorf("parse tdarr score %q: %w", metric.TdarrScore, floatConvertErr)
 	}
 	healthScore, floatConvertErr = strconv.ParseFloat(metric.HealthCheckScore, 64)
 	if floatConvertErr != nil {
-		log.Error().Str("healthCodeStr", metric.HealthCheckScore).Err(floatConvertErr).Msg("Failed to convert a health score to float")
-		return floatConvertErr
+		return fmt.Errorf("parse health score %q: %w", metric.HealthCheckScore, floatConvertErr)
 	}
 
 	// supports only api versions: v2.24.01+
@@ -516,8 +515,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 		allLibs := []TdarrLibraryInfo{}
 		err := c.httpReqHelper(c.config.TdarrStatsPath, getLibsPayload, &allLibs)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get library details")
-			return err
+			return fmt.Errorf("get library details: %w", err)
 		}
 
 		pieData = c.fetchPies(allLibs)
