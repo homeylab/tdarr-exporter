@@ -24,9 +24,14 @@ type RequestClient struct {
 
 type QueryParams = url.Values
 
-func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, apiKeyAuth string) (*RequestClient, error) {
-	baseTransport := http.DefaultTransport
-	baseTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: !insecureSkipVerify}
+// NewRequestClient constructs an HTTP client for Tdarr requests.
+//   - verifySsl: when true, TLS certificates are verified (InsecureSkipVerify=false).
+//   - timeoutSeconds: HTTP client timeout; use config.HttpTimeoutSeconds (default 15).
+//
+// The global http.DefaultTransport is never mutated; a fresh clone is created per call.
+func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, apiKeyAuth string) (*RequestClient, error) {
+	baseTransport := http.DefaultTransport.(*http.Transport).Clone()
+	baseTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verifySsl}
 
 	return &RequestClient{
 		httpClient: http.Client{
@@ -38,7 +43,7 @@ func NewRequestClient(parsedUrl *url.URL, insecureSkipVerify bool, apiKeyAuth st
 			// },
 			// TdarrTransport implements `RoundTrip`
 			Transport: NewClientTransport(baseTransport),
-			Timeout:   time.Duration(time.Duration(15) * time.Second),
+			Timeout:   time.Duration(timeoutSeconds) * time.Second,
 		},
 		URL:    *parsedUrl,
 		apiKey: apiKeyAuth,

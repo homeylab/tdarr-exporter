@@ -297,7 +297,7 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *TdarrCollector) httpReqHelper(path string, reqPayload interface{}, target interface{}) error {
-	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.ApiKey)
+	httpClient, err := client.NewRequestClient(c.config.UrlParsed, c.config.VerifySsl, c.config.HttpTimeoutSeconds, c.config.ApiKey)
 	if err != nil {
 		log.Error().
 			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
@@ -425,7 +425,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	// (e.g. files queued but not yet transcoded), catching invalidation cases the three top-level
 	// counts miss. Older Tdarr versions that omit tableXCount fields decode to 0; 0==0 means
 	// no spurious refetches — behavior degrades gracefully to original 3-totals logic.
-	if c.statsCache.libraryStats == nil ||
+	if c.statsCache.GetLibStats() == nil ||
 		cacheTotals.totalFileCount != metric.TotalFileCount ||
 		cacheTotals.totalTranscodeCount != metric.TotalTranscodeCount ||
 		cacheTotals.totalHealthCheckCount != metric.TotalHealthCheckCount ||
