@@ -16,11 +16,33 @@ import (
 
 const METRIC_PREFIX = "tdarr"
 
-// newDesc builds a *prometheus.Desc with the METRIC_PREFIX-prefixed fqName and the
+// buildDesc builds a *prometheus.Desc with the METRIC_PREFIX-prefixed fqName and the
 // shared const instance label. It collapses the repeated NewDesc/BuildFQName boilerplate
 // in both the collector and node-metrics constructors to a single call per metric.
-func newDesc(name, help string, varLabels []string, instance prometheus.Labels) *prometheus.Desc {
+func buildDesc(name, help string, varLabels []string, instance prometheus.Labels) *prometheus.Desc {
 	return prometheus.NewDesc(prometheus.BuildFQName(METRIC_PREFIX, "", name), help, varLabels, instance)
+}
+
+// typedDesc bundles a *prometheus.Desc with its value type so emit sites don't have
+// to repeat prometheus.GaugeValue/CounterValue on every MustNewConstMetric call. The
+// value type lives next to the desc in exactly one place (the constructor).
+type typedDesc struct {
+	desc      *prometheus.Desc
+	valueType prometheus.ValueType
+}
+
+// mustNewConstMetric emits a const metric for this desc using its bundled value type.
+func (d typedDesc) mustNewConstMetric(value float64, labelValues ...string) prometheus.Metric {
+	return prometheus.MustNewConstMetric(d.desc, d.valueType, value, labelValues...)
+}
+
+// newGauge / newCounter build a typedDesc carrying the matching Prometheus value type.
+func newGauge(name, help string, varLabels []string, instance prometheus.Labels) typedDesc {
+	return typedDesc{desc: buildDesc(name, help, varLabels, instance), valueType: prometheus.GaugeValue}
+}
+
+func newCounter(name, help string, varLabels []string, instance prometheus.Labels) typedDesc {
+	return typedDesc{desc: buildDesc(name, help, varLabels, instance), valueType: prometheus.CounterValue}
 }
 
 // tdarrAPI is the HTTP-client seam used by the collectors. *client.RequestClient
@@ -41,43 +63,43 @@ type TdarrCollector struct {
 	// Only the config values read at collect time are stored, not the whole
 	// config.Config bag — the URL/SSL/timeout/api-key and instance label are
 	// consumed once in the constructor (client + descs) and never needed again.
-	statsPath      string
-	pieStatsPath   string
-	maxConcurrency int
-	api            tdarrAPI // shared HTTP client, built once in the constructor
+	statsPath             string
+	pieStatsPath          string
+	maxConcurrency        int
+	api                   tdarrAPI // shared HTTP client, built once in the constructor
 	statsCache            *TdarrLibStatsCache
 	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
 	unknownStatusCounts   map[unknownStatusKey]float64 // monotonic counter for enum drift detection
-	totalFilesMetric      *prometheus.Desc
-	totalTranscodeCount   *prometheus.Desc
-	totalHealthCheckCount *prometheus.Desc
-	sizeDiff              *prometheus.Desc
-	tdarrScore            *prometheus.Desc
-	healthCheckScore      *prometheus.Desc
-	avgNumStreams         *prometheus.Desc
-	streamStatsDuration   *prometheus.Desc
-	streamStatsBitRate    *prometheus.Desc
-	streamStatsNumFrames  *prometheus.Desc
-	pieNumFiles           *prometheus.Desc
-	pieNumTranscodes      *prometheus.Desc
-	pieNumHealthChecks    *prometheus.Desc
-	pieSizeDiff           *prometheus.Desc
-	pieTranscodes         *prometheus.Desc
-	pieHealthChecks       *prometheus.Desc
-	pieVideoCodecs        *prometheus.Desc
-	pieVideoContainers    *prometheus.Desc
-	pieVideoResolutions   *prometheus.Desc
-	pieAudioCodecs        *prometheus.Desc
-	pieAudioContainers    *prometheus.Desc
-	pieAudioResolutions   *prometheus.Desc
-	unknownStatusTotal    *prometheus.Desc    // counter for status values not in known enum
+	totalFilesMetric      typedDesc
+	totalTranscodeCount   typedDesc
+	totalHealthCheckCount typedDesc
+	sizeDiff              typedDesc
+	tdarrScore            typedDesc
+	healthCheckScore      typedDesc
+	avgNumStreams         typedDesc
+	streamStatsDuration   typedDesc
+	streamStatsBitRate    typedDesc
+	streamStatsNumFrames  typedDesc
+	pieNumFiles           typedDesc
+	pieNumTranscodes      typedDesc
+	pieNumHealthChecks    typedDesc
+	pieSizeDiff           typedDesc
+	pieTranscodes         typedDesc
+	pieHealthChecks       typedDesc
+	pieVideoCodecs        typedDesc
+	pieVideoContainers    typedDesc
+	pieVideoResolutions   typedDesc
+	pieAudioCodecs        typedDesc
+	pieAudioContainers    typedDesc
+	pieAudioResolutions   typedDesc
+	unknownStatusTotal    typedDesc           // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
-	upMetric              *prometheus.Desc
+	upMetric              typedDesc
 	// descsList is the collector's own descs in Describe order, assembled once in the
 	// constructor. Describe ranges over this plus the node collector's descs(), so a
 	// metric is registered for Describe in exactly one place (no field-by-field hand-list).
-	descsList []*prometheus.Desc
+	descsList []typedDesc
 }
 
 // Cache to store library stats and reduce excessive API calls
@@ -149,124 +171,124 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		api:                 api,
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
-		totalFilesMetric: newDesc(
+		totalFilesMetric: newGauge(
 			"files_total",
 			"Tdarr total file count - includes files in ignore lists within each library",
 			nil, instance,
 		),
-		totalTranscodeCount: newDesc(
+		totalTranscodeCount: newGauge(
 			"transcodes_total",
 			"Tdarr total transcode count for all libraries",
 			nil, instance,
 		),
-		totalHealthCheckCount: newDesc(
+		totalHealthCheckCount: newGauge(
 			"health_checks_total",
 			"Tdarr total health check count for all libraries",
 			nil, instance,
 		),
-		sizeDiff: newDesc(
+		sizeDiff: newGauge(
 			"size_diff_gb",
 			"Tdarr size difference (+/-) in GB",
 			nil, instance,
 		),
-		tdarrScore: newDesc(
+		tdarrScore: newGauge(
 			"score_pct",
 			"Tdarr score percentage - how much of your libraries has been handled by tdarr",
 			nil, instance,
 		),
-		healthCheckScore: newDesc(
+		healthCheckScore: newGauge(
 			"health_check_score_pct",
 			"Tdarr health check score percentage - how much of your libraries has been health checked by tdarr",
 			nil, instance,
 		),
-		avgNumStreams: newDesc(
+		avgNumStreams: newGauge(
 			"avg_num_streams",
 			"Tdarr average number of streams in video",
 			nil, instance,
 		),
-		streamStatsDuration: newDesc(
+		streamStatsDuration: newGauge(
 			"stream_stats_duration",
 			"Tdarr stream stats duration",
 			[]string{"stat_type"}, instance,
 		),
-		streamStatsBitRate: newDesc(
+		streamStatsBitRate: newGauge(
 			"stream_stats_bit_rate",
 			"Tdarr stream stats bit rate",
 			[]string{"stat_type"}, instance,
 		),
-		streamStatsNumFrames: newDesc(
+		streamStatsNumFrames: newGauge(
 			"stream_stats_num_frames",
 			"Tdarr stream stats number of frames",
 			[]string{"stat_type"}, instance,
 		),
-		pieNumFiles: newDesc(
+		pieNumFiles: newGauge(
 			"library_files_total",
 			"Tdarr total files in library",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumTranscodes: newDesc(
+		pieNumTranscodes: newGauge(
 			"library_transcodes_total",
 			"Tdarr total transcodes for library by status",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumHealthChecks: newDesc(
+		pieNumHealthChecks: newGauge(
 			"library_health_checks_total",
 			"Tdarr total health checks for library by status",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieSizeDiff: newDesc(
+		pieSizeDiff: newGauge(
 			"library_size_diff_gb",
 			"Tdarr size difference (+/-) in GB for library",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieTranscodes: newDesc(
+		pieTranscodes: newGauge(
 			"library_transcodes",
 			"Tdarr transcodes for library by status",
 			[]string{"library_name", "library_id", "status"}, instance,
 		),
-		pieHealthChecks: newDesc(
+		pieHealthChecks: newGauge(
 			"library_health_checks",
 			"Tdarr health checks for library by status",
 			[]string{"library_name", "library_id", "status"}, instance,
 		),
-		pieVideoCodecs: newDesc(
+		pieVideoCodecs: newGauge(
 			"library_video_codecs",
 			"Tdarr video codecs for library by type",
 			[]string{"library_name", "library_id", "codec"}, instance,
 		),
-		pieVideoContainers: newDesc(
+		pieVideoContainers: newGauge(
 			"library_video_containers",
 			"Tdarr video containers for library by type",
 			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
-		pieVideoResolutions: newDesc(
+		pieVideoResolutions: newGauge(
 			"library_video_resolutions",
 			"Tdarr video resolutions for library by type",
 			[]string{"library_name", "library_id", "resolution"}, instance,
 		),
-		pieAudioCodecs: newDesc(
+		pieAudioCodecs: newGauge(
 			"library_audio_codecs",
 			"Tdarr audio codecs for library by type",
 			[]string{"library_name", "library_id", "codec"}, instance,
 		),
-		pieAudioContainers: newDesc(
+		pieAudioContainers: newGauge(
 			"library_audio_containers",
 			"Tdarr video containers for library by type",
 			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
-		pieAudioResolutions: newDesc(
+		pieAudioResolutions: newGauge(
 			"library_audio_resolutions",
 			"Tdarr audio resolutions for library by type",
 			[]string{"library_name", "library_id", "resolution"}, instance,
 		),
-		unknownStatusTotal: newDesc(
+		unknownStatusTotal: newCounter(
 			"unknown_status_total",
 			"Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. "+
 				"A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. "+
 				"Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.",
 			[]string{"job_kind", "status"}, instance,
 		),
-		upMetric: newDesc(
+		upMetric: newGauge(
 			"up",
 			"1 if the last collection cycle succeeded, 0 otherwise (Tdarr API error, response parse error, or partial pie-stats fetch). "+
 				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
@@ -278,7 +300,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 	// Assemble the collector's own descs once, in Describe order. Describe ranges over
 	// this list plus the node collector's descs() — adding a metric means appending here
 	// in exactly one place. The order matches the historical hand-written Describe list.
-	c.descsList = []*prometheus.Desc{
+	c.descsList = []typedDesc{
 		c.totalFilesMetric,
 		c.totalTranscodeCount,
 		c.totalHealthCheckCount,
@@ -318,10 +340,10 @@ func (c *TdarrCollector) Describe(ch chan<- *prometheus.Desc) {
 	// slice: appending to c.descsList could alias/overwrite its backing array if it
 	// ever had spare capacity. Two loops are allocation-free and alias-free.
 	for _, d := range c.descsList {
-		ch <- d
+		ch <- d.desc
 	}
 	for _, d := range c.nodeCollector.metrics.descs() {
-		ch <- d
+		ch <- d.desc
 	}
 }
 
@@ -453,7 +475,7 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil || partial {
 		v = 0.0
 	}
-	ch <- prometheus.MustNewConstMetric(c.upMetric, prometheus.GaugeValue, v)
+	ch <- c.upMetric.mustNewConstMetric(v)
 }
 
 // totalsFromMetric builds the cache-totals snapshot from a general-stats metric.
@@ -557,7 +579,7 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 	// A non-zero value means Tdarr returned a status label the exporter did not pre-init zeros for.
 	c.unknownStatusMu.Lock()
 	for key, count := range c.unknownStatusCounts {
-		ch <- prometheus.MustNewConstMetric(c.unknownStatusTotal, prometheus.CounterValue, count,
+		ch <- c.unknownStatusTotal.mustNewConstMetric(count,
 			key.kind, key.status)
 	}
 	c.unknownStatusMu.Unlock()
@@ -575,29 +597,29 @@ func (c *TdarrCollector) collect(ch chan<- prometheus.Metric) error {
 // emitGeneralMetrics emits the top-level server gauges and stream-stats series for a
 // general-stats metric. Pure: it only reads the metric/scores and writes to ch.
 func (c *TdarrCollector) emitGeneralMetrics(ch chan<- prometheus.Metric, metric *TdarrMetric, score, healthScore float64) {
-	ch <- prometheus.MustNewConstMetric(c.totalFilesMetric, prometheus.GaugeValue, float64(metric.TotalFileCount))
-	ch <- prometheus.MustNewConstMetric(c.totalTranscodeCount, prometheus.GaugeValue, float64(metric.TotalTranscodeCount))
-	ch <- prometheus.MustNewConstMetric(c.totalHealthCheckCount, prometheus.GaugeValue, float64(metric.TotalHealthCheckCount))
-	ch <- prometheus.MustNewConstMetric(c.sizeDiff, prometheus.GaugeValue, metric.SizeDiff)
-	ch <- prometheus.MustNewConstMetric(c.tdarrScore, prometheus.GaugeValue, score)
-	ch <- prometheus.MustNewConstMetric(c.healthCheckScore, prometheus.GaugeValue, healthScore)
-	ch <- prometheus.MustNewConstMetric(c.avgNumStreams, prometheus.GaugeValue, metric.AvgNumStreams)
-	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Average), "average")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Highest), "highest")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsDuration, prometheus.GaugeValue, float64(metric.StreamStats.Duration.Total), "total")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Average), "average")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Highest), "highest")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsBitRate, prometheus.GaugeValue, float64(metric.StreamStats.BitRate.Total), "total")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Average), "average")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Highest), "highest")
-	ch <- prometheus.MustNewConstMetric(c.streamStatsNumFrames, prometheus.GaugeValue, float64(metric.StreamStats.NumFrames.Total), "total")
+	ch <- c.totalFilesMetric.mustNewConstMetric(float64(metric.TotalFileCount))
+	ch <- c.totalTranscodeCount.mustNewConstMetric(float64(metric.TotalTranscodeCount))
+	ch <- c.totalHealthCheckCount.mustNewConstMetric(float64(metric.TotalHealthCheckCount))
+	ch <- c.sizeDiff.mustNewConstMetric(metric.SizeDiff)
+	ch <- c.tdarrScore.mustNewConstMetric(score)
+	ch <- c.healthCheckScore.mustNewConstMetric(healthScore)
+	ch <- c.avgNumStreams.mustNewConstMetric(metric.AvgNumStreams)
+	ch <- c.streamStatsDuration.mustNewConstMetric(float64(metric.StreamStats.Duration.Average), "average")
+	ch <- c.streamStatsDuration.mustNewConstMetric(float64(metric.StreamStats.Duration.Highest), "highest")
+	ch <- c.streamStatsDuration.mustNewConstMetric(float64(metric.StreamStats.Duration.Total), "total")
+	ch <- c.streamStatsBitRate.mustNewConstMetric(float64(metric.StreamStats.BitRate.Average), "average")
+	ch <- c.streamStatsBitRate.mustNewConstMetric(float64(metric.StreamStats.BitRate.Highest), "highest")
+	ch <- c.streamStatsBitRate.mustNewConstMetric(float64(metric.StreamStats.BitRate.Total), "total")
+	ch <- c.streamStatsNumFrames.mustNewConstMetric(float64(metric.StreamStats.NumFrames.Average), "average")
+	ch <- c.streamStatsNumFrames.mustNewConstMetric(float64(metric.StreamStats.NumFrames.Highest), "highest")
+	ch <- c.streamStatsNumFrames.mustNewConstMetric(float64(metric.StreamStats.NumFrames.Total), "total")
 }
 
 // emitPieSlices emits one gauge per slice in a pie-slice list (codecs/containers/resolutions),
 // lowercasing the slice name as the final label. Shared by the five video/audio loops.
-func emitPieSlices(ch chan<- prometheus.Metric, desc *prometheus.Desc, libName, libId string, slices []TdarrPieSlice) {
+func emitPieSlices(ch chan<- prometheus.Metric, desc typedDesc, libName, libId string, slices []TdarrPieSlice) {
 	for _, pieSlice := range slices {
-		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(pieSlice.Value),
+		ch <- desc.mustNewConstMetric(float64(pieSlice.Value),
 			libName, libId, strings.ToLower(pieSlice.Name))
 	}
 }
@@ -606,18 +628,18 @@ func emitPieSlices(ch chan<- prometheus.Metric, desc *prometheus.Desc, libName, 
 // video/audio codec/container/resolution slices). Pure: reads pieData, writes to ch.
 func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*TdarrPieStats) {
 	for _, pie := range pieData {
-		ch <- prometheus.MustNewConstMetric(c.pieNumFiles, prometheus.GaugeValue, float64(pie.PieStats.TotalFiles), pie.libraryName, pie.libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumTranscodes, prometheus.GaugeValue, float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieNumHealthChecks, prometheus.GaugeValue, float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
-		ch <- prometheus.MustNewConstMetric(c.pieSizeDiff, prometheus.GaugeValue, pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
+		ch <- c.pieNumFiles.mustNewConstMetric(float64(pie.PieStats.TotalFiles), pie.libraryName, pie.libraryId)
+		ch <- c.pieNumTranscodes.mustNewConstMetric(float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
+		ch <- c.pieNumHealthChecks.mustNewConstMetric(float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
+		ch <- c.pieSizeDiff.mustNewConstMetric(pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
 		// Emit transcode statuses from the normalized map (pre-cleaned labels, full enum coverage).
 		for status, count := range pie.NormalizedTranscodes {
-			ch <- prometheus.MustNewConstMetric(c.pieTranscodes, prometheus.GaugeValue, float64(count),
+			ch <- c.pieTranscodes.mustNewConstMetric(float64(count),
 				pie.libraryName, pie.libraryId, status)
 		}
 		// Emit health check statuses from the normalized map (pre-cleaned labels, full enum coverage).
 		for status, count := range pie.NormalizedHealthChecks {
-			ch <- prometheus.MustNewConstMetric(c.pieHealthChecks, prometheus.GaugeValue, float64(count),
+			ch <- c.pieHealthChecks.mustNewConstMetric(float64(count),
 				pie.libraryName, pie.libraryId, status)
 		}
 		emitPieSlices(ch, c.pieVideoCodecs, pie.libraryName, pie.libraryId, pie.PieStats.Video.Codecs)
@@ -632,9 +654,9 @@ func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*
 // emitParsedFloat parses raw as a float64 and, on success, emits a node-scoped gauge.
 // On parse failure it debug-logs and silently skips the metric (intentional: Tdarr may
 // send empty/non-numeric resource strings for nodes that haven't reported yet).
-func emitParsedFloat(ch chan<- prometheus.Metric, desc *prometheus.Desc, raw string, nodeId, nodeName string) {
+func emitParsedFloat(ch chan<- prometheus.Metric, desc typedDesc, raw string, nodeId, nodeName string) {
 	if v, floatErr := strconv.ParseFloat(raw, 64); floatErr == nil {
-		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v, nodeId, nodeName)
+		ch <- desc.mustNewConstMetric(v, nodeId, nodeName)
 	} else {
 		log.Debug().Str("nodeId", nodeId).Str("nodeName", nodeName).
 			Str("raw", raw).Err(floatErr).Msg("Failed to parse node resource stat; skipping metric")
@@ -649,14 +671,14 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		m := c.nodeCollector.metrics
 
 		// node identity info
-		ch <- prometheus.MustNewConstMetric(m.nodeInfo, prometheus.GaugeValue, 1,
+		ch <- m.nodeInfo.mustNewConstMetric(1,
 			node.Id, node.Name, node.GpuSelect,
 			strconv.Itoa(node.Config.Pid), strconv.Itoa(node.Priority),
 			strconv.FormatBool(node.AllowGpuDoCpu),
 		)
 
 		// node uptime
-		ch <- prometheus.MustNewConstMetric(m.nodeUptime, prometheus.GaugeValue,
+		ch <- m.nodeUptime.mustNewConstMetric(
 			float64(node.ResourceStats.Process.Uptime), node.Id, node.Name)
 
 		// convert resource stats to float from string; skip on parse failure
@@ -671,13 +693,13 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		if node.Paused {
 			pausedVal = 1.0
 		}
-		ch <- prometheus.MustNewConstMetric(m.nodePaused, prometheus.GaugeValue, pausedVal, node.Id, node.Name)
-		ch <- prometheus.MustNewConstMetric(m.nodeMaxGpuWorkers, prometheus.GaugeValue, float64(node.MaxGpuWorkers), node.Id, node.Name)
+		ch <- m.nodePaused.mustNewConstMetric(pausedVal, node.Id, node.Name)
+		ch <- m.nodeMaxGpuWorkers.mustNewConstMetric(float64(node.MaxGpuWorkers), node.Id, node.Name)
 		schedVal := 0.0
 		if node.ScheduleEnabled {
 			schedVal = 1.0
 		}
-		ch <- prometheus.MustNewConstMetric(m.nodeScheduleEnabled, prometheus.GaugeValue, schedVal, node.Id, node.Name)
+		ch <- m.nodeScheduleEnabled.mustNewConstMetric(schedVal, node.Id, node.Name)
 
 		// per-type gauges — always emit all four types so zero-value series appear
 		emitPerType(ch, m.nodeWorkerLimit, node.Id, node.Name, node.WorkerLimits)
@@ -688,14 +710,14 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		// (raw API string preserved as worker_type, "unknown" as compute_type).
 		workerCounts := countWorkersByType(node.Workers)
 		for _, d := range knownWorkerTypeDims {
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+			ch <- m.nodeWorkerCount.mustNewConstMetric(
 				float64(workerCounts.known[d]), node.Id, node.Name, d.workerType, d.computeType)
 		}
 		for rawType, count := range workerCounts.unknown {
 			if count == 0 {
 				continue
 			}
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerCount, prometheus.GaugeValue,
+			ch <- m.nodeWorkerCount.mustNewConstMetric(
 				float64(count), node.Id, node.Name, rawType, computeTypeUnknown)
 		}
 
@@ -714,7 +736,7 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			// unified worker info metric (all workers, flow or classic).
 			// Split Tdarr's compound workerType string into worker_type + compute_type labels.
 			wType, cType := parseWorkerType(worker.WorkerType)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerInfo, prometheus.GaugeValue, 1,
+			ch <- m.nodeWorkerInfo.mustNewConstMetric(1,
 				node.Id, node.Name, worker.Id, wType, cType,
 				strconv.FormatBool(worker.FlowWorker),
 				worker.Status, worker.File,
@@ -723,28 +745,28 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			)
 
 			// per-worker numeric gauges
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPercentage, prometheus.GaugeValue,
+			ch <- m.nodeWorkerPercentage.mustNewConstMetric(
 				worker.Percentage, node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerFps, prometheus.GaugeValue,
+			ch <- m.nodeWorkerFps.mustNewConstMetric(
 				float64(worker.Fps), node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOriginalFileSizeGb, prometheus.GaugeValue,
+			ch <- m.nodeWorkerOriginalFileSizeGb.mustNewConstMetric(
 				worker.OriginalfileSizeGb, node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerOutputFileSizeGb, prometheus.GaugeValue,
+			ch <- m.nodeWorkerOutputFileSizeGb.mustNewConstMetric(
 				worker.OutputFileSizeGb, node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerEstFileSizeGb, prometheus.GaugeValue,
+			ch <- m.nodeWorkerEstFileSizeGb.mustNewConstMetric(
 				worker.EstSizeGb, node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerJobStartTimestamp, prometheus.GaugeValue,
+			ch <- m.nodeWorkerJobStartTimestamp.mustNewConstMetric(
 				float64(worker.Job.StartTime), node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStartTimestamp, prometheus.GaugeValue,
+			ch <- m.nodeWorkerStartTimestamp.mustNewConstMetric(
 				float64(worker.StartTime), node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerStatusTimestamp, prometheus.GaugeValue,
+			ch <- m.nodeWorkerStatusTimestamp.mustNewConstMetric(
 				float64(worker.StatusTs), node.Id, node.Name, worker.Id)
-			ch <- prometheus.MustNewConstMetric(m.nodeWorkerPid, prometheus.GaugeValue,
+			ch <- m.nodeWorkerPid.mustNewConstMetric(
 				float64(worker.Process.Pid), node.Id, node.Name, worker.Id)
 
 			// ETA: parse "H:MM:SS" string into seconds; skip on parse failure
 			if etaSecs, ok := parseEtaSeconds(worker.Eta); ok {
-				ch <- prometheus.MustNewConstMetric(m.nodeWorkerEtaSeconds, prometheus.GaugeValue,
+				ch <- m.nodeWorkerEtaSeconds.mustNewConstMetric(
 					float64(etaSecs), node.Id, node.Name, worker.Id)
 			} else {
 				log.Debug().Str("nodeId", node.Id).Str("workerId", worker.Id).

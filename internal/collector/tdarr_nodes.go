@@ -56,38 +56,38 @@ func parseWorkerType(api string) (workerType, computeType string) {
 
 type TdarrNodeMetrics struct {
 	// identity / info
-	nodeInfo *prometheus.Desc
+	nodeInfo typedDesc
 	// resource stats
-	nodeUptime         *prometheus.Desc
-	nodeHeapUsedMb     *prometheus.Desc
-	nodeHeapTotalMb    *prometheus.Desc
-	nodeHostCpuPercent *prometheus.Desc
-	nodeHostMemUsedGb  *prometheus.Desc
-	nodeHostMemTotalGb *prometheus.Desc
+	nodeUptime         typedDesc
+	nodeHeapUsedMb     typedDesc
+	nodeHeapTotalMb    typedDesc
+	nodeHostCpuPercent typedDesc
+	nodeHostMemUsedGb  typedDesc
+	nodeHostMemTotalGb typedDesc
 	// node state gauges
-	nodePaused          *prometheus.Desc
-	nodeMaxGpuWorkers   *prometheus.Desc
-	nodeScheduleEnabled *prometheus.Desc
+	nodePaused          typedDesc
+	nodeMaxGpuWorkers   typedDesc
+	nodeScheduleEnabled typedDesc
 	// per-type node gauges; split across two labels:
 	//   worker_type  ∈ {transcode, healthcheck}
 	//   compute_type ∈ {cpu, gpu}
 	// Unknown API values from Tdarr emit the raw string as worker_type with compute_type="unknown".
-	nodeWorkerCount *prometheus.Desc
-	nodeWorkerLimit *prometheus.Desc
-	nodeQueueLength *prometheus.Desc
+	nodeWorkerCount typedDesc
+	nodeWorkerLimit typedDesc
+	nodeQueueLength typedDesc
 	// worker identity / info
-	nodeWorkerInfo *prometheus.Desc
+	nodeWorkerInfo typedDesc
 	// per-worker numeric gauges
-	nodeWorkerPercentage         *prometheus.Desc
-	nodeWorkerFps                *prometheus.Desc
-	nodeWorkerOriginalFileSizeGb *prometheus.Desc
-	nodeWorkerOutputFileSizeGb   *prometheus.Desc
-	nodeWorkerEstFileSizeGb      *prometheus.Desc
-	nodeWorkerJobStartTimestamp  *prometheus.Desc
-	nodeWorkerStartTimestamp     *prometheus.Desc
-	nodeWorkerStatusTimestamp    *prometheus.Desc
-	nodeWorkerEtaSeconds         *prometheus.Desc
-	nodeWorkerPid                *prometheus.Desc
+	nodeWorkerPercentage         typedDesc
+	nodeWorkerFps                typedDesc
+	nodeWorkerOriginalFileSizeGb typedDesc
+	nodeWorkerOutputFileSizeGb   typedDesc
+	nodeWorkerEstFileSizeGb      typedDesc
+	nodeWorkerJobStartTimestamp  typedDesc
+	nodeWorkerStartTimestamp     typedDesc
+	nodeWorkerStatusTimestamp    typedDesc
+	nodeWorkerEtaSeconds         typedDesc
+	nodeWorkerPid                typedDesc
 }
 
 type TdarrNodeCollector struct {
@@ -105,74 +105,74 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
 	return &TdarrNodeMetrics{
-		nodeInfo: newDesc(
+		nodeInfo: newGauge(
 			"node_info",
 			"Tdarr node identity information",
 			[]string{"node_id", "node_name", "gpu_select", "node_pid", "node_priority",
 				"gpu_can_do_cpu"},
 			instance,
 		),
-		nodeUptime: newDesc(
+		nodeUptime: newGauge(
 			"node_uptime_seconds",
 			"Tdarr node uptime in seconds",
 			nodeLabelPair, instance,
 		),
-		nodeHeapUsedMb: newDesc(
+		nodeHeapUsedMb: newGauge(
 			"node_heap_used_mb",
 			"Tdarr node heap used in MB",
 			nodeLabelPair, instance,
 		),
-		nodeHeapTotalMb: newDesc(
+		nodeHeapTotalMb: newGauge(
 			"node_heap_total_mb",
 			"Tdarr node heap total in MB",
 			nodeLabelPair, instance,
 		),
-		nodeHostCpuPercent: newDesc(
+		nodeHostCpuPercent: newGauge(
 			"node_host_cpu_percent",
 			"Tdarr node cpu percent used",
 			nodeLabelPair, instance,
 		),
-		nodeHostMemUsedGb: newDesc(
+		nodeHostMemUsedGb: newGauge(
 			"node_host_mem_used_gb",
 			"Memory used in GB for host that Tdarr node is running on",
 			nodeLabelPair, instance,
 		),
-		nodeHostMemTotalGb: newDesc(
+		nodeHostMemTotalGb: newGauge(
 			"node_host_mem_total_gb",
 			"Total memory in GB for host that Tdarr node is running on",
 			nodeLabelPair, instance,
 		),
-		nodePaused: newDesc(
+		nodePaused: newGauge(
 			"node_paused",
 			"1 if the Tdarr node is paused, 0 otherwise",
 			nodeLabelPair, instance,
 		),
-		nodeMaxGpuWorkers: newDesc(
+		nodeMaxGpuWorkers: newGauge(
 			"node_max_gpu_workers",
 			"Maximum number of GPU workers configured for the Tdarr node",
 			nodeLabelPair, instance,
 		),
-		nodeScheduleEnabled: newDesc(
+		nodeScheduleEnabled: newGauge(
 			"node_schedule_enabled",
 			"1 if scheduled operation is enabled on the Tdarr node, 0 otherwise",
 			nodeLabelPair, instance,
 		),
-		nodeWorkerCount: newDesc(
+		nodeWorkerCount: newGauge(
 			"node_worker_count",
 			"Number of active workers on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerLimit: newDesc(
+		nodeWorkerLimit: newGauge(
 			"node_worker_limit",
 			"Configured worker limit on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair, instance,
 		),
-		nodeQueueLength: newDesc(
+		nodeQueueLength: newGauge(
 			"node_queue_length",
 			"Current queue length on the Tdarr node by worker_type and compute_type",
 			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerInfo: newDesc(
+		nodeWorkerInfo: newGauge(
 			"node_worker_info",
 			"Tdarr node worker identity and categorical state (always 1)",
 			[]string{"node_id", "node_name", "worker_id", "worker_type", "compute_type", "flow_worker",
@@ -181,52 +181,52 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_connected", "worker_idle"},
 			instance,
 		),
-		nodeWorkerPercentage: newDesc(
+		nodeWorkerPercentage: newGauge(
 			"node_worker_percentage",
 			"Tdarr node worker transcode/healthcheck progress percentage",
 			workerLabelPair, instance,
 		),
-		nodeWorkerFps: newDesc(
+		nodeWorkerFps: newGauge(
 			"node_worker_fps",
 			"Tdarr node worker frames per second",
 			workerLabelPair, instance,
 		),
-		nodeWorkerOriginalFileSizeGb: newDesc(
+		nodeWorkerOriginalFileSizeGb: newGauge(
 			"node_worker_original_file_size_gb",
 			"Tdarr node worker original file size in GB",
 			workerLabelPair, instance,
 		),
-		nodeWorkerOutputFileSizeGb: newDesc(
+		nodeWorkerOutputFileSizeGb: newGauge(
 			"node_worker_output_file_size_gb",
 			"Tdarr node worker current output file size in GB",
 			workerLabelPair, instance,
 		),
-		nodeWorkerEstFileSizeGb: newDesc(
+		nodeWorkerEstFileSizeGb: newGauge(
 			"node_worker_est_file_size_gb",
 			"Tdarr node worker estimated output file size in GB",
 			workerLabelPair, instance,
 		),
-		nodeWorkerJobStartTimestamp: newDesc(
+		nodeWorkerJobStartTimestamp: newGauge(
 			"node_worker_job_start_timestamp_seconds",
 			"Tdarr node worker job start time as Unix timestamp in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerStartTimestamp: newDesc(
+		nodeWorkerStartTimestamp: newGauge(
 			"node_worker_start_timestamp_seconds",
 			"Tdarr node worker current plugin step start time as Unix timestamp in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerStatusTimestamp: newDesc(
+		nodeWorkerStatusTimestamp: newGauge(
 			"node_worker_status_timestamp_seconds",
 			"Tdarr node worker last status update time as Unix timestamp in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerEtaSeconds: newDesc(
+		nodeWorkerEtaSeconds: newGauge(
 			"node_worker_eta_seconds",
 			"Tdarr node worker estimated time remaining in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerPid: newDesc(
+		nodeWorkerPid: newGauge(
 			"node_worker_pid",
 			"Tdarr node worker process ID",
 			workerLabelPair, instance,
@@ -237,8 +237,8 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 // descs returns the node metrics' descs in Describe order. The TdarrCollector's Describe
 // appends this to its own descs so it never reaches into TdarrNodeMetrics field-by-field —
 // the node metric set is owned and ordered here, in one place.
-func (m *TdarrNodeMetrics) descs() []*prometheus.Desc {
-	return []*prometheus.Desc{
+func (m *TdarrNodeMetrics) descs() []typedDesc {
+	return []typedDesc{
 		m.nodeInfo,
 		m.nodeUptime,
 		m.nodeHeapUsedMb,
@@ -290,11 +290,11 @@ func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
 // emitPerType emits a gauge metric for all four known (worker_type, compute_type)
 // dimensions using values from the provided TdarrNodeJobs struct. This ensures
 // zero-value series are always emitted even when no workers of a given type are active.
-func emitPerType(ch chan<- prometheus.Metric, desc *prometheus.Desc, nodeId, nodeName string, jobs TdarrNodeJobs) {
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscode, computeTypeCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscode, computeTypeGpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
+func emitPerType(ch chan<- prometheus.Metric, desc typedDesc, nodeId, nodeName string, jobs TdarrNodeJobs) {
+	ch <- desc.mustNewConstMetric(float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscode, computeTypeCpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscode, computeTypeGpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeCpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
 }
 
 // workerCountResult is the per-dim aggregate returned by  countWorkersByType.

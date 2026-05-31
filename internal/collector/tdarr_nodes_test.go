@@ -308,12 +308,15 @@ func labelValue(d *dto.Metric, name string) string {
 func TestEmitPerType(t *testing.T) {
 	t.Parallel()
 
-	desc := prometheus.NewDesc(
-		"test_node_worker_count",
-		"test gauge for emitPerType",
-		[]string{"node_id", "node_name", "worker_type", "compute_type"},
-		nil,
-	)
+	desc := typedDesc{
+		desc: prometheus.NewDesc(
+			"test_node_worker_count",
+			"test gauge for emitPerType",
+			[]string{"node_id", "node_name", "worker_type", "compute_type"},
+			nil,
+		),
+		valueType: prometheus.GaugeValue,
+	}
 
 	t.Run("emits exactly four metrics", func(t *testing.T) {
 		t.Parallel()
