@@ -40,6 +40,9 @@ func main() {
 
 	// http server
 	stopHttpChan := make(chan bool)
+	// Buffered so the server goroutine never blocks sending an error (e.g. a
+	// late Shutdown error after main has stopped selecting on errChan).
+	errHttpChan := make(chan error, 1)
 	httpWg := &sync.WaitGroup{}
 	httpServerConfig := server.HttpServerConfig{
 		TdarrInstance:   userConfig.InstanceName,
@@ -49,7 +52,7 @@ func main() {
 		GracefulTimeout: 30 * time.Second,
 	}
 	httpWg.Add(1)
-	go server.ServeHttp(httpWg, registry, httpServerConfig, stopHttpChan)
+	go server.ServeHttp(httpWg, registry, httpServerConfig, stopHttpChan, errHttpChan)
 
 	// graceful shutdown
 	quitServer := make(chan os.Signal, 1)
@@ -61,8 +64,14 @@ func main() {
 		syscall.SIGQUIT,
 		syscall.SIGTERM,
 	)
-	<-quitServer
-	log.Info().Msg("Received Interrupt - shutting down...")
+	// Shut down on either an OS signal or a fatal server error. A server error
+	// triggers the same graceful-shutdown path instead of hanging silently.
+	select {
+	case <-quitServer:
+		log.Info().Msg("Received Interrupt - shutting down...")
+	case err := <-errHttpChan:
+		log.Error().Err(err).Msg("HTTP server error - shutting down...")
+	}
 	go func() {
 		<-quitServer
 		log.Fatal().Msg("Killing app on 2nd forced interrupt...")

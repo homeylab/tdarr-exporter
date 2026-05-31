@@ -22,7 +22,7 @@ type HttpServerConfig struct {
 	GracefulTimeout time.Duration
 }
 
-func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool) {
+func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool, errChan chan<- error) {
 	defer wg.Done()
 	router := gin.New()
 	// Recovery returns a middleware that recovers from any panics and writes a 500 if there was one.
@@ -53,9 +53,12 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal().
+			// Propagate to the caller instead of os.Exit so the graceful
+			// shutdown path in main can run.
+			log.Error().
 				Err(err).
 				Msg("Failed to start HTTP Server")
+			errChan <- err
 		}
 	}()
 	log.Info().Msg("HTTP Server started")
@@ -68,9 +71,12 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal().
+		// Propagate to the caller instead of os.Exit so the WaitGroup still
+		// completes and main can finish its shutdown sequence.
+		log.Error().
 			Err(err).
 			Msg("Server shutdown failed")
+		errChan <- err
 	}
 	log.Info().Msg("HTTP Server shutdown gracefully")
 }
