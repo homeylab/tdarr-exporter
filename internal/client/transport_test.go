@@ -243,7 +243,7 @@ func TestClientTransport_PostBodyReusedAcrossRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	want := `{"key":"value"}`
 	for i, got := range []string{body1, body2, body3} {
@@ -282,6 +282,6 @@ func TestClientTransport_DefaultsArePreserved(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if resp != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 }

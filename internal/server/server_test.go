@@ -25,7 +25,7 @@ func freePort(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("failed to find free port: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	_, port, err := net.SplitHostPort(ln.Addr().String())
 	if err != nil {
 		t.Fatalf("failed to split host/port: %v", err)
@@ -41,7 +41,7 @@ func waitForServer(t *testing.T, addr string, deadline time.Duration) {
 	for time.Now().Before(stop) {
 		conn, err := net.DialTimeout("tcp", addr, 50*time.Millisecond)
 		if err == nil {
-			conn.Close()
+			_ = conn.Close()
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -74,7 +74,7 @@ func TestServeHttpLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /healthz failed: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET /healthz status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
@@ -117,7 +117,7 @@ func TestServeHttpListenErrorDeliveredOnChannel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to occupy port: %v", err)
 	}
-	defer occupied.Close()
+	defer func() { _ = occupied.Close() }()
 	_, port, err := net.SplitHostPort(occupied.Addr().String())
 	if err != nil {
 		t.Fatalf("failed to split host/port: %v", err)

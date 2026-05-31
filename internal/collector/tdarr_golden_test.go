@@ -138,7 +138,7 @@ func TestCollect_Golden_FullFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open expected output: %v", err)
 	}
-	defer expectedFile.Close()
+	defer func() { _ = expectedFile.Close() }()
 
 	if err := testutil.CollectAndCompare(collector, expectedFile, collectorMetricNames...); err != nil {
 		t.Errorf("metric output mismatch:\n%v", err)
