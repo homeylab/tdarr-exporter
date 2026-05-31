@@ -1,0 +1,217 @@
+# HELP tdarr_avg_num_streams Tdarr average number of streams in video
+# TYPE tdarr_avg_num_streams gauge
+tdarr_avg_num_streams{tdarr_instance="tdarr.localdomain"} 3.5
+# HELP tdarr_files_total Tdarr total file count - includes files in ignore lists within each library
+# TYPE tdarr_files_total gauge
+tdarr_files_total{tdarr_instance="tdarr.localdomain"} 1500
+# HELP tdarr_health_check_score_pct Tdarr health check score percentage - how much of your libraries has been health checked by tdarr
+# TYPE tdarr_health_check_score_pct gauge
+tdarr_health_check_score_pct{tdarr_instance="tdarr.localdomain"} 93.33
+# HELP tdarr_health_checks_total Tdarr total health check count for all libraries
+# TYPE tdarr_health_checks_total gauge
+tdarr_health_checks_total{tdarr_instance="tdarr.localdomain"} 1400
+# HELP tdarr_library_audio_codecs Tdarr audio codecs for library by type
+# TYPE tdarr_library_audio_codecs gauge
+tdarr_library_audio_codecs{codec="aac",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 310
+tdarr_library_audio_codecs{codec="flac",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 180
+tdarr_library_audio_codecs{codec="opus",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
+# HELP tdarr_library_audio_containers Tdarr video containers for library by type
+# TYPE tdarr_library_audio_containers gauge
+tdarr_library_audio_containers{container_type="m4a",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
+tdarr_library_audio_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
+# HELP tdarr_library_files_total Tdarr total files in library
+# TYPE tdarr_library_files_total gauge
+tdarr_library_files_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 500
+tdarr_library_files_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 1000
+# HELP tdarr_library_health_checks Tdarr health checks for library by status
+# TYPE tdarr_library_health_checks gauge
+tdarr_library_health_checks{library_id="lib-audio-01",library_name="Music",status="cancelled",tdarr_instance="tdarr.localdomain"} 5
+tdarr_library_health_checks{library_id="lib-audio-01",library_name="Music",status="error",tdarr_instance="tdarr.localdomain"} 10
+tdarr_library_health_checks{library_id="lib-audio-01",library_name="Music",status="queued",tdarr_instance="tdarr.localdomain"} 15
+tdarr_library_health_checks{library_id="lib-audio-01",library_name="Music",status="success",tdarr_instance="tdarr.localdomain"} 420
+tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="cancelled",tdarr_instance="tdarr.localdomain"} 2
+tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="error",tdarr_instance="tdarr.localdomain"} 18
+tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 5
+tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 880
+# HELP tdarr_library_health_checks_total Tdarr total health checks for library by status
+# TYPE tdarr_library_health_checks_total gauge
+tdarr_library_health_checks_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
+tdarr_library_health_checks_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
+# HELP tdarr_library_size_diff_gb Tdarr size difference (+/-) in GB for library
+# TYPE tdarr_library_size_diff_gb gauge
+tdarr_library_size_diff_gb{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 15.5
+tdarr_library_size_diff_gb{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 30.25
+# HELP tdarr_library_transcodes Tdarr transcodes for library by status
+# TYPE tdarr_library_transcodes gauge
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="cancelled",tdarr_instance="tdarr.localdomain"} 0
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="error",tdarr_instance="tdarr.localdomain"} 3
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="hold",tdarr_instance="tdarr.localdomain"} 0
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="ignored",tdarr_instance="tdarr.localdomain"} 0
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="not required",tdarr_instance="tdarr.localdomain"} 200
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="pending",tdarr_instance="tdarr.localdomain"} 7
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="queued",tdarr_instance="tdarr.localdomain"} 2
+tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="success",tdarr_instance="tdarr.localdomain"} 100
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="cancelled",tdarr_instance="tdarr.localdomain"} 1
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="error",tdarr_instance="tdarr.localdomain"} 12
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="hold",tdarr_instance="tdarr.localdomain"} 3
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="ignored",tdarr_instance="tdarr.localdomain"} 2
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="not required",tdarr_instance="tdarr.localdomain"} 400
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 8
+tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 250
+# HELP tdarr_library_transcodes_total Tdarr total transcodes for library by status
+# TYPE tdarr_library_transcodes_total gauge
+tdarr_library_transcodes_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 150
+tdarr_library_transcodes_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 700
+# HELP tdarr_library_video_codecs Tdarr video codecs for library by type
+# TYPE tdarr_library_video_codecs gauge
+tdarr_library_video_codecs{codec="h264",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 20
+tdarr_library_video_codecs{codec="h264",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 370
+tdarr_library_video_codecs{codec="hevc",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 480
+tdarr_library_video_codecs{codec="hevc",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 620
+tdarr_library_video_codecs{codec="av1",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 10
+# HELP tdarr_library_video_containers Tdarr video containers for library by type
+# TYPE tdarr_library_video_containers gauge
+tdarr_library_video_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
+tdarr_library_video_containers{container_type="mkv",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 920
+tdarr_library_video_containers{container_type="mp4",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
+tdarr_library_video_containers{container_type="mp4",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 80
+# HELP tdarr_library_video_resolutions Tdarr video resolutions for library by type
+# TYPE tdarr_library_video_resolutions gauge
+tdarr_library_video_resolutions{library_id="lib-audio-01",library_name="Music",resolution="1080p",tdarr_instance="tdarr.localdomain"} 450
+tdarr_library_video_resolutions{library_id="lib-audio-01",library_name="Music",resolution="720p",tdarr_instance="tdarr.localdomain"} 50
+tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="1080p",tdarr_instance="tdarr.localdomain"} 700
+tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="4kuhd",tdarr_instance="tdarr.localdomain"} 200
+tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="720p",tdarr_instance="tdarr.localdomain"} 100
+# HELP tdarr_node_heap_total_mb Tdarr node heap total in MB
+# TYPE tdarr_node_heap_total_mb gauge
+tdarr_node_heap_total_mb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 128
+tdarr_node_heap_total_mb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 64
+# HELP tdarr_node_heap_used_mb Tdarr node heap used in MB
+# TYPE tdarr_node_heap_used_mb gauge
+tdarr_node_heap_used_mb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 72.8
+tdarr_node_heap_used_mb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 45.3
+# HELP tdarr_node_host_cpu_percent Tdarr node cpu percent used
+# TYPE tdarr_node_host_cpu_percent gauge
+tdarr_node_host_cpu_percent{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 85.4
+tdarr_node_host_cpu_percent{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.1
+# HELP tdarr_node_host_mem_total_gb Total memory in GB for host that Tdarr node is running on
+# TYPE tdarr_node_host_mem_total_gb gauge
+tdarr_node_host_mem_total_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 16
+tdarr_node_host_mem_total_gb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 8
+# HELP tdarr_node_host_mem_used_gb Memory used in GB for host that Tdarr node is running on
+# TYPE tdarr_node_host_mem_used_gb gauge
+tdarr_node_host_mem_used_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 6.2
+tdarr_node_host_mem_used_gb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.5
+# HELP tdarr_node_info Tdarr node identity information
+# TYPE tdarr_node_info gauge
+tdarr_node_info{gpu_can_do_cpu="true",gpu_select="nvidia:0",node_id="node-busy-1",node_name="BusyNode",node_pid="2001",node_priority="1",tdarr_instance="tdarr.localdomain"} 1
+tdarr_node_info{gpu_can_do_cpu="false",gpu_select="-",node_id="node-idle-1",node_name="IdleNode",node_pid="1001",node_priority="0",tdarr_instance="tdarr.localdomain"} 1
+# HELP tdarr_node_max_gpu_workers Maximum number of GPU workers configured for the Tdarr node
+# TYPE tdarr_node_max_gpu_workers gauge
+tdarr_node_max_gpu_workers{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1
+tdarr_node_max_gpu_workers{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 0
+# HELP tdarr_node_paused 1 if the Tdarr node is paused, 0 otherwise
+# TYPE tdarr_node_paused gauge
+tdarr_node_paused{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 0
+tdarr_node_paused{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 0
+# HELP tdarr_node_queue_length Current queue length on the Tdarr node by worker_type and compute_type
+# TYPE tdarr_node_queue_length gauge
+tdarr_node_queue_length{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
+tdarr_node_queue_length{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 3
+tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_queue_length{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_queue_length{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_queue_length{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_queue_length{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+# HELP tdarr_node_schedule_enabled 1 if scheduled operation is enabled on the Tdarr node, 0 otherwise
+# TYPE tdarr_node_schedule_enabled gauge
+tdarr_node_schedule_enabled{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1
+tdarr_node_schedule_enabled{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 0
+# HELP tdarr_node_uptime_seconds Tdarr node uptime in seconds
+# TYPE tdarr_node_uptime_seconds gauge
+tdarr_node_uptime_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 14400
+tdarr_node_uptime_seconds{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 7200
+# HELP tdarr_node_worker_count Number of active workers on the Tdarr node by worker_type and compute_type
+# TYPE tdarr_node_worker_count gauge
+tdarr_node_worker_count{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_count{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 1
+tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_worker_count{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_count{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_worker_count{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_count{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+# HELP tdarr_node_worker_est_file_size_gb Tdarr node worker estimated output file size in GB
+# TYPE tdarr_node_worker_est_file_size_gb gauge
+tdarr_node_worker_est_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.2
+# HELP tdarr_node_worker_eta_seconds Tdarr node worker estimated time remaining in seconds
+# TYPE tdarr_node_worker_eta_seconds gauge
+tdarr_node_worker_eta_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 90
+# HELP tdarr_node_worker_fps Tdarr node worker frames per second
+# TYPE tdarr_node_worker_fps gauge
+tdarr_node_worker_fps{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 125
+# HELP tdarr_node_worker_info Tdarr node worker identity and categorical state (always 1)
+# TYPE tdarr_node_worker_info gauge
+tdarr_node_worker_info{compute_type="cpu",flow_worker="false",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_connected="true",worker_file="/media/shows/Show S01E01.mkv",worker_id="worker-tc-01",worker_idle="false",worker_plugin_id="Tdarr_Plugin_MC93_Migz1FFMPEG",worker_plugin_position="3",worker_status="Transcoding",worker_type="transcode"} 1
+# HELP tdarr_node_worker_job_start_timestamp_seconds Tdarr node worker job start time as Unix timestamp in seconds
+# TYPE tdarr_node_worker_job_start_timestamp_seconds gauge
+tdarr_node_worker_job_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.7e+09
+# HELP tdarr_node_worker_limit Configured worker limit on the Tdarr node by worker_type and compute_type
+# TYPE tdarr_node_worker_limit gauge
+tdarr_node_worker_limit{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
+tdarr_node_worker_limit{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 2
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 1
+tdarr_node_worker_limit{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
+tdarr_node_worker_limit{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 2
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+# HELP tdarr_node_worker_original_file_size_gb Tdarr node worker original file size in GB
+# TYPE tdarr_node_worker_original_file_size_gb gauge
+tdarr_node_worker_original_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.5
+# HELP tdarr_node_worker_output_file_size_gb Tdarr node worker current output file size in GB
+# TYPE tdarr_node_worker_output_file_size_gb gauge
+tdarr_node_worker_output_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 2.1
+# HELP tdarr_node_worker_percentage Tdarr node worker transcode/healthcheck progress percentage
+# TYPE tdarr_node_worker_percentage gauge
+tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 45.75
+# HELP tdarr_node_worker_pid Tdarr node worker process ID
+# TYPE tdarr_node_worker_pid gauge
+tdarr_node_worker_pid{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 5432
+# HELP tdarr_node_worker_start_timestamp_seconds Tdarr node worker current plugin step start time as Unix timestamp in seconds
+# TYPE tdarr_node_worker_start_timestamp_seconds gauge
+tdarr_node_worker_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09
+# HELP tdarr_node_worker_status_timestamp_seconds Tdarr node worker last status update time as Unix timestamp in seconds
+# TYPE tdarr_node_worker_status_timestamp_seconds gauge
+tdarr_node_worker_status_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.7000001e+09
+# HELP tdarr_score_pct Tdarr score percentage - how much of your libraries has been handled by tdarr
+# TYPE tdarr_score_pct gauge
+tdarr_score_pct{tdarr_instance="tdarr.localdomain"} 78.5
+# HELP tdarr_size_diff_gb Tdarr size difference (+/-) in GB
+# TYPE tdarr_size_diff_gb gauge
+tdarr_size_diff_gb{tdarr_instance="tdarr.localdomain"} 45.75
+# HELP tdarr_stream_stats_bit_rate Tdarr stream stats bit rate
+# TYPE tdarr_stream_stats_bit_rate gauge
+tdarr_stream_stats_bit_rate{stat_type="average",tdarr_instance="tdarr.localdomain"} 3.5e+06
+tdarr_stream_stats_bit_rate{stat_type="highest",tdarr_instance="tdarr.localdomain"} 2e+07
+tdarr_stream_stats_bit_rate{stat_type="total",tdarr_instance="tdarr.localdomain"} 1.75e+09
+# HELP tdarr_stream_stats_duration Tdarr stream stats duration
+# TYPE tdarr_stream_stats_duration gauge
+tdarr_stream_stats_duration{stat_type="average",tdarr_instance="tdarr.localdomain"} 2400
+tdarr_stream_stats_duration{stat_type="highest",tdarr_instance="tdarr.localdomain"} 9000
+tdarr_stream_stats_duration{stat_type="total",tdarr_instance="tdarr.localdomain"} 1.2e+06
+# HELP tdarr_stream_stats_num_frames Tdarr stream stats number of frames
+# TYPE tdarr_stream_stats_num_frames gauge
+tdarr_stream_stats_num_frames{stat_type="average",tdarr_instance="tdarr.localdomain"} 57600
+tdarr_stream_stats_num_frames{stat_type="highest",tdarr_instance="tdarr.localdomain"} 216000
+tdarr_stream_stats_num_frames{stat_type="total",tdarr_instance="tdarr.localdomain"} 2.88e+07
+# HELP tdarr_transcodes_total Tdarr total transcode count for all libraries
+# TYPE tdarr_transcodes_total gauge
+tdarr_transcodes_total{tdarr_instance="tdarr.localdomain"} 850
+# HELP tdarr_unknown_status_total Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.
+# TYPE tdarr_unknown_status_total counter
+tdarr_unknown_status_total{job_kind="transcode",status="pending",tdarr_instance="tdarr.localdomain"} 1
+# HELP tdarr_up 1 if the last collection cycle succeeded, 0 otherwise (Tdarr API error, response parse error, or partial pie-stats fetch). Distinct from prometheus built-in 'up' which indicates exporter process reachability.
+# TYPE tdarr_up gauge
+tdarr_up{tdarr_instance="tdarr.localdomain"} 1

@@ -1,0 +1,46 @@
+{
+  "pieStats": {
+    "totalFiles": 1000,
+    "totalTranscodeCount": 700,
+    "sizeDiff": 30.25,
+    "totalHealthCheckCount": 950,
+    "status": {
+      "transcode": [
+        {"name": "Not required", "value": 400},
+        {"name": "Transcode success", "value": 250},
+        {"name": "Transcode error", "value": 12},
+        {"name": "Queued", "value": 8},
+        {"name": "Hold", "value": 3},
+        {"name": "Ignored", "value": 2},
+        {"name": "Cancelled", "value": 1}
+      ],
+      "healthCheck": [
+        {"name": "Success", "value": 880},
+        {"name": "Error", "value": 18},
+        {"name": "Queued", "value": 5},
+        {"name": "Cancelled", "value": 2}
+      ]
+    },
+    "video": {
+      "codecs": [
+        {"name": "hevc", "value": 620},
+        {"name": "h264", "value": 370},
+        {"name": "av1", "value": 10}
+      ],
+      "containers": [
+        {"name": "mkv", "value": 920},
+        {"name": "mp4", "value": 80}
+      ],
+      "resolutions": [
+        {"name": "1080p", "value": 700},
+        {"name": "4kUHD", "value": 200},
+        {"name": "720p", "value": 100}
+      ]
+    },
+    "audio": {
+      "codecs": [],
+      "containers": [],
+      "resolutions": []
+    }
+  }
+}
