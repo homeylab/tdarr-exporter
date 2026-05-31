@@ -10,19 +10,45 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ClientTransportOption is a functional option for NewClientTransport.
+type ClientTransportOption func(*ClientTransport)
+
+// WithBackoff sets the retry backoff durations. The number of retries equals
+// len(durations). Default: [1s, 3s] (2 retries).
+func WithBackoff(durations []time.Duration) ClientTransportOption {
+	return func(t *ClientTransport) {
+		t.backoff = durations
+	}
+}
+
+// WithSleep injects a custom sleep function, replacing time.Sleep.
+// Intended for tests to avoid real wall-clock delays.
+func WithSleep(fn func(time.Duration)) ClientTransportOption {
+	return func(t *ClientTransport) {
+		t.sleep = fn
+	}
+}
+
 // Set up as http.RoundTripper that can retry, add auth in future, etc.
 type ClientTransport struct {
 	inner   http.RoundTripper
-	retries int
 	backoff []time.Duration
+	sleep   func(time.Duration)
 }
 
-func NewClientTransport(inner http.RoundTripper) *ClientTransport {
-	return &ClientTransport{
+// NewClientTransport constructs a ClientTransport wrapping inner.
+// Default: 2 retries with backoff [1s, 3s], using time.Sleep.
+// The existing call site NewClientTransport(baseTransport) keeps working unchanged.
+func NewClientTransport(inner http.RoundTripper, opts ...ClientTransportOption) *ClientTransport {
+	t := &ClientTransport{
 		inner:   inner,
-		retries: 2,
 		backoff: []time.Duration{1 * time.Second, 3 * time.Second},
+		sleep:   time.Sleep,
 	}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
 }
 
 // middleware for http to handle retries
@@ -41,13 +67,14 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// `req.Body` is streamed when used in `RoundTrip()`, so we need to re-create the `req.Body` with the copied data when retrying
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
-		for i := 0; i < t.retries; i++ {
+		// retries = len(backoff); index i is always in range — no panic possible.
+		for i, backoffDur := range t.backoff {
 			log.Debug().Int("retry_count", i+1).
-				Interface("backoff_seconds", t.backoff[i]).
+				Interface("backoff_seconds", backoffDur).
 				Str("url", req.URL.String()).
 				Msg("Retrying HTTP Request")
 			// first try already failed so wait before retrying
-			time.Sleep(t.backoff[i])
+			t.sleep(backoffDur)
 			// re-add body to request
 			if req.Body != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))

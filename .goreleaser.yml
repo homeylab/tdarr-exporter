@@ -14,7 +14,7 @@ builds:
       - -trimpath
     # CGO disabled (env below) -> pure-Go static binary, so -extldflags is not needed
     ldflags:
-      - -w -s -X main.version={{.Version}} -X main.revision={{.Commit}} -X main.buildTime={{.Date}}
+      - -w -s -X github.com/prometheus/common/version.Version={{.Version}} -X github.com/prometheus/common/version.Revision={{.Commit}} -X github.com/prometheus/common/version.BuildDate={{.Date}}
 
     goarch:
       - "386"

@@ -3,7 +3,6 @@ package collector
 import (
 	"fmt"
 
-	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -93,6 +92,7 @@ type TdarrNodeMetrics struct {
 
 type TdarrNodeCollector struct {
 	config  config.Config
+	api     tdarrAPI // shared with the parent TdarrCollector (same base URL)
 	metrics *TdarrNodeMetrics
 }
 
@@ -103,87 +103,75 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
 	return &TdarrNodeMetrics{
-		nodeInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_info"),
+		nodeInfo: newDesc(
+			"node_info",
 			"Tdarr node identity information",
 			[]string{"node_id", "node_name", "gpu_select", "node_pid", "node_priority",
 				"gpu_can_do_cpu"},
 			instance,
 		),
-		nodeUptime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
+		nodeUptime: newDesc(
+			"node_uptime_seconds",
 			"Tdarr node uptime in seconds",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHeapUsedMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
+		nodeHeapUsedMb: newDesc(
+			"node_heap_used_mb",
 			"Tdarr node heap used in MB",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHeapTotalMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
+		nodeHeapTotalMb: newDesc(
+			"node_heap_total_mb",
 			"Tdarr node heap total in MB",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostCpuPercent: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_cpu_percent"),
+		nodeHostCpuPercent: newDesc(
+			"node_host_cpu_percent",
 			"Tdarr node cpu percent used",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostMemUsedGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_used_gb"),
+		nodeHostMemUsedGb: newDesc(
+			"node_host_mem_used_gb",
 			"Memory used in GB for host that Tdarr node is running on",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostMemTotalGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_total_gb"),
+		nodeHostMemTotalGb: newDesc(
+			"node_host_mem_total_gb",
 			"Total memory in GB for host that Tdarr node is running on",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodePaused: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
+		nodePaused: newDesc(
+			"node_paused",
 			"1 if the Tdarr node is paused, 0 otherwise",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeMaxGpuWorkers: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_max_gpu_workers"),
+		nodeMaxGpuWorkers: newDesc(
+			"node_max_gpu_workers",
 			"Maximum number of GPU workers configured for the Tdarr node",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeScheduleEnabled: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_schedule_enabled"),
+		nodeScheduleEnabled: newDesc(
+			"node_schedule_enabled",
 			"1 if scheduled operation is enabled on the Tdarr node, 0 otherwise",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeWorkerCount: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_count"),
+		nodeWorkerCount: newDesc(
+			"node_worker_count",
 			"Number of active workers on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerLimit: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
+		nodeWorkerLimit: newDesc(
+			"node_worker_limit",
 			"Configured worker limit on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeQueueLength: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
+		nodeQueueLength: newDesc(
+			"node_queue_length",
 			"Current queue length on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_info"),
+		nodeWorkerInfo: newDesc(
+			"node_worker_info",
 			"Tdarr node worker identity and categorical state (always 1)",
 			[]string{"node_id", "node_name", "worker_id", "worker_type", "compute_type", "flow_worker",
 				"worker_status", "worker_file",
@@ -191,89 +179,107 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_connected", "worker_idle"},
 			instance,
 		),
-		nodeWorkerPercentage: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_percentage"),
+		nodeWorkerPercentage: newDesc(
+			"node_worker_percentage",
 			"Tdarr node worker transcode/healthcheck progress percentage",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerFps: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_fps"),
+		nodeWorkerFps: newDesc(
+			"node_worker_fps",
 			"Tdarr node worker frames per second",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerOriginalFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_original_file_size_gb"),
+		nodeWorkerOriginalFileSizeGb: newDesc(
+			"node_worker_original_file_size_gb",
 			"Tdarr node worker original file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerOutputFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_output_file_size_gb"),
+		nodeWorkerOutputFileSizeGb: newDesc(
+			"node_worker_output_file_size_gb",
 			"Tdarr node worker current output file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerEstFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_est_file_size_gb"),
+		nodeWorkerEstFileSizeGb: newDesc(
+			"node_worker_est_file_size_gb",
 			"Tdarr node worker estimated output file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerJobStartTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_start_timestamp_seconds"),
+		nodeWorkerJobStartTimestamp: newDesc(
+			"node_worker_job_start_timestamp_seconds",
 			"Tdarr node worker job start time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerStartTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_start_timestamp_seconds"),
+		nodeWorkerStartTimestamp: newDesc(
+			"node_worker_start_timestamp_seconds",
 			"Tdarr node worker current plugin step start time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerStatusTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_status_timestamp_seconds"),
+		nodeWorkerStatusTimestamp: newDesc(
+			"node_worker_status_timestamp_seconds",
 			"Tdarr node worker last status update time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerEtaSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_eta_seconds"),
+		nodeWorkerEtaSeconds: newDesc(
+			"node_worker_eta_seconds",
 			"Tdarr node worker estimated time remaining in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerPid: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_pid"),
+		nodeWorkerPid: newDesc(
+			"node_worker_pid",
 			"Tdarr node worker process ID",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
 	}
 }
 
-func NewTdarrNodeCollector(runConfig config.Config) *TdarrNodeCollector {
+// descs returns the node metrics' descs in Describe order. The TdarrCollector's Describe
+// appends this to its own descs so it never reaches into TdarrNodeMetrics field-by-field —
+// the node metric set is owned and ordered here, in one place.
+func (m *TdarrNodeMetrics) descs() []*prometheus.Desc {
+	return []*prometheus.Desc{
+		m.nodeInfo,
+		m.nodeUptime,
+		m.nodeHeapUsedMb,
+		m.nodeHeapTotalMb,
+		m.nodeHostCpuPercent,
+		m.nodeHostMemUsedGb,
+		m.nodeHostMemTotalGb,
+		m.nodePaused,
+		m.nodeMaxGpuWorkers,
+		m.nodeScheduleEnabled,
+		m.nodeWorkerCount,
+		m.nodeWorkerLimit,
+		m.nodeQueueLength,
+		m.nodeWorkerInfo,
+		m.nodeWorkerPercentage,
+		m.nodeWorkerFps,
+		m.nodeWorkerOriginalFileSizeGb,
+		m.nodeWorkerOutputFileSizeGb,
+		m.nodeWorkerEstFileSizeGb,
+		m.nodeWorkerJobStartTimestamp,
+		m.nodeWorkerStartTimestamp,
+		m.nodeWorkerStatusTimestamp,
+		m.nodeWorkerEtaSeconds,
+		m.nodeWorkerPid,
+	}
+}
+
+// NewTdarrNodeCollector wires the shared tdarrAPI (built by the parent collector)
+// into the node collector so node requests reuse the same HTTP client.
+func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI) *TdarrNodeCollector {
 	return &TdarrNodeCollector{
 		config:  runConfig,
+		api:     api,
 		metrics: NewTdarrNodeMetrics(runConfig),
 	}
 }
 
 func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl, n.config.ApiKey)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
-	}
 	// get node data
 	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := httpClient.DoRequest(n.config.TdarrNodePath, &nodeData)
+	nodeHttpErr := n.api.DoRequest(n.config.TdarrNodePath, &nodeData)
 	if nodeHttpErr != nil {
-		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
-		return nil, nodeHttpErr
+		return nil, fmt.Errorf("get node data: %w", nodeHttpErr)
 	}
 	log.Debug().Interface("response", nodeData).Msg("Node Api Response")
 	return nodeData, nil

@@ -1,0 +1,33 @@
+{
+  "totalFileCount": 1500,
+  "totalTranscodeCount": 850,
+  "totalHealthCheckCount": 1400,
+  "sizeDiff": 45.75,
+  "tdarrScore": "78.50",
+  "healthCheckScore": "93.33",
+  "avgNumberOfStreamsInVideo": 3.5,
+  "streamStats": {
+    "duration": {
+      "average": 2400,
+      "highest": 9000,
+      "total": 1200000
+    },
+    "bit_rate": {
+      "average": 3500000,
+      "highest": 20000000,
+      "total": 1750000000
+    },
+    "nb_frames": {
+      "average": 57600,
+      "highest": 216000,
+      "total": 28800000
+    }
+  },
+  "table0Count": 5,
+  "table1Count": 10,
+  "table2Count": 600,
+  "table3Count": 15,
+  "table4Count": 20,
+  "table5Count": 1300,
+  "table6Count": 30
+}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
@@ -19,6 +20,7 @@ const (
 	envPrometheusPath     = "PROMETHEUS_PATH"
 	envLogLevel           = "LOG_LEVEL"
 	envHttpMaxConcurrency = "HTTP_MAX_CONCURRENCY"
+	envHttpTimeoutSeconds = "HTTP_TIMEOUT_SECONDS"
 )
 
 type Config struct {
@@ -37,32 +39,27 @@ type Config struct {
 	HttpMaxConcurrency int
 }
 
-// func setLoggerDefaults() {
-// 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-// }
-
-func setLoggerLevel(logLevel string) {
-	// set up global log level for zerolog
-	level := strings.ToLower(logLevel)
-	switch level {
+// parseLogLevel maps a string log level to a zerolog.Level. It returns an error
+// on an unknown level and does NOT mutate the global zerolog level (callers
+// apply the level themselves).
+func parseLogLevel(logLevel string) (zerolog.Level, error) {
+	switch strings.ToLower(logLevel) {
 	case "trace":
-		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+		return zerolog.TraceLevel, nil
 	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		return zerolog.DebugLevel, nil
 	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		return zerolog.InfoLevel, nil
 	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+		return zerolog.WarnLevel, nil
 	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		return zerolog.ErrorLevel, nil
 	case "fatal":
-		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+		return zerolog.FatalLevel, nil
 	case "panic":
-		zerolog.SetGlobalLevel(zerolog.PanicLevel)
+		return zerolog.PanicLevel, nil
 	default:
-		log.Fatal().
-			Str("log_level", logLevel).
-			Msg("Improper log level given!")
+		return zerolog.NoLevel, fmt.Errorf("improper log level given: %q", logLevel)
 	}
 }
 
@@ -74,6 +71,7 @@ func getDefaults() Config {
 		PrometheusPort:     "9090",
 		PrometheusPath:     "/metrics",
 		HttpTimeoutSeconds: 15,
+		// path fields are intentionally not overridable via env/flag.
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrNodePath:      "/api/v2/get-nodes",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
@@ -81,82 +79,105 @@ func getDefaults() Config {
 	}
 }
 
-func newDefaults() Config {
-	// get defaults and then replace them with env vars if specified
+// applyEnvDefaults overlays environment variables on top of getDefaults using
+// the injected getenv. precedence: defaults -> env (flags are layered later).
+func applyEnvDefaults(getenv func(string) string) (Config, error) {
 	defaults := getDefaults()
-	if tdarrUrlEnv := os.Getenv(envTdarrUrl); tdarrUrlEnv != "" {
+	if tdarrUrlEnv := getenv(envTdarrUrl); tdarrUrlEnv != "" {
 		defaults.url = tdarrUrlEnv
 	}
-	if tdarrApiKeyEnv := os.Getenv(envTdarrApiKey); tdarrApiKeyEnv != "" {
+	if tdarrApiKeyEnv := getenv(envTdarrApiKey); tdarrApiKeyEnv != "" {
 		defaults.ApiKey = tdarrApiKeyEnv
 	}
-	if sslVerifyEnv := os.Getenv(envSslVerify); sslVerifyEnv != "" {
+	if sslVerifyEnv := getenv(envSslVerify); sslVerifyEnv != "" {
 		boolValue, err := strconv.ParseBool(sslVerifyEnv)
 		if err != nil {
-			log.Fatal().
-				Err(err).
-				Msg("Invalid value for verify_ssl! Please provide one of true or false.")
+			return Config{}, fmt.Errorf("invalid value for verify_ssl, please provide one of true or false: %w", err)
 		}
 		defaults.VerifySsl = boolValue
 	}
-	if prometheusPortEnv := os.Getenv(envPrometheusPort); prometheusPortEnv != "" {
+	if prometheusPortEnv := getenv(envPrometheusPort); prometheusPortEnv != "" {
 		defaults.PrometheusPort = prometheusPortEnv
 	}
-	if prometheusPathEnv := os.Getenv(envPrometheusPath); prometheusPathEnv != "" {
+	if prometheusPathEnv := getenv(envPrometheusPath); prometheusPathEnv != "" {
 		defaults.PrometheusPath = prometheusPathEnv
 	}
-	if logLevelEnv := os.Getenv(envLogLevel); logLevelEnv != "" {
+	if logLevelEnv := getenv(envLogLevel); logLevelEnv != "" {
 		defaults.LogLevel = logLevelEnv
 	}
-	if httpMaxConcurrencyEnv := os.Getenv(envHttpMaxConcurrency); httpMaxConcurrencyEnv != "" {
+	if httpMaxConcurrencyEnv := getenv(envHttpMaxConcurrency); httpMaxConcurrencyEnv != "" {
 		intValue, err := strconv.Atoi(httpMaxConcurrencyEnv)
 		if err != nil {
-			log.Fatal().
-				Err(err).
-				Msg("Invalid value for http_max_concurrency! Please provide a valid integer.")
+			return Config{}, fmt.Errorf("invalid value for http_max_concurrency, please provide a valid integer: %w", err)
 		}
 		defaults.HttpMaxConcurrency = intValue
 	}
-	return defaults
+	if httpTimeoutEnv := getenv(envHttpTimeoutSeconds); httpTimeoutEnv != "" {
+		intValue, err := strconv.Atoi(httpTimeoutEnv)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid value for http_timeout_seconds, please provide a valid integer: %w", err)
+		}
+		defaults.HttpTimeoutSeconds = intValue
+	}
+	return defaults, nil
 }
 
-// also act as validation for provided url
-func parseUrl(urlString string) *url.URL {
-	// get hostname from url
+// parseUrl validates and parses the provided url. A missing scheme defaults to
+// https. It returns an error instead of exiting on parse failure.
+func parseUrl(urlString string) (*url.URL, error) {
 	if !strings.HasPrefix(urlString, "http") {
 		log.Warn().Str("url", urlString).Msg("No URL scheme provided, defaulting to https")
 		urlString = "https://" + urlString
 	}
-	url, err := url.Parse(urlString)
+	parsed, err := url.Parse(urlString)
 	if err != nil {
-		log.Fatal().Str("url", urlString).Err(err).Msg("Invalid url provided - failed to parse!")
+		return nil, fmt.Errorf("invalid url provided - failed to parse %q: %w", urlString, err)
 	}
-	return url
+	return parsed, nil
 }
 
-func NewConfig() Config {
-	defaults := newDefaults()
-	url := flag.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
-	apiKeyAuth := flag.String("api_key", defaults.ApiKey, "api token for tdarr instance if authentication is enabled")
-	sslVerify := flag.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
-	promPort := flag.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
-	promPath := flag.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
-	logLevel := flag.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
-	httpMaxConcurrency := flag.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
-	flag.Parse()
+// parseConfig is the pure, testable core of configuration loading. It applies
+// precedence defaults -> env -> flags using the injected flag set, args, and
+// getenv, and returns validation errors instead of exiting. It does NOT mutate
+// any global state (including the zerolog level).
+func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (Config, error) {
+	defaults, err := applyEnvDefaults(getenv)
+	if err != nil {
+		return Config{}, err
+	}
+
+	url := fs.String("url", defaults.url, "valid url for tdarr instance, ex: https://tdarr.somedomain.com")
+	apiKeyAuth := fs.String("api_key", defaults.ApiKey, "api token for tdarr instance if authentication is enabled")
+	sslVerify := fs.Bool("verify_ssl", defaults.VerifySsl, "verify ssl certificates from tdarr")
+	promPort := fs.String("prometheus_port", defaults.PrometheusPort, "port for prometheus exporter")
+	promPath := fs.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
+	logLevel := fs.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
+	httpMaxConcurrency := fs.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
+	httpTimeoutSeconds := fs.Int("http_timeout_seconds", defaults.HttpTimeoutSeconds, "timeout in seconds for http requests to the tdarr instance")
+
+	if err := fs.Parse(args); err != nil {
+		return Config{}, err
+	}
+
 	if *url == "" {
-		log.Fatal().
-			Msg("A valid url needs to be provided!")
+		return Config{}, fmt.Errorf("a valid url needs to be provided")
 	}
 	if *httpMaxConcurrency <= 0 {
-		log.Fatal().
-			Msg("http_max_concurrency must be at least 1 (single connection)!")
+		return Config{}, fmt.Errorf("http_max_concurrency must be at least 1 (single connection)")
+	}
+	if *httpTimeoutSeconds <= 0 {
+		return Config{}, fmt.Errorf("http_timeout_seconds must be at least 1")
 	}
 
-	setLoggerLevel(*logLevel)
+	// validate the log level here (without mutating global state).
+	if _, err := parseLogLevel(*logLevel); err != nil {
+		return Config{}, err
+	}
 
-	urlParsed := parseUrl(*url)
-	log.Info().Str("url", urlParsed.String()).Msg("Using provided full url for tdarr instance")
+	urlParsed, err := parseUrl(*url)
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		url:                *url,
@@ -167,14 +188,30 @@ func NewConfig() Config {
 		PrometheusPort:     *promPort,
 		PrometheusPath:     *promPath,
 		LogLevel:           *logLevel,
-		HttpTimeoutSeconds: defaults.HttpTimeoutSeconds,
+		HttpTimeoutSeconds: *httpTimeoutSeconds,
+		// path fields are intentionally not overridable.
 		TdarrStatsPath:     defaults.TdarrStatsPath,
 		TdarrNodePath:      defaults.TdarrNodePath,
 		TdarrPieStatsPath:  defaults.TdarrPieStatsPath,
 		HttpMaxConcurrency: *httpMaxConcurrency,
-	}
+	}, nil
 }
 
-// func init() {
-// 	setLoggerDefaults()
-// }
+// NewConfig is the production entrypoint (composition root). It wires os.Args
+// and os.Getenv into the testable parseConfig core, then applies the global
+// side effects (log level mutation, fatal on error, startup logging) that must
+// not live in the testable core.
+func NewConfig() Config {
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	cfg, err := parseConfig(fs, os.Args[1:], os.Getenv)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to load configuration")
+	}
+
+	// parseConfig already validated the log level; apply it globally here.
+	level, _ := parseLogLevel(cfg.LogLevel)
+	zerolog.SetGlobalLevel(level)
+
+	log.Info().Str("url", cfg.UrlParsed.String()).Msg("Using provided full url for tdarr instance")
+	return cfg
+}
