@@ -216,20 +216,56 @@ func TestParseConfigErrors(t *testing.T) {
 func TestParseConfigUrlSchemeDefaulting(t *testing.T) {
 	t.Parallel()
 
-	env := map[string]string{envTdarrUrl: "tdarr.example.com"}
-	cfg, err := parseConfig(newFS(), nil, envFunc(env))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	cases := []struct {
+		name         string
+		url          string
+		wantURL      string
+		wantScheme   string
+		wantInstance string
+	}{
+		{
+			name:         "no scheme defaults to https",
+			url:          "tdarr.example.com",
+			wantURL:      "https://tdarr.example.com",
+			wantScheme:   "https",
+			wantInstance: "tdarr.example.com",
+		},
+		{
+			// Scheme detection is by "://", not a "http" prefix: a scheme-less host
+			// that starts with "http" must still get https:// prepended and a valid hostname.
+			name:         "http-prefixed scheme-less host still defaults to https",
+			url:          "http-server.lan",
+			wantURL:      "https://http-server.lan",
+			wantScheme:   "https",
+			wantInstance: "http-server.lan",
+		},
+		{
+			name:         "explicit http scheme preserved",
+			url:          "http://tdarr.local:8080",
+			wantURL:      "http://tdarr.local:8080",
+			wantScheme:   "http",
+			wantInstance: "tdarr.local",
+		},
 	}
-
-	if got := cfg.UrlParsed.String(); got != "https://tdarr.example.com" {
-		t.Errorf("UrlParsed = %q, want https://tdarr.example.com", got)
-	}
-	if cfg.UrlParsed.Scheme != "https" {
-		t.Errorf("scheme = %q, want https", cfg.UrlParsed.Scheme)
-	}
-	if cfg.InstanceName != "tdarr.example.com" {
-		t.Errorf("InstanceName = %q, want tdarr.example.com", cfg.InstanceName)
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			env := map[string]string{envTdarrUrl: tc.url}
+			cfg, err := parseConfig(newFS(), nil, envFunc(env))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := cfg.UrlParsed.String(); got != tc.wantURL {
+				t.Errorf("UrlParsed = %q, want %q", got, tc.wantURL)
+			}
+			if cfg.UrlParsed.Scheme != tc.wantScheme {
+				t.Errorf("scheme = %q, want %q", cfg.UrlParsed.Scheme, tc.wantScheme)
+			}
+			if cfg.InstanceName != tc.wantInstance {
+				t.Errorf("InstanceName = %q, want %q", cfg.InstanceName, tc.wantInstance)
+			}
+		})
 	}
 }
 

@@ -145,6 +145,31 @@ func TestClientTransport_RetryBehavior(t *testing.T) {
 			wantErrSubstr: "Server Error Status Code: 500",
 		},
 		{
+			// A 4xx arriving after a 5xx retry must be classified as an error, not
+			// returned as a success response (regression guard for the post-retry
+			// fall-through to the shared 4xx/3xx classification).
+			name: "5xx then 4xx — classified as error, not returned as success",
+			responses: []fakeResponse{
+				{statusCode: 500},
+				{statusCode: 404},
+			},
+			backoff:       []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
+			wantCallCount: 2,
+			wantSleeps:    []time.Duration{10 * time.Millisecond},
+			wantErrSubstr: "40x Status Code: 404",
+		},
+		{
+			name: "5xx then 3xx — classified as redirect error, not returned as success",
+			responses: []fakeResponse{
+				{statusCode: 500},
+				{statusCode: 302},
+			},
+			backoff:       []time.Duration{10 * time.Millisecond, 20 * time.Millisecond},
+			wantCallCount: 2,
+			wantSleeps:    []time.Duration{10 * time.Millisecond},
+			wantErrSubstr: "Redirect Status Code: 302",
+		},
+		{
 			name: "network error then success — one retry",
 			responses: []fakeResponse{
 				{err: fmt.Errorf("connection refused")},

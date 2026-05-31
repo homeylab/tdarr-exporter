@@ -68,6 +68,7 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil || resp.StatusCode >= 500 {
 		// retries = len(backoff); index i is always in range — no panic possible.
+		recovered := false
 		for i, backoffDur := range t.backoff {
 			log.Debug().Int("retry_count", i+1).
 				Interface("backoff_seconds", backoffDur).
@@ -81,14 +82,21 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}
 			resp, err = t.inner.RoundTrip(req)
 			if err == nil && resp.StatusCode < 500 {
-				return resp, nil
+				// Got a non-5xx response. Don't short-circuit to success here:
+				// a 4xx/3xx still has to go through the same classification below
+				// as a first-attempt response would. Break and fall through.
+				recovered = true
+				break
 			}
 		}
-		if err != nil {
-			return nil, fmt.Errorf("error sending HTTP Request: %w", err)
-		} else {
+		if !recovered {
+			// every attempt errored or returned 5xx
+			if err != nil {
+				return nil, fmt.Errorf("error sending HTTP Request: %w", err)
+			}
 			return nil, fmt.Errorf("received Server Error Status Code: %d", resp.StatusCode)
 		}
+		// fall through: resp is now a <500 response, classify it like any other
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode <= 499 {
 		log.Error().Int("status_code", resp.StatusCode).Str("url", req.URL.String()).Msgf("Received 40X Status Code: %d", resp.StatusCode)

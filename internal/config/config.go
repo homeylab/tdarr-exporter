@@ -125,7 +125,10 @@ func applyEnvDefaults(getenv func(string) string) (Config, error) {
 // parseUrl validates and parses the provided url. A missing scheme defaults to
 // https. It returns an error instead of exiting on parse failure.
 func parseUrl(urlString string) (*url.URL, error) {
-	if !strings.HasPrefix(urlString, "http") {
+	// Detect a scheme by the "://" separator, not a "http" prefix: HasPrefix("http")
+	// both misfires on scheme-less hosts that happen to start with "http"
+	// (e.g. "http-server.lan") and mangles non-http schemes.
+	if !strings.Contains(urlString, "://") {
 		log.Warn().Str("url", urlString).Msg("No URL scheme provided, defaulting to https")
 		urlString = "https://" + urlString
 	}
