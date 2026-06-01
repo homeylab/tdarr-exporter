@@ -302,7 +302,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		),
 		pieAudioContainers: newGauge(
 			"library_audio_containers",
-			"Tdarr video containers for library by type",
+			"Tdarr audio containers for library by type",
 			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
 		pieAudioResolutions: newGauge(

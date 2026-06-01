@@ -15,7 +15,7 @@ tdarr_health_checks_total{tdarr_instance="tdarr.localdomain"} 1400
 tdarr_library_audio_codecs{codec="aac",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 310
 tdarr_library_audio_codecs{codec="flac",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 180
 tdarr_library_audio_codecs{codec="opus",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
-# HELP tdarr_library_audio_containers Tdarr video containers for library by type
+# HELP tdarr_library_audio_containers Tdarr audio containers for library by type
 # TYPE tdarr_library_audio_containers gauge
 tdarr_library_audio_containers{container_type="m4a",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
 tdarr_library_audio_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
