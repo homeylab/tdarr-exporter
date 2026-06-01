@@ -1,0 +1,119 @@
+{
+  "node-idle-1": {
+    "_id": "node-idle-1",
+    "nodeName": "IdleNode",
+    "remoteAddress": "192.168.1.10",
+    "config": {
+      "serverIP": "192.168.1.1",
+      "serverPort": "8265",
+      "priority": 0,
+      "processPid": 1001
+    },
+    "workerLimits": {
+      "transcodecpu": 2,
+      "transcodegpu": 0,
+      "healthcheckcpu": 1,
+      "healthcheckgpu": 0
+    },
+    "gpuSelect": "-",
+    "nodePaused": false,
+    "priority": 0,
+    "workers": {},
+    "resStats": {
+      "process": {
+        "uptime": 7200,
+        "heapUsedMB": "45.3",
+        "heapTotalMB": "64.0"
+      },
+      "os": {
+        "cpuPerc": "2.10",
+        "memUsedGB": "2.5",
+        "memTotalGB": "8.0"
+      }
+    },
+    "queueLengths": {
+      "transcodecpu": 0,
+      "transcodegpu": 0,
+      "healthcheckcpu": 0,
+      "healthcheckgpu": 0
+    },
+    "maxGpuWorkers": 0,
+    "scheduleEnabled": false,
+    "allowGpuDoCpu": false
+  },
+  "node-busy-1": {
+    "_id": "node-busy-1",
+    "nodeName": "BusyNode",
+    "remoteAddress": "192.168.1.11",
+    "config": {
+      "serverIP": "192.168.1.1",
+      "serverPort": "8265",
+      "priority": 1,
+      "processPid": 2001
+    },
+    "workerLimits": {
+      "transcodecpu": 2,
+      "transcodegpu": 1,
+      "healthcheckcpu": 1,
+      "healthcheckgpu": 0
+    },
+    "gpuSelect": "nvidia:0",
+    "nodePaused": false,
+    "priority": 1,
+    "workers": {
+      "worker-tc-01": {
+        "_id": "worker-tc-01",
+        "workerType": "transcodecpu",
+        "isFlowWorker": false,
+        "idle": false,
+        "file": "/media/shows/Show S01E01.mkv",
+        "originalfileSizeInGbytes": 4.5,
+        "percentage": 45.75,
+        "fps": 125,
+        "ETA": "0:01:30",
+        "status": "Transcoding",
+        "statusTs": 1700000100,
+        "job": {
+          "version": "2",
+          "start": 1700000000,
+          "type": "transcode",
+          "jobId": "job-abc-123"
+        },
+        "process": {
+          "connected": true,
+          "pid": 5432,
+          "cliType": "ffmpeg"
+        },
+        "lastPluginDetails": {
+          "source": "community",
+          "id": "Tdarr_Plugin_MC93_Migz1FFMPEG",
+          "number": "3"
+        },
+        "startTime": 1700000050,
+        "outputFileSizeInGbytes": 2.1,
+        "estSize": 4.2
+      }
+    },
+    "resStats": {
+      "process": {
+        "uptime": 14400,
+        "heapUsedMB": "72.8",
+        "heapTotalMB": "128.0"
+      },
+      "os": {
+        "cpuPerc": "85.40",
+        "memUsedGB": "6.2",
+        "memTotalGB": "16.0"
+      }
+    },
+    "queueLengths": {
+      "transcodecpu": 3,
+      "transcodegpu": 0,
+      "healthcheckcpu": 1,
+      "healthcheckgpu": 0
+    },
+    "maxGpuWorkers": 1,
+    "scheduleEnabled": true,
+    "allowGpuDoCpu": true
+  }
+}

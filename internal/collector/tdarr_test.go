@@ -1,23 +1,27 @@
 package collector
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
+	"errors"
 	"net/url"
-	"sync/atomic"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/rs/zerolog"
 )
 
-// newTestConfig builds a Config pointing at serverURL with sane test defaults.
-func newTestConfig(t *testing.T, serverURL string) config.Config {
+// newTestConfig builds a Config with sane test defaults. UrlParsed is set so the
+// config is well-formed; the injected fakeTdarrAPI never makes a network call.
+// HttpMaxConcurrency=1 keeps pie-fetch ordering deterministic and race-free.
+func newTestConfig(t *testing.T) config.Config {
 	t.Helper()
-	u, err := url.Parse(serverURL)
+	u, err := url.Parse("http://tdarr.test")
 	if err != nil {
 		t.Fatalf("parse url: %v", err)
 	}
@@ -30,7 +34,7 @@ func newTestConfig(t *testing.T, serverURL string) config.Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 		TdarrNodePath:      "/api/v2/get-nodes",
-		HttpMaxConcurrency: 2,
+		HttpMaxConcurrency: 1,
 	}
 }
 
@@ -134,55 +138,23 @@ func validNodeBody() []byte {
 	return b
 }
 
-// parseCruddbMode reads the request body and extracts the "mode" field from the nested data object.
-func parseCruddbMode(r *http.Request) string {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return ""
-	}
-	var req TdarrMetricRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		return ""
-	}
-	return req.Data.Mode
-}
-
-// newFullSuccessServer builds a fake Tdarr API server that responds successfully to all endpoints.
-func newFullSuccessServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			_, _ = w.Write(validStatsBody())
-		}
-	})
-
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-	return srv
+// newSuccessFakeAPI builds a fakeTdarrAPI that responds successfully to every
+// endpoint the collector calls, using the minimal valid bodies above. The single
+// library "lib1" drives one get-pies call keyed on its libraryId.
+func newSuccessFakeAPI(cfg config.Config) *fakeTdarrAPI {
+	api := newFakeTdarrAPI()
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, validStatsBody())
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, validLibraryListBody())
+	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}, validPieBody())
+	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, validNodeBody())
+	return api
 }
 
 // TestCollect_AllSuccess_UpEquals1 verifies tdarr_up == 1 when all API endpoints succeed,
 // and that general stats metrics such as tdarr_files_total are emitted.
 func TestCollect_AllSuccess_UpEquals1(t *testing.T) {
-	srv := newFullSuccessServer(t)
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
 
 	mfs := gatherMetricFamilies(t, c)
 	if upValueFromFamilies(mfs) != 1.0 {
@@ -194,73 +166,30 @@ func TestCollect_AllSuccess_UpEquals1(t *testing.T) {
 	}
 }
 
-// TestCollect_StatsAPIReturns404_UpEquals0 verifies tdarr_up == 0 when the stats endpoint fails,
-// and that no additional tdarr metrics beyond tdarr_up are emitted (early return path).
-func TestCollect_StatsAPIReturns404_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not found", http.StatusNotFound)
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
+// TestCollect_StatsAPIFails_UpEquals0 verifies tdarr_up == 0 when the stats-by-id cruddb
+// call fails, and that no additional tdarr metrics beyond tdarr_up are emitted (early return path).
+func TestCollect_StatsAPIFails_UpEquals0(t *testing.T) {
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, statErr{"stats fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
 
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
-
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(c)
-	mfs, err := reg.Gather()
-	if err != nil {
-		t.Fatalf("gather: %v", err)
+	mfs := gatherMetricFamilies(t, c)
+	if upValueFromFamilies(mfs) != 0.0 {
+		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-
-	upVal := -1.0
-	for _, mf := range mfs {
-		if mf.GetName() == "tdarr_up" {
-			upVal = mf.GetMetric()[0].GetGauge().GetValue()
-		} else if mf.GetName() == "tdarr_files_total" {
-			t.Errorf("unexpected metric emitted after early-return: %s", mf.GetName())
-		}
-	}
-	if upVal != 0.0 {
-		t.Errorf("tdarr_up: want 0.0, got %v", upVal)
+	if hasMetricFamily(mfs, "tdarr_files_total") {
+		t.Error("unexpected tdarr_files_total emitted after early-return on stats failure")
 	}
 }
 
 // TestCollect_LibraryListFails_UpEquals0 verifies tdarr_up == 0 when the library-list cruddb
-// call (mode=getAll) fails while the stats-by-id call succeeds.
+// call (collection=LibrarySettingsJSONDB) fails while the stats-by-id call succeeds.
 func TestCollect_LibraryListFails_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		if mode == "getAll" {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validStatsBody())
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, statErr{"library list failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
 
 	got := getUpValue(t, c)
 	if got != 0.0 {
@@ -271,81 +200,28 @@ func TestCollect_LibraryListFails_UpEquals0(t *testing.T) {
 // TestCollect_NodeFetchFails_UpEquals0 verifies tdarr_up == 0 when the node endpoint fails,
 // and that general + pie stats metrics were still emitted before the node failure.
 func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			_, _ = w.Write(validStatsBody())
-		}
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrNodePath}, statErr{"node fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
 
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
-
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(c)
-	mfs, err := reg.Gather()
-	if err != nil {
-		t.Fatalf("gather: %v", err)
+	mfs := gatherMetricFamilies(t, c)
+	if upValueFromFamilies(mfs) != 0.0 {
+		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-
-	upVal := -1.0
-	hasTotalFiles := false
-	for _, mf := range mfs {
-		switch mf.GetName() {
-		case "tdarr_up":
-			upVal = mf.GetMetric()[0].GetGauge().GetValue()
-		case "tdarr_files_total":
-			hasTotalFiles = true
-		}
-	}
-	if upVal != 0.0 {
-		t.Errorf("tdarr_up: want 0.0, got %v", upVal)
-	}
-	if !hasTotalFiles {
+	if !hasMetricFamily(mfs, "tdarr_files_total") {
 		t.Error("expected tdarr_files_total to be emitted despite node failure")
 	}
 }
 
-// TestCollect_PartialPieFailure_UpEquals0 verifies tdarr_up == 0 when all get-pies calls fail
-// (all workers encounter errors, setting partialFailure = true).
-// Note: returning 500 for all get-pies requests triggers the partial failure path since every
-// worker goroutine records a failure via c.partialFailure.Store(true).
+// TestCollect_PartialPieFailure_UpEquals0 verifies tdarr_up == 0 when the get-pies call fails
+// (the worker records a partial failure via c.partialFailure.Store(true)), while general stats
+// emitted before the pie fetch are still present.
 func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			_, _ = w.Write(validStatsBody())
-		}
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}, statErr{"pie fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
 
 	mfs := gatherMetricFamilies(t, c)
 	if upValueFromFamilies(mfs) != 0.0 {
@@ -367,39 +243,14 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 // flag would leak across scrapes: scrape 2 would still report tdarr_up == 0 even when all
 // endpoints succeed.
 func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
-	// pieFailure controls whether get-pies returns an error. 1 = fail, 0 = succeed.
-	var pieFailure atomic.Int32
-	pieFailure.Store(1) // scrape 1: fail
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			_, _ = w.Write(validStatsBody())
-		}
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		if pieFailure.Load() == 1 {
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	pieKey := fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}
 
 	// Scrape 1: pie fails → tdarr_up should be 0.
+	api.setError(pieKey, statErr{"pie fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
+
 	// Use a fresh registry each scrape to avoid "already registered" errors.
 	reg1 := prometheus.NewRegistry()
 	reg1.MustRegister(c)
@@ -407,18 +258,12 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scrape 1 gather: %v", err)
 	}
-	up1 := -1.0
-	for _, mf := range mfs1 {
-		if mf.GetName() == "tdarr_up" {
-			up1 = mf.GetMetric()[0].GetGauge().GetValue()
-		}
-	}
-	if up1 != 0.0 {
+	if up1 := upValueFromFamilies(mfs1); up1 != 0.0 {
 		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up1)
 	}
 
 	// Flip to success mode for scrape 2.
-	pieFailure.Store(0)
+	delete(api.errors, pieKey)
 	// Reset the stats cache so the collector re-fetches library pie stats
 	// (cache hit avoids pie calls entirely, which would skip the test's purpose).
 	c.statsCache = NewTdarrLibStatsCache()
@@ -430,13 +275,7 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scrape 2 gather: %v", err)
 	}
-	up2 := -1.0
-	for _, mf := range mfs2 {
-		if mf.GetName() == "tdarr_up" {
-			up2 = mf.GetMetric()[0].GetGauge().GetValue()
-		}
-	}
-	if up2 != 1.0 {
+	if up2 := upValueFromFamilies(mfs2); up2 != 1.0 {
 		t.Errorf("scrape 2 tdarr_up: want 1.0, got %v (partialFailure flag leaked from scrape 1)", up2)
 	}
 }
@@ -445,35 +284,12 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 // returns an unparseable tdarrScore string, and that no data metrics beyond tdarr_up are emitted
 // (score parse failure in collect() returns early, before any ch <- emissions).
 func TestCollect_StatsScoreUnparseable_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			m := TdarrMetric{
-				TotalFileCount:   10,
-				TdarrScore:       "not-a-float",
-				HealthCheckScore: "0",
-			}
-			b, _ := json.Marshal(m)
-			_, _ = w.Write(b)
-		}
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	m := TdarrMetric{TotalFileCount: 10, TdarrScore: "not-a-float", HealthCheckScore: "0"}
+	b, _ := json.Marshal(m)
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, b)
+	c := newTdarrCollectorWithAPI(cfg, api)
 
 	mfs := gatherMetricFamilies(t, c)
 	if upValueFromFamilies(mfs) != 0.0 {
@@ -488,35 +304,12 @@ func TestCollect_StatsScoreUnparseable_UpEquals0(t *testing.T) {
 // returns an unparseable healthCheckScore string, and that no data metrics beyond tdarr_up are
 // emitted (health score parse failure in collect() returns early, before any ch <- emissions).
 func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v2/cruddb", func(w http.ResponseWriter, r *http.Request) {
-		mode := parseCruddbMode(r)
-		w.Header().Set("Content-Type", "application/json")
-		if mode == "getAll" {
-			_, _ = w.Write(validLibraryListBody())
-		} else {
-			m := TdarrMetric{
-				TotalFileCount:   10,
-				TdarrScore:       "0",
-				HealthCheckScore: "garbage",
-			}
-			b, _ := json.Marshal(m)
-			_, _ = w.Write(b)
-		}
-	})
-	mux.HandleFunc("/api/v2/stats/get-pies", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validPieBody())
-	})
-	mux.HandleFunc("/api/v2/get-nodes", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(validNodeBody())
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	m := TdarrMetric{TotalFileCount: 10, TdarrScore: "0", HealthCheckScore: "garbage"}
+	b, _ := json.Marshal(m)
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, b)
+	c := newTdarrCollectorWithAPI(cfg, api)
 
 	mfs := gatherMetricFamilies(t, c)
 	if upValueFromFamilies(mfs) != 0.0 {
@@ -527,13 +320,124 @@ func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
 	}
 }
 
+// TestCollect_ErrorCause verifies that collect() wraps the sentinel matching the
+// failure category, so callers/tests can branch on the cause via errors.Is rather
+// than matching error strings. Each case drives a distinct failure boundary.
+func TestCollect_ErrorCause(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		setup     func(cfg config.Config, api *fakeTdarrAPI)
+		wantCause error
+	}{
+		{
+			name: "stats API failure is ErrUpstream",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, statErr{"boom"})
+			},
+			wantCause: ErrUpstream,
+		},
+		{
+			name: "node fetch failure is ErrUpstream",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				api.setError(fakeKey{path: cfg.TdarrNodePath}, statErr{"boom"})
+			},
+			wantCause: ErrUpstream,
+		},
+		{
+			name: "unparseable score is ErrParse",
+			setup: func(cfg config.Config, api *fakeTdarrAPI) {
+				m := TdarrMetric{TotalFileCount: 1, TdarrScore: "not-a-float", HealthCheckScore: "0"}
+				b, _ := json.Marshal(m)
+				api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, b)
+			},
+			wantCause: ErrParse,
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			api := newSuccessFakeAPI(cfg)
+			tc.setup(cfg, api)
+			c := newTdarrCollectorWithAPI(cfg, api)
+
+			// Drain emissions into a buffered channel so collect() never blocks.
+			ch := make(chan prometheus.Metric, 512)
+			err := c.collect(context.Background(), ch)
+			close(ch)
+
+			if err == nil {
+				t.Fatalf("collect: want error wrapping %v, got nil", tc.wantCause)
+			}
+			if !errors.Is(err, tc.wantCause) {
+				t.Errorf("collect error = %v; want errors.Is(..., %v)", err, tc.wantCause)
+			}
+		})
+	}
+}
+
+// TestCollect_InjectedLogger_CapturesOutput verifies the logger seam: a logger
+// injected into the collector receives its log output, so tests can capture or
+// silence logs without touching the package global. Drives the Collect error path
+// and asserts the "Collection cycle failed" line lands in the injected buffer.
+func TestCollect_InjectedLogger_CapturesOutput(t *testing.T) {
+	t.Parallel()
+
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setError(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, statErr{"boom"})
+	c := newTdarrCollectorWithAPI(cfg, api)
+
+	var buf bytes.Buffer
+	c.logger = zerolog.New(&buf)
+
+	// Collect swallows the error after logging it via the injected logger.
+	gatherMetricFamilies(t, c)
+
+	if !strings.Contains(buf.String(), "Collection cycle failed") {
+		t.Errorf("injected logger did not capture the failure log; buffer = %q", buf.String())
+	}
+}
+
+// TestCollect_ContextCancelled_Aborts verifies the context seam: when the
+// collector's baseCtx is already cancelled, the very first request aborts and
+// collect() returns an error that carries both the cancellation cause and the
+// ErrUpstream category — i.e. a scrape in flight at shutdown unwinds instead of
+// running to completion.
+func TestCollect_ContextCancelled_Aborts(t *testing.T) {
+	t.Parallel()
+
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before collecting
+	c.baseCtx = ctx
+
+	ch := make(chan prometheus.Metric, 512)
+	err := c.collect(ctx, ch)
+	close(ch)
+
+	if err == nil {
+		t.Fatal("collect: want error from cancelled context, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("collect error = %v; want errors.Is(..., context.Canceled)", err)
+	}
+	if !errors.Is(err, ErrUpstream) {
+		t.Errorf("collect error = %v; want errors.Is(..., ErrUpstream)", err)
+	}
+}
+
 // TestCollect_RegisteredInRegistry_NoDescribeError verifies that registering TdarrCollector
 // in a strict prometheus.Registry does not produce a describe/collect mismatch error.
 // This guards against upMetric or any other descriptor being missing from Describe().
 func TestCollect_RegisteredInRegistry_NoDescribeError(t *testing.T) {
-	srv := newFullSuccessServer(t)
-	cfg := newTestConfig(t, srv.URL)
-	c := NewTdarrCollector(cfg)
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
 
 	reg := prometheus.NewRegistry()
 	if err := reg.Register(c); err != nil {
@@ -541,5 +445,74 @@ func TestCollect_RegisteredInRegistry_NoDescribeError(t *testing.T) {
 	}
 	if _, err := reg.Gather(); err != nil {
 		t.Fatalf("gather: %v", err)
+	}
+}
+
+// descFqNameRe extracts the fqName from a *prometheus.Desc's String() form, e.g.
+// `Desc{fqName: "tdarr_files_total", ...}`. The fqName is not exported any other way.
+var descFqNameRe = regexp.MustCompile(`fqName: "([^"]*)"`)
+
+func descFqName(t *testing.T, d *prometheus.Desc) string {
+	t.Helper()
+	m := descFqNameRe.FindStringSubmatch(d.String())
+	if m == nil {
+		t.Fatalf("could not extract fqName from desc: %s", d.String())
+	}
+	return m[1]
+}
+
+// TestDescribe_EmitsAllDescs locks the Describe drift hazard: Prometheus does NOT flag a
+// desc that silently drops out of Describe (it only errors on a Collect desc that was never
+// described), so a missing Describe entry is invisible without an explicit count assertion.
+// This test calls Describe, collects every emitted desc, and asserts both the exact total
+// count (collector + node descs) and that a representative sample of fqNames is present.
+func TestDescribe_EmitsAllDescs(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	// Drain Describe into a slice. Buffer generously so the send never blocks.
+	ch := make(chan *prometheus.Desc, 256)
+	c.Describe(ch)
+	close(ch)
+
+	var descs []*prometheus.Desc
+	fqNames := make(map[string]int)
+	for d := range ch {
+		descs = append(descs, d)
+		fqNames[descFqName(t, d)]++
+	}
+
+	// 23 collector descs + 24 node descs. Adding/removing a metric must update this number,
+	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
+	const wantCollectorDescs = 23
+	const wantNodeDescs = 24
+	wantTotal := wantCollectorDescs + wantNodeDescs
+	if len(descs) != wantTotal {
+		t.Fatalf("Describe emitted %d descs, want %d (collector %d + node %d)",
+			len(descs), wantTotal, wantCollectorDescs, wantNodeDescs)
+	}
+
+	// No duplicate fqName should appear — each metric is described exactly once.
+	for name, n := range fqNames {
+		if n != 1 {
+			t.Errorf("fqName %q described %d times, want 1", name, n)
+		}
+	}
+
+	// Representative sample spanning collector totals, the up gauge, the drift counter,
+	// and both node-level and worker-level node descs.
+	wantPresent := []string{
+		"tdarr_files_total",
+		"tdarr_up",
+		"tdarr_unknown_status_total",
+		"tdarr_library_audio_containers",
+		"tdarr_node_info",
+		"tdarr_node_worker_info",
+	}
+	for _, name := range wantPresent {
+		if fqNames[name] == 0 {
+			t.Errorf("Describe missing expected desc %q", name)
+		}
 	}
 }

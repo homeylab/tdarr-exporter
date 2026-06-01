@@ -1,0 +1,51 @@
+{
+  "pieStats": {
+    "totalFiles": 500,
+    "totalTranscodeCount": 150,
+    "sizeDiff": 15.5,
+    "totalHealthCheckCount": 450,
+    "status": {
+      "transcode": [
+        {"name": "Not required", "value": 200},
+        {"name": "Transcode success", "value": 100},
+        {"name": "Transcode error", "value": 3},
+        {"name": "Queued", "value": 2},
+        {"name": "Hold", "value": 0},
+        {"name": "Ignored", "value": 0},
+        {"name": "Cancelled", "value": 0},
+        {"name": "Pending", "value": 7}
+      ],
+      "healthCheck": [
+        {"name": "Success", "value": 420},
+        {"name": "Error", "value": 10},
+        {"name": "Queued", "value": 15},
+        {"name": "Cancelled", "value": 5}
+      ]
+    },
+    "video": {
+      "codecs": [
+        {"name": "hevc", "value": 480},
+        {"name": "h264", "value": 20}
+      ],
+      "containers": [
+        {"name": "mkv", "value": 490},
+        {"name": "mp4", "value": 10}
+      ],
+      "resolutions": [
+        {"name": "1080p", "value": 450},
+        {"name": "720p", "value": 50}
+      ]
+    },
+    "audio": {
+      "codecs": [
+        {"name": "aac", "value": 310},
+        {"name": "flac", "value": 180},
+        {"name": "opus", "value": 10}
+      ],
+      "containers": [
+        {"name": "mkv", "value": 490},
+        {"name": "m4a", "value": 10}
+      ]
+    }
+  }
+}

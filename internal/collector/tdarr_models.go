@@ -5,10 +5,10 @@ type TdarrMetricRequest struct {
 }
 
 type TdarrDataRequest struct {
-	Collection string                 `json:"collection"`
-	Mode       string                 `json:"mode"`
-	DocId      string                 `json:"docID"`
-	Obj        map[string]interface{} `json:"obj"`
+	Collection string         `json:"collection"`
+	Mode       string         `json:"mode"`
+	DocId      string         `json:"docID"`
+	Obj        map[string]any `json:"obj"`
 }
 
 type TdarrPieDataRequest struct {

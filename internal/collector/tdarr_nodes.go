@@ -1,12 +1,12 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/homeylab/tdarr-exporter/internal/client"
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 // Known worker type / compute type label values used for per-type metric emission.
@@ -57,43 +57,47 @@ func parseWorkerType(api string) (workerType, computeType string) {
 
 type TdarrNodeMetrics struct {
 	// identity / info
-	nodeInfo *prometheus.Desc
+	nodeInfo typedDesc
 	// resource stats
-	nodeUptime         *prometheus.Desc
-	nodeHeapUsedMb     *prometheus.Desc
-	nodeHeapTotalMb    *prometheus.Desc
-	nodeHostCpuPercent *prometheus.Desc
-	nodeHostMemUsedGb  *prometheus.Desc
-	nodeHostMemTotalGb *prometheus.Desc
+	nodeUptime         typedDesc
+	nodeHeapUsedMb     typedDesc
+	nodeHeapTotalMb    typedDesc
+	nodeHostCpuPercent typedDesc
+	nodeHostMemUsedGb  typedDesc
+	nodeHostMemTotalGb typedDesc
 	// node state gauges
-	nodePaused          *prometheus.Desc
-	nodeMaxGpuWorkers   *prometheus.Desc
-	nodeScheduleEnabled *prometheus.Desc
+	nodePaused          typedDesc
+	nodeMaxGpuWorkers   typedDesc
+	nodeScheduleEnabled typedDesc
 	// per-type node gauges; split across two labels:
 	//   worker_type  ∈ {transcode, healthcheck}
 	//   compute_type ∈ {cpu, gpu}
 	// Unknown API values from Tdarr emit the raw string as worker_type with compute_type="unknown".
-	nodeWorkerCount *prometheus.Desc
-	nodeWorkerLimit *prometheus.Desc
-	nodeQueueLength *prometheus.Desc
+	nodeWorkerCount typedDesc
+	nodeWorkerLimit typedDesc
+	nodeQueueLength typedDesc
 	// worker identity / info
-	nodeWorkerInfo *prometheus.Desc
+	nodeWorkerInfo typedDesc
 	// per-worker numeric gauges
-	nodeWorkerPercentage         *prometheus.Desc
-	nodeWorkerFps                *prometheus.Desc
-	nodeWorkerOriginalFileSizeGb *prometheus.Desc
-	nodeWorkerOutputFileSizeGb   *prometheus.Desc
-	nodeWorkerEstFileSizeGb      *prometheus.Desc
-	nodeWorkerJobStartTimestamp  *prometheus.Desc
-	nodeWorkerStartTimestamp     *prometheus.Desc
-	nodeWorkerStatusTimestamp    *prometheus.Desc
-	nodeWorkerEtaSeconds         *prometheus.Desc
-	nodeWorkerPid                *prometheus.Desc
+	nodeWorkerPercentage         typedDesc
+	nodeWorkerFps                typedDesc
+	nodeWorkerOriginalFileSizeGb typedDesc
+	nodeWorkerOutputFileSizeGb   typedDesc
+	nodeWorkerEstFileSizeGb      typedDesc
+	nodeWorkerJobStartTimestamp  typedDesc
+	nodeWorkerStartTimestamp     typedDesc
+	nodeWorkerStatusTimestamp    typedDesc
+	nodeWorkerEtaSeconds         typedDesc
+	nodeWorkerPid                typedDesc
 }
 
 type TdarrNodeCollector struct {
-	config  config.Config
-	metrics *TdarrNodeMetrics
+	// Only the node API path is read at collect time; the instance label is
+	// baked into the descs at construction, so the full config bag is not stored.
+	nodePath string
+	api      tdarrAPI // shared with the parent TdarrCollector (same base URL)
+	metrics  *TdarrNodeMetrics
+	logger   zerolog.Logger // shared with the parent TdarrCollector
 }
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
@@ -103,87 +107,75 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 	instance := prometheus.Labels{"tdarr_instance": runConfig.InstanceName}
 
 	return &TdarrNodeMetrics{
-		nodeInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_info"),
+		nodeInfo: newGauge(
+			"node_info",
 			"Tdarr node identity information",
 			[]string{"node_id", "node_name", "gpu_select", "node_pid", "node_priority",
 				"gpu_can_do_cpu"},
 			instance,
 		),
-		nodeUptime: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_uptime_seconds"),
+		nodeUptime: newGauge(
+			"node_uptime_seconds",
 			"Tdarr node uptime in seconds",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHeapUsedMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_used_mb"),
+		nodeHeapUsedMb: newGauge(
+			"node_heap_used_mb",
 			"Tdarr node heap used in MB",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHeapTotalMb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_heap_total_mb"),
+		nodeHeapTotalMb: newGauge(
+			"node_heap_total_mb",
 			"Tdarr node heap total in MB",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostCpuPercent: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_cpu_percent"),
+		nodeHostCpuPercent: newGauge(
+			"node_host_cpu_percent",
 			"Tdarr node cpu percent used",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostMemUsedGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_used_gb"),
+		nodeHostMemUsedGb: newGauge(
+			"node_host_mem_used_gb",
 			"Memory used in GB for host that Tdarr node is running on",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeHostMemTotalGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_host_mem_total_gb"),
+		nodeHostMemTotalGb: newGauge(
+			"node_host_mem_total_gb",
 			"Total memory in GB for host that Tdarr node is running on",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodePaused: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_paused"),
+		nodePaused: newGauge(
+			"node_paused",
 			"1 if the Tdarr node is paused, 0 otherwise",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeMaxGpuWorkers: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_max_gpu_workers"),
+		nodeMaxGpuWorkers: newGauge(
+			"node_max_gpu_workers",
 			"Maximum number of GPU workers configured for the Tdarr node",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeScheduleEnabled: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_schedule_enabled"),
+		nodeScheduleEnabled: newGauge(
+			"node_schedule_enabled",
 			"1 if scheduled operation is enabled on the Tdarr node, 0 otherwise",
-			nodeLabelPair,
-			instance,
+			nodeLabelPair, instance,
 		),
-		nodeWorkerCount: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_count"),
+		nodeWorkerCount: newGauge(
+			"node_worker_count",
 			"Number of active workers on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerLimit: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_limit"),
+		nodeWorkerLimit: newGauge(
+			"node_worker_limit",
 			"Configured worker limit on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeQueueLength: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_queue_length"),
+		nodeQueueLength: newGauge(
+			"node_queue_length",
 			"Current queue length on the Tdarr node by worker_type and compute_type",
-			nodeTypeLabelPair,
-			instance,
+			nodeTypeLabelPair, instance,
 		),
-		nodeWorkerInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_info"),
+		nodeWorkerInfo: newGauge(
+			"node_worker_info",
 			"Tdarr node worker identity and categorical state (always 1)",
 			[]string{"node_id", "node_name", "worker_id", "worker_type", "compute_type", "flow_worker",
 				"worker_status", "worker_file",
@@ -191,102 +183,121 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 				"worker_connected", "worker_idle"},
 			instance,
 		),
-		nodeWorkerPercentage: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_percentage"),
+		nodeWorkerPercentage: newGauge(
+			"node_worker_percentage",
 			"Tdarr node worker transcode/healthcheck progress percentage",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerFps: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_fps"),
+		nodeWorkerFps: newGauge(
+			"node_worker_fps",
 			"Tdarr node worker frames per second",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerOriginalFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_original_file_size_gb"),
+		nodeWorkerOriginalFileSizeGb: newGauge(
+			"node_worker_original_file_size_gb",
 			"Tdarr node worker original file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerOutputFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_output_file_size_gb"),
+		nodeWorkerOutputFileSizeGb: newGauge(
+			"node_worker_output_file_size_gb",
 			"Tdarr node worker current output file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerEstFileSizeGb: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_est_file_size_gb"),
+		nodeWorkerEstFileSizeGb: newGauge(
+			"node_worker_est_file_size_gb",
 			"Tdarr node worker estimated output file size in GB",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerJobStartTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_job_start_timestamp_seconds"),
+		nodeWorkerJobStartTimestamp: newGauge(
+			"node_worker_job_start_timestamp_seconds",
 			"Tdarr node worker job start time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerStartTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_start_timestamp_seconds"),
+		nodeWorkerStartTimestamp: newGauge(
+			"node_worker_start_timestamp_seconds",
 			"Tdarr node worker current plugin step start time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerStatusTimestamp: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_status_timestamp_seconds"),
+		nodeWorkerStatusTimestamp: newGauge(
+			"node_worker_status_timestamp_seconds",
 			"Tdarr node worker last status update time as Unix timestamp in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerEtaSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_eta_seconds"),
+		nodeWorkerEtaSeconds: newGauge(
+			"node_worker_eta_seconds",
 			"Tdarr node worker estimated time remaining in seconds",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
-		nodeWorkerPid: prometheus.NewDesc(
-			prometheus.BuildFQName(METRIC_PREFIX, "", "node_worker_pid"),
+		nodeWorkerPid: newGauge(
+			"node_worker_pid",
 			"Tdarr node worker process ID",
-			workerLabelPair,
-			instance,
+			workerLabelPair, instance,
 		),
 	}
 }
 
-func NewTdarrNodeCollector(runConfig config.Config) *TdarrNodeCollector {
-	return &TdarrNodeCollector{
-		config:  runConfig,
-		metrics: NewTdarrNodeMetrics(runConfig),
+// descs returns the node metrics' descs in Describe order. The TdarrCollector's Describe
+// appends this to its own descs so it never reaches into TdarrNodeMetrics field-by-field —
+// the node metric set is owned and ordered here, in one place.
+func (m *TdarrNodeMetrics) descs() []typedDesc {
+	return []typedDesc{
+		m.nodeInfo,
+		m.nodeUptime,
+		m.nodeHeapUsedMb,
+		m.nodeHeapTotalMb,
+		m.nodeHostCpuPercent,
+		m.nodeHostMemUsedGb,
+		m.nodeHostMemTotalGb,
+		m.nodePaused,
+		m.nodeMaxGpuWorkers,
+		m.nodeScheduleEnabled,
+		m.nodeWorkerCount,
+		m.nodeWorkerLimit,
+		m.nodeQueueLength,
+		m.nodeWorkerInfo,
+		m.nodeWorkerPercentage,
+		m.nodeWorkerFps,
+		m.nodeWorkerOriginalFileSizeGb,
+		m.nodeWorkerOutputFileSizeGb,
+		m.nodeWorkerEstFileSizeGb,
+		m.nodeWorkerJobStartTimestamp,
+		m.nodeWorkerStartTimestamp,
+		m.nodeWorkerStatusTimestamp,
+		m.nodeWorkerEtaSeconds,
+		m.nodeWorkerPid,
 	}
 }
 
-func (n *TdarrNodeCollector) GetNodeData() (map[string]TdarrNode, error) {
-	httpClient, err := client.NewRequestClient(n.config.UrlParsed, n.config.VerifySsl, n.config.ApiKey)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
+// NewTdarrNodeCollector wires the shared tdarrAPI (built by the parent collector)
+// into the node collector so node requests reuse the same HTTP client.
+func NewTdarrNodeCollector(runConfig config.Config, api tdarrAPI, logger zerolog.Logger) *TdarrNodeCollector {
+	return &TdarrNodeCollector{
+		nodePath: runConfig.TdarrNodePath,
+		api:      api,
+		metrics:  NewTdarrNodeMetrics(runConfig),
+		logger:   logger,
 	}
+}
+
+func (n *TdarrNodeCollector) GetNodeData(ctx context.Context) (map[string]TdarrNode, error) {
 	// get node data
 	nodeData := map[string]TdarrNode{}
-	nodeHttpErr := httpClient.DoRequest(n.config.TdarrNodePath, &nodeData)
+	nodeHttpErr := n.api.DoRequest(ctx, n.nodePath, &nodeData)
 	if nodeHttpErr != nil {
-		log.Error().Err(nodeHttpErr).Msg("Failed to get node data for Tdarr exporter")
-		return nil, nodeHttpErr
+		return nil, fmt.Errorf("get node data: %w: %w", ErrUpstream, nodeHttpErr)
 	}
-	log.Debug().Interface("response", nodeData).Msg("Node Api Response")
+	n.logger.Debug().Interface("response", nodeData).Msg("Node Api Response")
 	return nodeData, nil
 }
 
 // emitPerType emits a gauge metric for all four known (worker_type, compute_type)
 // dimensions using values from the provided TdarrNodeJobs struct. This ensures
 // zero-value series are always emitted even when no workers of a given type are active.
-func emitPerType(ch chan<- prometheus.Metric, desc *prometheus.Desc, nodeId, nodeName string, jobs TdarrNodeJobs) {
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscode, computeTypeCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscode, computeTypeGpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeCpu)
-	ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
+func emitPerType(ch chan<- prometheus.Metric, desc typedDesc, nodeId, nodeName string, jobs TdarrNodeJobs) {
+	ch <- desc.mustNewConstMetric(float64(jobs.TranscodeCpu), nodeId, nodeName, workerTypeTranscode, computeTypeCpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.TranscodeGpu), nodeId, nodeName, workerTypeTranscode, computeTypeGpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.HealthCheckCpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeCpu)
+	ch <- desc.mustNewConstMetric(float64(jobs.HealthCheckGpu), nodeId, nodeName, workerTypeHealthCheck, computeTypeGpu)
 }
 
 // workerCountResult is the per-dim aggregate returned by  countWorkersByType.
@@ -301,8 +312,8 @@ type workerCountResult struct {
 
 // countWorkersByType counts active workers in the provided workers map grouped
 // by their WorkerType field (parsed into worker_type + compute_type). Unknown
-// API strings are bucketed by raw value so caller can emit (raw, "unknown", count)
-// series. A warning is logged for each occurrence of an unknown type.
+// API strings are bucketed by raw value so the caller can emit (raw, "unknown",
+// count) series and warn on them. Pure: no logging or I/O.
 func countWorkersByType(workers map[string]TdarrNodeWorkers) workerCountResult {
 	result := workerCountResult{
 		known:   make(map[workerTypeDim]int, len(knownWorkerTypeDims)),
@@ -314,7 +325,6 @@ func countWorkersByType(workers map[string]TdarrNodeWorkers) workerCountResult {
 	for _, w := range workers {
 		wt, ct := parseWorkerType(w.WorkerType)
 		if ct == computeTypeUnknown {
-			log.Warn().Str("workerType", w.WorkerType).Msg("Unknown worker type encountered; bucketing under 'unknown'")
 			result.unknown[w.WorkerType]++
 			continue
 		}
