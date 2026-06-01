@@ -292,9 +292,8 @@ func TestEmitPieMetrics(t *testing.T) {
 				Resolutions: []TdarrPieSlice{{Name: "1080P", Value: 2}},
 			},
 			Audio: TdarrPieVideoSlice{
-				Codecs:      []TdarrPieSlice{{Name: "AAC", Value: 8}, {Name: "FLAC", Value: 1}},
-				Containers:  []TdarrPieSlice{{Name: "M4A", Value: 6}},
-				Resolutions: []TdarrPieSlice{{Name: "1080P", Value: 9}},
+				Codecs:     []TdarrPieSlice{{Name: "AAC", Value: 8}, {Name: "FLAC", Value: 1}},
+				Containers: []TdarrPieSlice{{Name: "M4A", Value: 6}},
 			},
 		},
 		NormalizedTranscodes:   map[string]int{"success": 5, "queued": 0},
@@ -344,10 +343,6 @@ func TestEmitPieMetrics(t *testing.T) {
 	if got := findOne(t, samples, "tdarr_library_audio_containers",
 		map[string]string{"library_id": "lib-audio-01", "container_type": "m4a"}).value; got != 6 {
 		t.Errorf("audio_containers{m4a} = %v, want 6", got)
-	}
-	if got := findOne(t, samples, "tdarr_library_audio_resolutions",
-		map[string]string{"library_id": "lib-audio-01", "resolution": "1080p"}).value; got != 9 {
-		t.Errorf("audio_resolutions{1080p} = %v, want 9", got)
 	}
 
 	// const instance label is propagated

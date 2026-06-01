@@ -115,7 +115,6 @@ type TdarrCollector struct {
 	pieVideoResolutions   typedDesc
 	pieAudioCodecs        typedDesc
 	pieAudioContainers    typedDesc
-	pieAudioResolutions   typedDesc
 	unknownStatusTotal    typedDesc           // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	upMetric              typedDesc
@@ -305,11 +304,6 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			"Tdarr audio containers for library by type",
 			[]string{"library_name", "library_id", "container_type"}, instance,
 		),
-		pieAudioResolutions: newGauge(
-			"library_audio_resolutions",
-			"Tdarr audio resolutions for library by type",
-			[]string{"library_name", "library_id", "resolution"}, instance,
-		),
 		unknownStatusTotal: newCounter(
 			"unknown_status_total",
 			"Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. "+
@@ -351,7 +345,6 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		c.pieVideoResolutions,
 		c.pieAudioCodecs,
 		c.pieAudioContainers,
-		c.pieAudioResolutions,
 		c.unknownStatusTotal,
 		c.upMetric,
 	}
@@ -681,7 +674,6 @@ func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*
 		emitPieSlices(ch, c.pieVideoResolutions, pie.libraryName, pie.libraryId, pie.PieStats.Video.Resolutions)
 		emitPieSlices(ch, c.pieAudioCodecs, pie.libraryName, pie.libraryId, pie.PieStats.Audio.Codecs)
 		emitPieSlices(ch, c.pieAudioContainers, pie.libraryName, pie.libraryId, pie.PieStats.Audio.Containers)
-		emitPieSlices(ch, c.pieAudioResolutions, pie.libraryName, pie.libraryId, pie.PieStats.Audio.Resolutions)
 	}
 }
 

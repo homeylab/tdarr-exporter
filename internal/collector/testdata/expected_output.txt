@@ -19,10 +19,6 @@ tdarr_library_audio_codecs{codec="opus",library_id="lib-audio-01",library_name="
 # TYPE tdarr_library_audio_containers gauge
 tdarr_library_audio_containers{container_type="m4a",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
 tdarr_library_audio_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
-# HELP tdarr_library_audio_resolutions Tdarr audio resolutions for library by type
-# TYPE tdarr_library_audio_resolutions gauge
-tdarr_library_audio_resolutions{library_id="lib-audio-01",library_name="Music",resolution="1080p",tdarr_instance="tdarr.localdomain"} 460
-tdarr_library_audio_resolutions{library_id="lib-audio-01",library_name="Music",resolution="720p",tdarr_instance="tdarr.localdomain"} 40
 # HELP tdarr_library_files_total Tdarr total files in library
 # TYPE tdarr_library_files_total gauge
 tdarr_library_files_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 500
