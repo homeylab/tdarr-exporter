@@ -61,6 +61,19 @@ func NewClientTransport(inner http.RoundTripper, opts ...ClientTransportOption) 
 	return t
 }
 
+// drainClose drains and closes a response body that the transport is about to
+// discard (an error/retry path where the response is not returned to the caller).
+// Without this the underlying connection is never returned to the pool and leaks,
+// since a RoundTripper that returns a nil response gives the http.Client nothing
+// to close. nil-safe.
+func drainClose(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+}
+
 // middleware for http to handle retries
 func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// read it first since once sent on first try it will be already streamed
@@ -84,6 +97,10 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				Interface("backoff_seconds", backoffDur).
 				Str("url", req.URL.String()).
 				Msg("Retrying HTTP Request")
+			// Free the previous failed response before retrying so its connection
+			// returns to the pool instead of leaking (nil-safe on the first
+			// iteration when the initial attempt errored with no response).
+			drainClose(resp)
 			// first try already failed so wait before retrying
 			t.sleep(backoffDur)
 			// re-add body to request
@@ -104,21 +121,25 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error sending HTTP Request: %w", err)
 			}
+			drainClose(resp)
 			return nil, fmt.Errorf("received Server Error Status Code: %d", resp.StatusCode)
 		}
 		// fall through: resp is now a <500 response, classify it like any other
 	}
 	if resp.StatusCode >= 400 && resp.StatusCode <= 499 {
 		t.logger.Error().Int("status_code", resp.StatusCode).Str("url", req.URL.String()).Msgf("Received 40X Status Code: %d", resp.StatusCode)
+		drainClose(resp)
 		return nil, fmt.Errorf("received 40x Status Code: %d", resp.StatusCode)
 	}
 	if resp.StatusCode >= 300 && resp.StatusCode <= 399 {
 		t.logger.Debug().Int("status_code", resp.StatusCode).Str("url", req.URL.String()).Msgf("Received 30X Status Code: %d", resp.StatusCode)
-		if location, err := resp.Location(); err == nil {
+		// Location() only reads headers, so it is safe to read before closing the body.
+		location, locErr := resp.Location()
+		drainClose(resp)
+		if locErr == nil {
 			return nil, fmt.Errorf("received Redirect Status Code: %d, Location: %s", resp.StatusCode, location.String())
-		} else {
-			return nil, fmt.Errorf("received Redirect Status Code: %d, ", resp.StatusCode)
 		}
+		return nil, fmt.Errorf("received Redirect Status Code: %d, ", resp.StatusCode)
 	}
 	return resp, nil
 }
