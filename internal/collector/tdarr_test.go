@@ -483,10 +483,10 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 		fqNames[descFqName(t, d)]++
 	}
 
-	// 23 collector descs + 24 node descs. Adding/removing a metric must update this number,
+	// 23 collector descs + 23 node descs. Adding/removing a metric must update this number,
 	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
 	const wantCollectorDescs = 23
-	const wantNodeDescs = 24
+	const wantNodeDescs = 23
 	wantTotal := wantCollectorDescs + wantNodeDescs
 	if len(descs) != wantTotal {
 		t.Fatalf("Describe emitted %d descs, want %d (collector %d + node %d)",

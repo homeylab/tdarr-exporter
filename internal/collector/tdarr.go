@@ -789,9 +789,6 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 				float64(worker.StartTime), node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerStatusTimestamp.mustNewConstMetric(
 				float64(worker.StatusTs), node.Id, node.Name, worker.Id)
-			ch <- m.nodeWorkerPid.mustNewConstMetric(
-				float64(worker.Process.Pid), node.Id, node.Name, worker.Id)
-
 			// ETA: parse "H:MM:SS" string into seconds; skip on parse failure
 			if etaSecs, ok := parseEtaSeconds(worker.Eta); ok {
 				ch <- m.nodeWorkerEtaSeconds.mustNewConstMetric(
