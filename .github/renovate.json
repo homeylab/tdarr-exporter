@@ -11,6 +11,10 @@
       "groupSlug": "github-actions"
     },
     {
+      "matchManagers": ["gomod"],
+      "postUpdateOptions": ["gomodTidy"]
+    },
+    {
       "matchManagers": ["!github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "minor & patch updates",
