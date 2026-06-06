@@ -19,7 +19,7 @@ vars:
 
   # Git info for build args
   VERSION:
-    sh: git describe --tags --always --dirty
+    sh: git describe --tags --always --dirty | sed 's/^v//'
   REVISION:
     sh: git rev-parse HEAD
   BUILDTIME:
