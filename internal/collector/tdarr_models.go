@@ -48,6 +48,16 @@ type TdarrMetric struct {
 	HealthCheckFailed  int `json:"table6Count"` // includes "cancelled"
 }
 
+// TdarrServerStatus decodes GET /api/v2/status. Only the fields surfaced as
+// metrics/labels are mapped; isProduction/buildDate are intentionally omitted.
+// uptime is Tdarr's Node.js process.uptime(), i.e. seconds.
+type TdarrServerStatus struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Os      string `json:"os"`
+	Uptime  int64  `json:"uptime"`
+}
+
 // new api `api/v2/stats/get-pies` support
 type TdarrLibraryInfo struct {
 	LibraryId string `json:"_id"`
