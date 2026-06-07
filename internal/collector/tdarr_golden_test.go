@@ -53,6 +53,7 @@ var collectorMetricNames = []string{
 	"tdarr_node_worker_start_timestamp_seconds",
 	"tdarr_node_worker_status_timestamp_seconds",
 	"tdarr_score_pct",
+	"tdarr_server_healthy",
 	"tdarr_server_info",
 	"tdarr_server_status_info",
 	"tdarr_server_uptime_seconds",

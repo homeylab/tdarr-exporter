@@ -76,6 +76,23 @@ func normalizePieStatuses(pie *TdarrPieStats, unknownCounter func(kind, status s
 	)
 }
 
+// healthyServerStatuses is the set of /api/v2/status "status" values treated as healthy
+// (tdarr_server_healthy = 1), compared case-insensitively. "good" is the value Tdarr is
+// observed to emit; "ok"/"healthy" are common synonyms included so a benign upstream rename
+// does not flip the gauge. Anything else maps to 0 (and a warn log fires in collect()).
+var healthyServerStatuses = map[string]struct{}{
+	"good":    {},
+	"ok":      {},
+	"healthy": {},
+}
+
+// isHealthyServerStatus reports whether the raw Tdarr status string is a known healthy
+// value. Case-insensitive; surrounding whitespace is trimmed before lookup.
+func isHealthyServerStatus(status string) bool {
+	_, ok := healthyServerStatuses[strings.ToLower(strings.TrimSpace(status))]
+	return ok
+}
+
 // normalizeStatusSlice builds a complete cleaned-label → value map for a single status kind.
 func normalizeStatusSlice(
 	raw []TdarrPieSlice,

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -166,6 +167,9 @@ func TestCollect_ServerMetrics(t *testing.T) {
 	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
 
 	expected := `
+# HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
+# TYPE tdarr_server_healthy gauge
+tdarr_server_healthy{tdarr_instance="test-instance"} 1
 # HELP tdarr_server_info Tdarr server build metadata (value always 1); version and OS exposed as labels
 # TYPE tdarr_server_info gauge
 tdarr_server_info{os="linux",tdarr_instance="test-instance",version="2.77.01"} 1
@@ -177,8 +181,49 @@ tdarr_server_status_info{status="good",tdarr_instance="test-instance"} 1
 tdarr_server_uptime_seconds{tdarr_instance="test-instance"} 45
 `
 	if err := testutil.CollectAndCompare(c, strings.NewReader(expected),
-		"tdarr_server_uptime_seconds", "tdarr_server_info", "tdarr_server_status_info"); err != nil {
+		"tdarr_server_uptime_seconds", "tdarr_server_info", "tdarr_server_status_info", "tdarr_server_healthy"); err != nil {
 		t.Errorf("server metrics mismatch:\n%v", err)
+	}
+}
+
+// TestCollect_ServerHealthy verifies tdarr_server_healthy maps Tdarr's self-reported
+// status to 1 for known healthy synonyms (case-insensitive) and 0 for anything else.
+func TestCollect_ServerHealthy(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		status string
+		want   float64
+	}{
+		{"good", "good", 1},
+		{"ok synonym", "ok", 1},
+		{"healthy synonym", "healthy", 1},
+		{"uppercase good", "GOOD", 1},
+		{"surrounding whitespace", "  good  ", 1},
+		{"unknown status", "degraded", 0},
+		{"empty status", "", 0},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			api := newSuccessFakeAPI(cfg)
+			body := []byte(fmt.Sprintf(
+				`{"status":%q,"isProduction":true,"os":"linux","version":"2.77.01","buildDate":"x","uptime":45}`,
+				tc.status))
+			api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, body)
+			c := newTdarrCollectorWithAPI(cfg, api)
+
+			expected := fmt.Sprintf(`
+# HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
+# TYPE tdarr_server_healthy gauge
+tdarr_server_healthy{tdarr_instance="test-instance"} %g
+`, tc.want)
+			if err := testutil.CollectAndCompare(c, strings.NewReader(expected), "tdarr_server_healthy"); err != nil {
+				t.Errorf("server_healthy mismatch for status %q:\n%v", tc.status, err)
+			}
+		})
 	}
 }
 
@@ -515,9 +560,9 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 		fqNames[descFqName(t, d)]++
 	}
 
-	// 26 collector descs + 23 node descs. Adding/removing a metric must update this number,
+	// 27 collector descs + 23 node descs. Adding/removing a metric must update this number,
 	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
-	const wantCollectorDescs = 26
+	const wantCollectorDescs = 27
 	const wantNodeDescs = 23
 	wantTotal := wantCollectorDescs + wantNodeDescs
 	if len(descs) != wantTotal {

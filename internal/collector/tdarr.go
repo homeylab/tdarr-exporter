@@ -122,6 +122,7 @@ type TdarrCollector struct {
 	serverUptime          typedDesc
 	serverInfo            typedDesc
 	serverStatus          typedDesc
+	serverHealthy         typedDesc
 	// descsList is the collector's own descs in Describe order, assembled once in the
 	// constructor. Describe ranges over this plus the node collector's descs(), so a
 	// metric is registered for Describe in exactly one place (no field-by-field hand-list).
@@ -338,6 +339,11 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 				"Alert with tdarr_server_status_info{status!=\"good\"} == 1.",
 			[]string{"status"}, instance,
 		),
+		serverHealthy: newGauge(
+			"server_healthy",
+			"1 if Tdarr server self-reported status is healthy (\"good\"/\"ok\"/\"healthy\", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.",
+			nil, instance,
+		),
 		nodeCollector: NewTdarrNodeCollector(runConfig, api, log.Logger),
 	}
 
@@ -371,6 +377,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		c.serverUptime,
 		c.serverInfo,
 		c.serverStatus,
+		c.serverHealthy,
 	}
 
 	return c
@@ -563,9 +570,9 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	if err := c.api.DoRequest(ctx, c.statusPath, serverStatus); err != nil {
 		return fmt.Errorf("get server status: %w: %w", ErrUpstream, err)
 	}
-	if serverStatus.Status != "good" {
+	if !isHealthyServerStatus(serverStatus.Status) {
 		c.logger.Warn().Str("status", serverStatus.Status).
-			Msg("Tdarr server reported non-good status")
+			Msg("Tdarr server reported non-healthy status")
 	}
 	c.emitServerMetrics(ch, serverStatus)
 
@@ -664,6 +671,11 @@ func (c *TdarrCollector) emitServerMetrics(ch chan<- prometheus.Metric, status *
 	ch <- c.serverUptime.mustNewConstMetric(float64(status.Uptime))
 	ch <- c.serverInfo.mustNewConstMetric(1, status.Version, status.Os)
 	ch <- c.serverStatus.mustNewConstMetric(1, status.Status)
+	healthy := 0.0
+	if isHealthyServerStatus(status.Status) {
+		healthy = 1
+	}
+	ch <- c.serverHealthy.mustNewConstMetric(healthy)
 }
 
 // emitGeneralMetrics emits the top-level server gauges and stream-stats series for a
