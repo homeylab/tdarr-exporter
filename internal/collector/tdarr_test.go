@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
 )
@@ -34,6 +36,7 @@ func newTestConfig(t *testing.T) config.Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 		TdarrNodePath:      "/api/v2/get-nodes",
+		TdarrStatusPath:    "/api/v2/status",
 		HttpMaxConcurrency: 1,
 	}
 }
@@ -138,6 +141,11 @@ func validNodeBody() []byte {
 	return b
 }
 
+// validStatusBody returns a valid /api/v2/status response body.
+func validStatusBody() []byte {
+	return []byte(`{"status":"good","isProduction":true,"os":"linux","version":"2.77.01","buildDate":"2026_05_29T12_20_24z","uptime":45}`)
+}
+
 // newSuccessFakeAPI builds a fakeTdarrAPI that responds successfully to every
 // endpoint the collector calls, using the minimal valid bodies above. The single
 // library "lib1" drives one get-pies call keyed on its libraryId.
@@ -147,7 +155,76 @@ func newSuccessFakeAPI(cfg config.Config) *fakeTdarrAPI {
 	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, validLibraryListBody())
 	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}, validPieBody())
 	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, validNodeBody())
+	api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, validStatusBody())
 	return api
+}
+
+// TestCollect_ServerMetrics verifies the three /api/v2/status-derived series:
+// uptime gauge, version/os info gauge, and the raw-label status info gauge.
+func TestCollect_ServerMetrics(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	expected := `
+# HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
+# TYPE tdarr_server_healthy gauge
+tdarr_server_healthy{tdarr_instance="test-instance"} 1
+# HELP tdarr_server_info Tdarr server build metadata (value always 1); version and OS exposed as labels
+# TYPE tdarr_server_info gauge
+tdarr_server_info{os="linux",tdarr_instance="test-instance",version="2.77.01"} 1
+# HELP tdarr_server_status_info Tdarr server self-reported health (value always 1); raw status string exposed as the 'status' label. Alert with tdarr_server_status_info{status!="good"} == 1.
+# TYPE tdarr_server_status_info gauge
+tdarr_server_status_info{status="good",tdarr_instance="test-instance"} 1
+# HELP tdarr_server_uptime_seconds Tdarr server process uptime in seconds, as reported by /api/v2/status
+# TYPE tdarr_server_uptime_seconds gauge
+tdarr_server_uptime_seconds{tdarr_instance="test-instance"} 45
+`
+	if err := testutil.CollectAndCompare(c, strings.NewReader(expected),
+		"tdarr_server_uptime_seconds", "tdarr_server_info", "tdarr_server_status_info", "tdarr_server_healthy"); err != nil {
+		t.Errorf("server metrics mismatch:\n%v", err)
+	}
+}
+
+// TestCollect_ServerHealthy verifies tdarr_server_healthy maps Tdarr's self-reported
+// status to 1 for known healthy synonyms (case-insensitive) and 0 for anything else.
+func TestCollect_ServerHealthy(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		status string
+		want   float64
+	}{
+		{"good", "good", 1},
+		{"ok synonym", "ok", 1},
+		{"healthy synonym", "healthy", 1},
+		{"uppercase good", "GOOD", 1},
+		{"surrounding whitespace", "  good  ", 1},
+		{"unknown status", "degraded", 0},
+		{"empty status", "", 0},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			api := newSuccessFakeAPI(cfg)
+			body := []byte(fmt.Sprintf(
+				`{"status":%q,"isProduction":true,"os":"linux","version":"2.77.01","buildDate":"x","uptime":45}`,
+				tc.status))
+			api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, body)
+			c := newTdarrCollectorWithAPI(cfg, api)
+
+			expected := fmt.Sprintf(`
+# HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
+# TYPE tdarr_server_healthy gauge
+tdarr_server_healthy{tdarr_instance="test-instance"} %g
+`, tc.want)
+			if err := testutil.CollectAndCompare(c, strings.NewReader(expected), "tdarr_server_healthy"); err != nil {
+				t.Errorf("server_healthy mismatch for status %q:\n%v", tc.status, err)
+			}
+		})
+	}
 }
 
 // TestCollect_AllSuccess_UpEquals1 verifies tdarr_up == 1 when all API endpoints succeed,
@@ -483,9 +560,9 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 		fqNames[descFqName(t, d)]++
 	}
 
-	// 23 collector descs + 23 node descs. Adding/removing a metric must update this number,
+	// 27 collector descs + 23 node descs. Adding/removing a metric must update this number,
 	// which is exactly the point: the count is the tripwire for a dropped Describe entry.
-	const wantCollectorDescs = 23
+	const wantCollectorDescs = 27
 	const wantNodeDescs = 23
 	wantTotal := wantCollectorDescs + wantNodeDescs
 	if len(descs) != wantTotal {

@@ -11,9 +11,10 @@ vars:
   RUN_IMAGE: gcr.io/distroless/static
   RUN_IMAGE_TAG: nonroot
 
-  # For local e2e testing (smoke tests)
-  TEST_IMAGE_NAME: docker.homeylab.org/tdarr-exporter
-  TEST_IMAGE_TAG: test
+  # For local e2e testing (smoke tests). TEST_IMAGE_NAME/TEST_IMAGE_TAG come from
+  # local/local.env (gitignored, loaded via dotenv) so the committed Taskfile
+  # carries no private registry. Cmds reference them as ${TEST_IMAGE_NAME:-tdarr-exporter}
+  # / ${TEST_IMAGE_TAG:-test}; dotenv only reaches cmds, not var-level sh.
   PORT: '9090'
   CONTAINER: tdarr-exporter-smoke
 
@@ -36,7 +37,7 @@ tasks:
     deps:
       - task: docker:build:local
     cmds:
-      - docker run -it -p {{.PORT}}:{{.PORT}} --rm --name {{.CONTAINER}}  -e TDARR_URL={{.TDARR_URL}} {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
+      - docker run -it -p {{.PORT}}:{{.PORT}} --rm --name {{.CONTAINER}}  -e TDARR_URL={{.TDARR_URL}} ${TEST_IMAGE_NAME:-tdarr-exporter}:${TEST_IMAGE_TAG:-test}
 
   curl:
     desc: Curl /metrics endpoint on localhost:{{.PORT}}
@@ -107,7 +108,7 @@ tasks:
           --build-arg VERSION={{.VERSION}}
           --build-arg REVISION={{.REVISION}}
           --build-arg BUILDTIME={{.BUILDTIME}}
-          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}} .
+          -t ${TEST_IMAGE_NAME:-tdarr-exporter}:${TEST_IMAGE_TAG:-test} .
 
   docker:build:
     desc: Build multi-arch image (linux/amd64,linux/arm64) without pushing
@@ -123,7 +124,7 @@ tasks:
           --build-arg VERSION={{.VERSION}}
           --build-arg REVISION={{.REVISION}}
           --build-arg BUILDTIME={{.BUILDTIME}}
-          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
+          -t ${TEST_IMAGE_NAME:-tdarr-exporter}:${TEST_IMAGE_TAG:-test}
           --no-cache .
 
   docker:build:latest:
@@ -140,8 +141,8 @@ tasks:
           --build-arg VERSION={{.VERSION}}
           --build-arg REVISION={{.REVISION}}
           --build-arg BUILDTIME={{.BUILDTIME}}
-          -t {{.TEST_IMAGE_NAME}}:{{.TEST_IMAGE_TAG}}
-          -t {{.TEST_IMAGE_NAME}}:latest
+          -t ${TEST_IMAGE_NAME:-tdarr-exporter}:${TEST_IMAGE_TAG:-test}
+          -t ${TEST_IMAGE_NAME:-tdarr-exporter}:latest
           --no-cache .
 
   docker:buildx-setup:

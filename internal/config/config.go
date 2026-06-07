@@ -36,6 +36,7 @@ type Config struct {
 	TdarrStatsPath     string
 	TdarrPieStatsPath  string
 	TdarrNodePath      string
+	TdarrStatusPath    string
 	HttpMaxConcurrency int
 }
 
@@ -75,6 +76,7 @@ func getDefaults() Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrNodePath:      "/api/v2/get-nodes",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
+		TdarrStatusPath:    "/api/v2/status",
 		HttpMaxConcurrency: 3,
 	}
 }
@@ -196,6 +198,7 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 		TdarrStatsPath:     defaults.TdarrStatsPath,
 		TdarrNodePath:      defaults.TdarrNodePath,
 		TdarrPieStatsPath:  defaults.TdarrPieStatsPath,
+		TdarrStatusPath:    defaults.TdarrStatusPath,
 		HttpMaxConcurrency: *httpMaxConcurrency,
 	}, nil
 }

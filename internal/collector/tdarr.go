@@ -81,6 +81,7 @@ type TdarrCollector struct {
 	// consumed once in the constructor (client + descs) and never needed again.
 	statsPath      string
 	pieStatsPath   string
+	statusPath     string
 	maxConcurrency int
 	api            tdarrAPI // shared HTTP client, built once in the constructor
 	// baseCtx is the parent context for every scrape's HTTP requests. main wires in
@@ -118,6 +119,10 @@ type TdarrCollector struct {
 	unknownStatusTotal    typedDesc           // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	upMetric              typedDesc
+	serverUptime          typedDesc
+	serverInfo            typedDesc
+	serverStatus          typedDesc
+	serverHealthy         typedDesc
 	// descsList is the collector's own descs in Describe order, assembled once in the
 	// constructor. Describe ranges over this plus the node collector's descs(), so a
 	// metric is registered for Describe in exactly one place (no field-by-field hand-list).
@@ -193,6 +198,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 	c := &TdarrCollector{
 		statsPath:           runConfig.TdarrStatsPath,
 		pieStatsPath:        runConfig.TdarrPieStatsPath,
+		statusPath:          runConfig.TdarrStatusPath,
 		maxConcurrency:      runConfig.HttpMaxConcurrency,
 		api:                 api,
 		baseCtx:             context.Background(),
@@ -317,6 +323,27 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
 			nil, instance,
 		),
+		serverUptime: newGauge(
+			"server_uptime_seconds",
+			"Tdarr server process uptime in seconds, as reported by /api/v2/status",
+			nil, instance,
+		),
+		serverInfo: newGauge(
+			"server_info",
+			"Tdarr server build metadata (value always 1); version and OS exposed as labels",
+			[]string{"version", "os"}, instance,
+		),
+		serverStatus: newGauge(
+			"server_status_info",
+			"Tdarr server self-reported health (value always 1); raw status string exposed as the 'status' label. "+
+				"Alert with tdarr_server_status_info{status!=\"good\"} == 1.",
+			[]string{"status"}, instance,
+		),
+		serverHealthy: newGauge(
+			"server_healthy",
+			"1 if Tdarr server self-reported status is healthy (\"good\"/\"ok\"/\"healthy\", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.",
+			nil, instance,
+		),
 		nodeCollector: NewTdarrNodeCollector(runConfig, api, log.Logger),
 	}
 
@@ -347,6 +374,10 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		c.pieAudioContainers,
 		c.unknownStatusTotal,
 		c.upMetric,
+		c.serverUptime,
+		c.serverInfo,
+		c.serverStatus,
+		c.serverHealthy,
 	}
 
 	return c
@@ -532,6 +563,19 @@ func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetri
 }
 
 func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+	// Fetch server status (/api/v2/status) first. Cheapest call and a liveness/version
+	// probe, so fail fast here before the heavier stats/pie/node work. Required: a failure
+	// returns an error like every other upstream fetch, flipping tdarr_up=0 via Collect().
+	serverStatus := &TdarrServerStatus{}
+	if err := c.api.DoRequest(ctx, c.statusPath, serverStatus); err != nil {
+		return fmt.Errorf("get server status: %w: %w", ErrUpstream, err)
+	}
+	if !isHealthyServerStatus(serverStatus.Status) {
+		c.logger.Warn().Str("status", serverStatus.Status).
+			Msg("Tdarr server reported non-healthy status")
+	}
+	c.emitServerMetrics(ch, serverStatus)
+
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
@@ -619,6 +663,19 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// get worker data for each node
 	c.emitNodeMetrics(ch, nodeData)
 	return nil
+}
+
+// emitServerMetrics emits the /api/v2/status-derived series: uptime gauge plus the
+// version/os and raw-status info gauges (value 1). Pure: reads status, writes to ch.
+func (c *TdarrCollector) emitServerMetrics(ch chan<- prometheus.Metric, status *TdarrServerStatus) {
+	ch <- c.serverUptime.mustNewConstMetric(float64(status.Uptime))
+	ch <- c.serverInfo.mustNewConstMetric(1, status.Version, status.Os)
+	ch <- c.serverStatus.mustNewConstMetric(1, status.Status)
+	healthy := 0.0
+	if isHealthyServerStatus(status.Status) {
+		healthy = 1
+	}
+	ch <- c.serverHealthy.mustNewConstMetric(healthy)
 }
 
 // emitGeneralMetrics emits the top-level server gauges and stream-stats series for a

@@ -53,6 +53,10 @@ var collectorMetricNames = []string{
 	"tdarr_node_worker_start_timestamp_seconds",
 	"tdarr_node_worker_status_timestamp_seconds",
 	"tdarr_score_pct",
+	"tdarr_server_healthy",
+	"tdarr_server_info",
+	"tdarr_server_status_info",
+	"tdarr_server_uptime_seconds",
 	"tdarr_size_diff_gb",
 	"tdarr_stream_stats_bit_rate",
 	"tdarr_stream_stats_duration",
@@ -91,6 +95,7 @@ func newGoldenTestConfig(t *testing.T) config.Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 		TdarrNodePath:      "/api/v2/get-nodes",
+		TdarrStatusPath:    "/api/v2/status",
 		HttpMaxConcurrency: 1,
 	}
 }
@@ -110,6 +115,7 @@ func newGoldenFakeAPI(t *testing.T, cfg config.Config) *fakeTdarrAPI {
 	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-video-01"}, readFixture(t, "pie_stats_lib_video_01.json"))
 	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-audio-01"}, readFixture(t, "pie_stats_lib_audio_01.json"))
 	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, readFixture(t, "nodes.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, readFixture(t, "server_status.json"))
 	return api
 }
 

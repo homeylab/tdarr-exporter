@@ -185,6 +185,18 @@ tdarr_node_worker_status_timestamp_seconds{node_id="node-busy-1",node_name="Busy
 # HELP tdarr_score_pct Tdarr score percentage - how much of your libraries has been handled by tdarr
 # TYPE tdarr_score_pct gauge
 tdarr_score_pct{tdarr_instance="tdarr.localdomain"} 78.5
+# HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
+# TYPE tdarr_server_healthy gauge
+tdarr_server_healthy{tdarr_instance="tdarr.localdomain"} 1
+# HELP tdarr_server_info Tdarr server build metadata (value always 1); version and OS exposed as labels
+# TYPE tdarr_server_info gauge
+tdarr_server_info{os="linux",tdarr_instance="tdarr.localdomain",version="2.77.01"} 1
+# HELP tdarr_server_status_info Tdarr server self-reported health (value always 1); raw status string exposed as the 'status' label. Alert with tdarr_server_status_info{status!="good"} == 1.
+# TYPE tdarr_server_status_info gauge
+tdarr_server_status_info{status="good",tdarr_instance="tdarr.localdomain"} 1
+# HELP tdarr_server_uptime_seconds Tdarr server process uptime in seconds, as reported by /api/v2/status
+# TYPE tdarr_server_uptime_seconds gauge
+tdarr_server_uptime_seconds{tdarr_instance="tdarr.localdomain"} 45
 # HELP tdarr_size_diff_gb Tdarr size difference (+/-) in GB
 # TYPE tdarr_size_diff_gb gauge
 tdarr_size_diff_gb{tdarr_instance="tdarr.localdomain"} 45.75
