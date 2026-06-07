@@ -176,9 +176,6 @@ tdarr_node_worker_output_file_size_gb{node_id="node-busy-1",node_name="BusyNode"
 # HELP tdarr_node_worker_percentage Tdarr node worker transcode/healthcheck progress percentage
 # TYPE tdarr_node_worker_percentage gauge
 tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 45.75
-# HELP tdarr_node_worker_pid Tdarr node worker process ID
-# TYPE tdarr_node_worker_pid gauge
-tdarr_node_worker_pid{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 5432
 # HELP tdarr_node_worker_start_timestamp_seconds Tdarr node worker current plugin step start time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_start_timestamp_seconds gauge
 tdarr_node_worker_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09

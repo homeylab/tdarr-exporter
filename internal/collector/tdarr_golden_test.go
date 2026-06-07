@@ -50,7 +50,6 @@ var collectorMetricNames = []string{
 	"tdarr_node_worker_original_file_size_gb",
 	"tdarr_node_worker_output_file_size_gb",
 	"tdarr_node_worker_percentage",
-	"tdarr_node_worker_pid",
 	"tdarr_node_worker_start_timestamp_seconds",
 	"tdarr_node_worker_status_timestamp_seconds",
 	"tdarr_score_pct",
@@ -127,7 +126,7 @@ func newGoldenFakeAPI(t *testing.T, cfg config.Config) *fakeTdarrAPI {
 //   - audio codecs (aac, flac, opus) and audio containers (mkv, m4a) for "Music" library
 //   - idle node "IdleNode" with no workers (zero-value worker count/limit/queue series emitted)
 //   - busy node "BusyNode" with one active transcode CPU worker exercising all per-worker gauges:
-//     percentage, fps, original/output/est file sizes, job_start/start/status timestamps, pid, eta_seconds
+//     percentage, fps, original/output/est file sizes, job_start/start/status timestamps, eta_seconds
 //   - tdarr_up = 1 on success path
 func TestCollect_Golden_FullFixture(t *testing.T) {
 	cfg := newGoldenTestConfig(t)

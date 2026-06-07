@@ -2568,18 +2568,6 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_pid{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "J"
             }
           ],
           "title": "Flow Workers",
@@ -2614,8 +2602,7 @@
                     "Value #F",
                     "Value #G",
                     "Value #H",
-                    "Value #I",
-                    "Value #J"
+                    "Value #I"
                   ]
                 }
               }
@@ -2633,7 +2620,6 @@
                   "Value #G": 9,
                   "Value #H": 12,
                   "Value #I": 11,
-                  "Value #J": 2,
                   "compute_type": 14,
                   "flow_worker": 17,
                   "node_name": 0,
@@ -2654,8 +2640,7 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update",
-                  "Value #J": "PID"
+                  "Value #I": "Last Status Update"
                 }
               }
             }
@@ -3048,18 +3033,6 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_pid{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "J"
             }
           ],
           "title": "Health Check Workers",
@@ -3078,7 +3051,6 @@
                   "names": [
                     "node_name",
                     "worker_id",
-                    "Value #J",
                     "Value #B",
                     "Value #C",
                     "Value #D",
@@ -3106,7 +3078,6 @@
                   "Value #E": 8,
                   "Value #H": 10,
                   "Value #I": 9,
-                  "Value #J": 2,
                   "compute_type": 12,
                   "node_name": 0,
                   "worker_connected": 14,
@@ -3124,8 +3095,7 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update",
-                  "Value #J": "PID"
+                  "Value #I": "Last Status Update"
                 }
               }
             }
@@ -3494,18 +3464,6 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_pid{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
-              "format": "table",
-              "instant": true,
-              "legendFormat": "",
-              "refId": "J"
             }
           ],
           "title": "Classic Plugin Workers",
@@ -3540,8 +3498,7 @@
                     "Value #F",
                     "Value #G",
                     "Value #H",
-                    "Value #I",
-                    "Value #J"
+                    "Value #I"
                   ]
                 }
               }
@@ -3559,7 +3516,6 @@
                   "Value #G": 11,
                   "Value #H": 14,
                   "Value #I": 13,
-                  "Value #J": 2,
                   "compute_type": 16,
                   "flow_worker": 17,
                   "node_name": 0,
@@ -3580,8 +3536,7 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update",
-                  "Value #J": "PID"
+                  "Value #I": "Last Status Update"
                 }
               }
             }

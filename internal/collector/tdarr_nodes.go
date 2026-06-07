@@ -88,7 +88,6 @@ type TdarrNodeMetrics struct {
 	nodeWorkerStartTimestamp     typedDesc
 	nodeWorkerStatusTimestamp    typedDesc
 	nodeWorkerEtaSeconds         typedDesc
-	nodeWorkerPid                typedDesc
 }
 
 type TdarrNodeCollector struct {
@@ -228,11 +227,6 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node worker estimated time remaining in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerPid: newGauge(
-			"node_worker_pid",
-			"Tdarr node worker process ID",
-			workerLabelPair, instance,
-		),
 	}
 }
 
@@ -264,7 +258,6 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeWorkerStartTimestamp,
 		m.nodeWorkerStatusTimestamp,
 		m.nodeWorkerEtaSeconds,
-		m.nodeWorkerPid,
 	}
 }
 
