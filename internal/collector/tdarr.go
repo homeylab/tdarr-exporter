@@ -81,6 +81,7 @@ type TdarrCollector struct {
 	// consumed once in the constructor (client + descs) and never needed again.
 	statsPath      string
 	pieStatsPath   string
+	statusPath     string
 	maxConcurrency int
 	api            tdarrAPI // shared HTTP client, built once in the constructor
 	// baseCtx is the parent context for every scrape's HTTP requests. main wires in
@@ -118,6 +119,9 @@ type TdarrCollector struct {
 	unknownStatusTotal    typedDesc           // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	upMetric              typedDesc
+	serverUptime          typedDesc
+	serverInfo            typedDesc
+	serverStatus          typedDesc
 	// descsList is the collector's own descs in Describe order, assembled once in the
 	// constructor. Describe ranges over this plus the node collector's descs(), so a
 	// metric is registered for Describe in exactly one place (no field-by-field hand-list).
@@ -193,6 +197,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 	c := &TdarrCollector{
 		statsPath:           runConfig.TdarrStatsPath,
 		pieStatsPath:        runConfig.TdarrPieStatsPath,
+		statusPath:          runConfig.TdarrStatusPath,
 		maxConcurrency:      runConfig.HttpMaxConcurrency,
 		api:                 api,
 		baseCtx:             context.Background(),
@@ -317,6 +322,22 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 				"Distinct from prometheus built-in 'up' which indicates exporter process reachability.",
 			nil, instance,
 		),
+		serverUptime: newGauge(
+			"server_uptime_seconds",
+			"Tdarr server process uptime in seconds, as reported by /api/v2/status",
+			nil, instance,
+		),
+		serverInfo: newGauge(
+			"server_info",
+			"Tdarr server build metadata (value always 1); version and OS exposed as labels",
+			[]string{"version", "os"}, instance,
+		),
+		serverStatus: newGauge(
+			"server_status_info",
+			"Tdarr server self-reported health (value always 1); raw status string exposed as the 'status' label. "+
+				"Alert with tdarr_server_status_info{status!=\"good\"} == 1.",
+			[]string{"status"}, instance,
+		),
 		nodeCollector: NewTdarrNodeCollector(runConfig, api, log.Logger),
 	}
 
@@ -347,6 +368,9 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		c.pieAudioContainers,
 		c.unknownStatusTotal,
 		c.upMetric,
+		c.serverUptime,
+		c.serverInfo,
+		c.serverStatus,
 	}
 
 	return c
