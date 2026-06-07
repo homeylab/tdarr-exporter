@@ -556,6 +556,19 @@ func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetri
 }
 
 func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+	// Fetch server status (/api/v2/status) first. Cheapest call and a liveness/version
+	// probe, so fail fast here before the heavier stats/pie/node work. Required: a failure
+	// returns an error like every other upstream fetch, flipping tdarr_up=0 via Collect().
+	serverStatus := &TdarrServerStatus{}
+	if err := c.api.DoRequest(ctx, c.statusPath, serverStatus); err != nil {
+		return fmt.Errorf("get server status: %w: %w", ErrUpstream, err)
+	}
+	if serverStatus.Status != "good" {
+		c.logger.Warn().Str("status", serverStatus.Status).
+			Msg("Tdarr server reported non-good status")
+	}
+	c.emitServerMetrics(ch, serverStatus)
+
 	// get server metrics
 	metricReqBody := getGeneralReqPayload("")
 	metric := &TdarrMetric{}
@@ -643,6 +656,14 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// get worker data for each node
 	c.emitNodeMetrics(ch, nodeData)
 	return nil
+}
+
+// emitServerMetrics emits the /api/v2/status-derived series: uptime gauge plus the
+// version/os and raw-status info gauges (value 1). Pure: reads status, writes to ch.
+func (c *TdarrCollector) emitServerMetrics(ch chan<- prometheus.Metric, status *TdarrServerStatus) {
+	ch <- c.serverUptime.mustNewConstMetric(float64(status.Uptime))
+	ch <- c.serverInfo.mustNewConstMetric(1, status.Version, status.Os)
+	ch <- c.serverStatus.mustNewConstMetric(1, status.Status)
 }
 
 // emitGeneralMetrics emits the top-level server gauges and stream-stats series for a

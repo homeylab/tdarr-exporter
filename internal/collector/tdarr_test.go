@@ -12,6 +12,7 @@ import (
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/rs/zerolog"
 )
@@ -34,6 +35,7 @@ func newTestConfig(t *testing.T) config.Config {
 		TdarrStatsPath:     "/api/v2/cruddb",
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 		TdarrNodePath:      "/api/v2/get-nodes",
+		TdarrStatusPath:    "/api/v2/status",
 		HttpMaxConcurrency: 1,
 	}
 }
@@ -138,6 +140,11 @@ func validNodeBody() []byte {
 	return b
 }
 
+// validStatusBody returns a valid /api/v2/status response body.
+func validStatusBody() []byte {
+	return []byte(`{"status":"good","isProduction":true,"os":"linux","version":"2.77.01","buildDate":"2026_05_29T12_20_24z","uptime":45}`)
+}
+
 // newSuccessFakeAPI builds a fakeTdarrAPI that responds successfully to every
 // endpoint the collector calls, using the minimal valid bodies above. The single
 // library "lib1" drives one get-pies call keyed on its libraryId.
@@ -147,7 +154,32 @@ func newSuccessFakeAPI(cfg config.Config) *fakeTdarrAPI {
 	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, validLibraryListBody())
 	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}, validPieBody())
 	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, validNodeBody())
+	api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, validStatusBody())
 	return api
+}
+
+// TestCollect_ServerMetrics verifies the three /api/v2/status-derived series:
+// uptime gauge, version/os info gauge, and the raw-label status info gauge.
+func TestCollect_ServerMetrics(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+
+	expected := `
+# HELP tdarr_server_info Tdarr server build metadata (value always 1); version and OS exposed as labels
+# TYPE tdarr_server_info gauge
+tdarr_server_info{os="linux",tdarr_instance="test-instance",version="2.77.01"} 1
+# HELP tdarr_server_status_info Tdarr server self-reported health (value always 1); raw status string exposed as the 'status' label. Alert with tdarr_server_status_info{status!="good"} == 1.
+# TYPE tdarr_server_status_info gauge
+tdarr_server_status_info{status="good",tdarr_instance="test-instance"} 1
+# HELP tdarr_server_uptime_seconds Tdarr server process uptime in seconds, as reported by /api/v2/status
+# TYPE tdarr_server_uptime_seconds gauge
+tdarr_server_uptime_seconds{tdarr_instance="test-instance"} 45
+`
+	if err := testutil.CollectAndCompare(c, strings.NewReader(expected),
+		"tdarr_server_uptime_seconds", "tdarr_server_info", "tdarr_server_status_info"); err != nil {
+		t.Errorf("server metrics mismatch:\n%v", err)
+	}
 }
 
 // TestCollect_AllSuccess_UpEquals1 verifies tdarr_up == 1 when all API endpoints succeed,
