@@ -47,7 +47,14 @@ func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrIn
 		}, []string{"code"})
 	)
 
-	h := promhttp.HandlerFor(reg, opts)
+	// Wrap the registry so the promhttp handler's own counters carry tdarr_instance,
+	// matching the const label on the custom metrics above. HandlerFor keeps the raw
+	// reg (it gathers the real metrics); only the handler-internal counters are wrapped.
+	// Setting opts.Registry routes promhttp_metric_handler_errors_total through instReg
+	// too (it is registered only when opts.Registry != nil).
+	instReg := prometheus.WrapRegistererWith(prometheus.Labels{"tdarr_instance": tdarrInstance}, reg)
+	opts.Registry = instReg
+	h := promhttp.InstrumentMetricHandler(instReg, promhttp.HandlerFor(reg, opts))
 
 	return func(c *gin.Context) {
 		start := time.Now()

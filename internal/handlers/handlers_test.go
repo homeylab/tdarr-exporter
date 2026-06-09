@@ -185,6 +185,49 @@ func TestRequestLoggerPassesThrough(t *testing.T) {
 	}
 }
 
+// TestMetricsHandler_PromhttpInstrumented verifies P2.3: the standard
+// promhttp_metric_handler_* series are emitted and carry the tdarr_instance label
+// (injected via WrapRegistererWith). requests_total is incremented in a deferred
+// path after the body is written, so it is visible only on a later scrape.
+func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
+	t.Parallel()
+
+	const instance = "promhttp-instance"
+	engine := newEngine(prometheus.NewRegistry(), instance)
+
+	doGet := func() string {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		engine.ServeHTTP(rec, req)
+		return rec.Body.String()
+	}
+
+	doGet()         // first scrape arms the deferred requests_total increment
+	body := doGet() // second scrape exposes it
+
+	// All three standard handler series must be present. requests_total + in_flight come
+	// from InstrumentMetricHandler; errors_total is registered only because opts.Registry is
+	// set (the A1 fix) and is pre-seeded to 0, so it appears on every scrape.
+	for _, name := range []string{
+		"promhttp_metric_handler_requests_total",
+		"promhttp_metric_handler_requests_in_flight",
+		"promhttp_metric_handler_errors_total",
+	} {
+		if !strings.Contains(body, name+"{") {
+			t.Fatalf("missing %s series\nbody:\n%s", name, body)
+		}
+	}
+	// The wrap is the point of P2.3: every handler-metric sample must carry tdarr_instance.
+	// Checking errors_total specifically locks the A1 fix — it is labeled only when
+	// opts.Registry points at the WRAPPED registry, not the raw one.
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "promhttp_metric_handler_") &&
+			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
+			t.Fatalf("promhttp handler metric missing tdarr_instance label:\n%s", line)
+		}
+	}
+}
+
 // dupCollector emits the same metric twice, which makes Registry.Gather return a
 // "collected before with the same name and label values" error — a deterministic way
 // to drive the handler's gather-error path without a panic.
