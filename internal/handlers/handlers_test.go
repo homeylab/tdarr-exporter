@@ -205,14 +205,25 @@ func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
 	doGet()         // first scrape arms the deferred requests_total increment
 	body := doGet() // second scrape exposes it
 
-	if !strings.Contains(body, "promhttp_metric_handler_requests_total") {
-		t.Fatalf("missing promhttp_metric_handler_requests_total\nbody:\n%s", body)
+	// All three standard handler series must be present. requests_total + in_flight come
+	// from InstrumentMetricHandler; errors_total is registered only because opts.Registry is
+	// set (the A1 fix) and is pre-seeded to 0, so it appears on every scrape.
+	for _, name := range []string{
+		"promhttp_metric_handler_requests_total",
+		"promhttp_metric_handler_requests_in_flight",
+		"promhttp_metric_handler_errors_total",
+	} {
+		if !strings.Contains(body, name+"{") {
+			t.Fatalf("missing %s series\nbody:\n%s", name, body)
+		}
 	}
-	// The wrap is the point of P2.3: every handler counter line must carry tdarr_instance.
+	// The wrap is the point of P2.3: every handler-metric sample must carry tdarr_instance.
+	// Checking errors_total specifically locks the A1 fix — it is labeled only when
+	// opts.Registry points at the WRAPPED registry, not the raw one.
 	for _, line := range strings.Split(body, "\n") {
-		if strings.HasPrefix(line, "promhttp_metric_handler_requests_total{") &&
+		if strings.HasPrefix(line, "promhttp_metric_handler_") &&
 			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
-			t.Fatalf("promhttp_metric_handler_requests_total missing tdarr_instance label:\n%s", line)
+			t.Fatalf("promhttp handler metric missing tdarr_instance label:\n%s", line)
 		}
 	}
 }
