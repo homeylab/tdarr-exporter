@@ -538,6 +538,50 @@ func descFqName(t *testing.T, d *prometheus.Desc) string {
 	return m[1]
 }
 
+// TestCollect_PanicInScrape_UpZeroAndNoGatherError verifies P1.4: a panic in the
+// scrape path is recovered, tdarr_up is PRESENT with value 0.0 (not absent), and
+// Gather returns no error — so the HTTP handler still serves 200 with tdarr_up=0
+// rather than crashing the process or surfacing a 500.
+func TestCollect_PanicInScrape_UpZeroAndNoGatherError(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, panicAPI{})
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(c)
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather returned error on recovered panic, want nil: %v", err)
+	}
+	if got := upValueFromFamilies(mfs); got != 0.0 {
+		t.Errorf("tdarr_up: want 0.0 present, got %v (-1 means absent)", got)
+	}
+}
+
+// TestCollect_PanicAfterPartialEmit_UpZeroWithPartialMetrics verifies the recover()
+// path when the panic fires AFTER some metrics are already on ch: the status fetch
+// succeeds and emitServerMetrics writes server series, then the stats POST panics.
+// Gather must still return nil, tdarr_up must be PRESENT at 0.0, and the pre-panic
+// server metric must survive (per-item Gather keeps already-accepted families).
+func TestCollect_PanicAfterPartialEmit_UpZeroWithPartialMetrics(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	c := newTdarrCollectorWithAPI(cfg, partialPanicAPI{statusBody: validStatusBody()})
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(c)
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather returned error on recovered mid-collect panic, want nil: %v", err)
+	}
+	if got := upValueFromFamilies(mfs); got != 0.0 {
+		t.Errorf("tdarr_up: want 0.0 present, got %v (-1 means absent)", got)
+	}
+	if !hasMetricFamily(mfs, "tdarr_server_uptime_seconds") {
+		t.Error("pre-panic server metric tdarr_server_uptime_seconds did not survive the recovered panic")
+	}
+}
+
 // TestDescribe_EmitsAllDescs locks the Describe drift hazard: Prometheus does NOT flag a
 // desc that silently drops out of Describe (it only errors on a Collect desc that was never
 // described), so a missing Describe entry is invisible without an explicit count assertion.

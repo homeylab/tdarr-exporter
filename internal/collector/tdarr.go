@@ -523,6 +523,17 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	// mid-scrape, the in-flight HTTP requests abort.
 	ctx, cancel := context.WithCancel(c.baseCtx)
 	defer cancel()
+	// Recover from any panic in the scrape path so a single bad scrape degrades to
+	// tdarr_up=0 instead of crashing the process (client_golang's collectWorker has
+	// no recover of its own). Reset partialFailure here too: the normal Swap below is
+	// skipped on panic, so without this the flag would leak into the next scrape.
+	defer func() {
+		if r := recover(); r != nil {
+			c.partialFailure.Store(false)
+			c.logger.Error().Interface("panic", r).Msg("Panic during collection; emitting tdarr_up=0")
+			ch <- c.upMetric.mustNewConstMetric(0.0)
+		}
+	}()
 	err := c.collect(ctx, ch)
 	if err != nil {
 		c.logger.Error().Err(err).Msg("Collection cycle failed")
