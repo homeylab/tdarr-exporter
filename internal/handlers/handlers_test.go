@@ -184,3 +184,35 @@ func TestRequestLoggerPassesThrough(t *testing.T) {
 		t.Fatalf("body = %q, want %q (RequestLogger altered body)", rec.Body.String(), wantBody)
 	}
 }
+
+// TestMetricsHandler_PromhttpInstrumented verifies P2.3: the standard
+// promhttp_metric_handler_* series are emitted and carry the tdarr_instance label
+// (injected via WrapRegistererWith). requests_total is incremented in a deferred
+// path after the body is written, so it is visible only on a later scrape.
+func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
+	t.Parallel()
+
+	const instance = "promhttp-instance"
+	engine := newEngine(prometheus.NewRegistry(), instance)
+
+	doGet := func() string {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+		engine.ServeHTTP(rec, req)
+		return rec.Body.String()
+	}
+
+	doGet()         // first scrape arms the deferred requests_total increment
+	body := doGet() // second scrape exposes it
+
+	if !strings.Contains(body, "promhttp_metric_handler_requests_total") {
+		t.Fatalf("missing promhttp_metric_handler_requests_total\nbody:\n%s", body)
+	}
+	// The wrap is the point of P2.3: every handler counter line must carry tdarr_instance.
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "promhttp_metric_handler_requests_total{") &&
+			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
+			t.Fatalf("promhttp_metric_handler_requests_total missing tdarr_instance label:\n%s", line)
+		}
+	}
+}
