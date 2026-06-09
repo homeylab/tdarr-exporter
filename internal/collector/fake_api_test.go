@@ -106,3 +106,15 @@ func (f *fakeTdarrAPI) DoRequest(ctx context.Context, path string, target any, q
 	}
 	return json.Unmarshal(body, target)
 }
+
+// panicAPI is a tdarrAPI whose every call panics, used to exercise Collect's
+// recover() path (a panic mid-scrape must degrade to tdarr_up=0, not crash).
+type panicAPI struct{}
+
+func (panicAPI) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
+	panic("panicAPI: boom during scrape")
+}
+
+func (panicAPI) DoRequest(ctx context.Context, path string, target any, queryParams ...client.QueryParams) error {
+	panic("panicAPI: boom during scrape")
+}
