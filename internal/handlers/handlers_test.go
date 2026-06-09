@@ -24,7 +24,7 @@ func newEngine(reg *prometheus.Registry, tdarrInstance string) *gin.Engine {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Route Not Found: Try /metrics"})
 	})
 	router.Use(RequestLogger())
-	router.GET("/metrics", MetricsHandler(reg, promhttp.HandlerOpts{}, tdarrInstance))
+	router.GET("/metrics", MetricsHandler(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, tdarrInstance))
 	router.GET("/", IndexHandler())
 	router.GET("/healthz", HealthzHandler())
 	return router
@@ -225,5 +225,36 @@ func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
 			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
 			t.Fatalf("promhttp handler metric missing tdarr_instance label:\n%s", line)
 		}
+	}
+}
+
+// dupCollector emits the same metric twice, which makes Registry.Gather return a
+// "collected before with the same name and label values" error — a deterministic way
+// to drive the handler's gather-error path without a panic.
+type dupCollector struct{ desc *prometheus.Desc }
+
+func (d dupCollector) Describe(ch chan<- *prometheus.Desc) { ch <- d.desc }
+func (d dupCollector) Collect(ch chan<- prometheus.Metric) {
+	ch <- prometheus.MustNewConstMetric(d.desc, prometheus.GaugeValue, 1)
+	ch <- prometheus.MustNewConstMetric(d.desc, prometheus.GaugeValue, 1)
+}
+
+// TestMetricsHandler_ContinueOnError_Serves200OnGatherError locks the ContinueOnError
+// wiring (matches production server.go): on a registry-level Gather error the handler
+// must still serve HTTP 200 with whatever could be gathered, NOT 500. Under the default
+// HTTPErrorOnError this would be 500, so the test fails if newEngine's opts regress.
+func TestMetricsHandler_ContinueOnError_Serves200OnGatherError(t *testing.T) {
+	t.Parallel()
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(dupCollector{desc: prometheus.NewDesc("dup_metric", "duplicate on purpose", nil, nil)})
+	engine := newEngine(reg, "continue-on-error")
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	engine.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (ContinueOnError must not 500 on a Gather error)", rec.Code)
 	}
 }

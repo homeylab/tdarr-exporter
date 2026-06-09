@@ -106,3 +106,29 @@ func (f *fakeTdarrAPI) DoRequest(ctx context.Context, path string, target any, q
 	}
 	return json.Unmarshal(body, target)
 }
+
+// panicAPI is a tdarrAPI whose every call panics, used to exercise Collect's
+// recover() path (a panic mid-scrape must degrade to tdarr_up=0, not crash).
+type panicAPI struct{}
+
+func (panicAPI) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
+	panic("panicAPI: boom during scrape")
+}
+
+func (panicAPI) DoRequest(ctx context.Context, path string, target any, queryParams ...client.QueryParams) error {
+	panic("panicAPI: boom during scrape")
+}
+
+// partialPanicAPI succeeds the initial status GET — so emitServerMetrics writes real
+// metrics to ch — then panics on the first stats POST. It exercises Collect's recover()
+// path AFTER metrics are already in the channel (collect() fetches /status via DoRequest
+// before the stats DoPostRequest), unlike panicAPI which panics on the very first call.
+type partialPanicAPI struct{ statusBody []byte }
+
+func (a partialPanicAPI) DoRequest(ctx context.Context, path string, target any, queryParams ...client.QueryParams) error {
+	return json.Unmarshal(a.statusBody, target)
+}
+
+func (partialPanicAPI) DoPostRequest(ctx context.Context, path string, target any, payload []byte) error {
+	panic("partialPanicAPI: boom after server metrics emitted")
+}

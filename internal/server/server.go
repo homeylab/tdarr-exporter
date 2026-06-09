@@ -37,7 +37,7 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 	// add middleware
 	router.Use(handlers.RequestLogger())
 	// add handlers
-	router.GET(runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{}, runConfig.TdarrInstance))
+	router.GET(runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
 	router.GET("/", handlers.IndexHandler())
 	router.GET("/healthz", handlers.HealthzHandler())
 
