@@ -64,7 +64,6 @@ func TestStaticHandlers(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			engine := newEngine(prometheus.NewRegistry(), "test-instance")
@@ -145,7 +144,7 @@ func TestMetricsHandler(t *testing.T) {
 // value from a Prometheus text exposition body. Returns -1 if not present.
 func counterValue(t *testing.T, body, instance string) float64 {
 	t.Helper()
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if strings.HasPrefix(line, "promhttp_metric_handler_requests_total{") &&
 			strings.Contains(line, `code="200"`) &&
 			strings.Contains(line, `tdarr_instance="`+instance+`"`) {
@@ -220,7 +219,7 @@ func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
 	// The wrap is the point of P2.3: every handler-metric sample must carry tdarr_instance.
 	// Checking errors_total specifically locks the A1 fix — it is labeled only when
 	// opts.Registry points at the WRAPPED registry, not the raw one.
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if strings.HasPrefix(line, "promhttp_metric_handler_") &&
 			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
 			t.Fatalf("promhttp handler metric missing tdarr_instance label:\n%s", line)
