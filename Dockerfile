@@ -3,7 +3,7 @@ ARG BASE_IMAGE_TAG=1.26.3-alpine
 ARG RUN_IMAGE=gcr.io/distroless/static
 ARG RUN_IMAGE_TAG=nonroot
 
-FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS builder
+FROM --platform=${BUILDPLATFORM} ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS builder
 
 # BuildKit auto-populates these per --platform target
 ARG TARGETOS
