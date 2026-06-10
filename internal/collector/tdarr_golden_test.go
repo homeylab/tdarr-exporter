@@ -11,8 +11,8 @@ import (
 
 // collectorMetricNames is the exhaustive list of metric families emitted by
 // TdarrCollector.Collect.  Metrics that come from internal/handlers/metrics.go
-// (tdarr_scrape_duration_seconds, tdarr_scrape_requests_total) are intentionally
-// excluded so they cannot influence the comparison.
+// (tdarr_scrape_duration_seconds) are intentionally excluded so they cannot
+// influence the comparison.
 var collectorMetricNames = []string{
 	"tdarr_avg_num_streams",
 	"tdarr_files_total",

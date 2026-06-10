@@ -701,7 +701,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(tdarr_scrape_requests_total{tdarr_instance=~\"$tdarr_instance\",code!~\"2..\"}[5m]))",
+              "expr": "sum(rate(promhttp_metric_handler_requests_total{tdarr_instance=~\"$tdarr_instance\",code!~\"2..\"}[5m]))",
               "instant": true,
               "legendFormat": "handler errors",
               "refId": "A"
