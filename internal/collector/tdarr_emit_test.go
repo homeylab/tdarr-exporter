@@ -230,7 +230,6 @@ func TestShouldRefetch(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if got := shouldRefetch(tc.cached, tc.libStatsNil, tc.metric); got != tc.want {
@@ -512,8 +511,18 @@ func TestEmitNodeMetrics(t *testing.T) {
 	if wi.labels["worker_type"] != "transcode" || wi.labels["compute_type"] != "cpu" {
 		t.Errorf("worker_info type labels = %v, want transcode/cpu", wi.labels)
 	}
-	if wi.labels["worker_status"] != "processing" || wi.labels["worker_file"] != "movie.mkv" {
-		t.Errorf("worker_info status/file labels = %v", wi.labels)
+	if wi.labels["worker_file"] != "movie.mkv" {
+		t.Errorf("worker_info file label = %v, want movie.mkv", wi.labels)
+	}
+	// worker_status is no longer a label on worker_info; it moved to the dedicated status metric.
+	if _, ok := wi.labels["worker_status"]; ok {
+		t.Errorf("worker_info should not carry worker_status label (moved to tdarr_node_worker_status)")
+	}
+	// verify the dedicated worker_status metric carries the status label.
+	ws := findOne(t, samples, "tdarr_node_worker_status",
+		map[string]string{"node_id": "node-busy", "worker_id": "w1"})
+	if ws.labels["worker_status"] != "processing" {
+		t.Errorf("worker_status metric status label = %q, want %q", ws.labels["worker_status"], "processing")
 	}
 
 	// sanity: every node emits worker_limit and queue_length for the four known dims.

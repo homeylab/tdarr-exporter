@@ -77,7 +77,10 @@ type TdarrNodeMetrics struct {
 	nodeWorkerLimit typedDesc
 	nodeQueueLength typedDesc
 	// worker identity / info
-	nodeWorkerInfo typedDesc
+	nodeWorkerInfo   typedDesc
+	nodeWorkerStatus typedDesc
+	nodeWorkerPlugin typedDesc
+	nodeWorkerIdle   typedDesc
 	// per-worker numeric gauges
 	nodeWorkerPercentage         typedDesc
 	nodeWorkerFps                typedDesc
@@ -177,9 +180,25 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"node_worker_info",
 			"Tdarr node worker identity and categorical state (always 1)",
 			[]string{"node_id", "node_name", "worker_id", "worker_type", "compute_type", "flow_worker",
-				"worker_status", "worker_file",
-				"worker_plugin_id", "worker_plugin_position",
-				"worker_connected", "worker_idle"},
+				"worker_file", "worker_connected"},
+			instance,
+		),
+		nodeWorkerStatus: newGauge(
+			"node_worker_status",
+			"Tdarr node worker current status (always 1; state carried in the worker_status label)",
+			[]string{"node_id", "node_name", "worker_id", "worker_status"},
+			instance,
+		),
+		nodeWorkerPlugin: newGauge(
+			"node_worker_plugin",
+			"Tdarr node worker current plugin step (always 1; emitted only when plugin data is present)",
+			[]string{"node_id", "node_name", "worker_id", "worker_plugin_id", "worker_plugin_position"},
+			instance,
+		),
+		nodeWorkerIdle: newGauge(
+			"node_worker_idle",
+			"1 if the Tdarr node worker is idle, 0 otherwise",
+			[]string{"node_id", "node_name", "worker_id"},
 			instance,
 		),
 		nodeWorkerPercentage: newGauge(
@@ -249,6 +268,9 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeWorkerLimit,
 		m.nodeQueueLength,
 		m.nodeWorkerInfo,
+		m.nodeWorkerStatus,
+		m.nodeWorkerPlugin,
+		m.nodeWorkerIdle,
 		m.nodeWorkerPercentage,
 		m.nodeWorkerFps,
 		m.nodeWorkerOriginalFileSizeGb,

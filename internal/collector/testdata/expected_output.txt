@@ -151,9 +151,12 @@ tdarr_node_worker_eta_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_i
 # HELP tdarr_node_worker_fps Tdarr node worker frames per second
 # TYPE tdarr_node_worker_fps gauge
 tdarr_node_worker_fps{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 125
+# HELP tdarr_node_worker_idle 1 if the Tdarr node worker is idle, 0 otherwise
+# TYPE tdarr_node_worker_idle gauge
+tdarr_node_worker_idle{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 0
 # HELP tdarr_node_worker_info Tdarr node worker identity and categorical state (always 1)
 # TYPE tdarr_node_worker_info gauge
-tdarr_node_worker_info{compute_type="cpu",flow_worker="false",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_connected="true",worker_file="/media/shows/Show S01E01.mkv",worker_id="worker-tc-01",worker_idle="false",worker_plugin_id="Tdarr_Plugin_MC93_Migz1FFMPEG",worker_plugin_position="3",worker_status="Transcoding",worker_type="transcode"} 1
+tdarr_node_worker_info{compute_type="cpu",flow_worker="false",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_connected="true",worker_file="/media/shows/Show S01E01.mkv",worker_id="worker-tc-01",worker_type="transcode"} 1
 # HELP tdarr_node_worker_job_start_timestamp_seconds Tdarr node worker job start time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_job_start_timestamp_seconds gauge
 tdarr_node_worker_job_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.7e+09
@@ -176,9 +179,15 @@ tdarr_node_worker_output_file_size_gb{node_id="node-busy-1",node_name="BusyNode"
 # HELP tdarr_node_worker_percentage Tdarr node worker transcode/healthcheck progress percentage
 # TYPE tdarr_node_worker_percentage gauge
 tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 45.75
+# HELP tdarr_node_worker_plugin Tdarr node worker current plugin step (always 1; emitted only when plugin data is present)
+# TYPE tdarr_node_worker_plugin gauge
+tdarr_node_worker_plugin{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01",worker_plugin_id="Tdarr_Plugin_MC93_Migz1FFMPEG",worker_plugin_position="3"} 1
 # HELP tdarr_node_worker_start_timestamp_seconds Tdarr node worker current plugin step start time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_start_timestamp_seconds gauge
 tdarr_node_worker_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09
+# HELP tdarr_node_worker_status Tdarr node worker current status (always 1; state carried in the worker_status label)
+# TYPE tdarr_node_worker_status gauge
+tdarr_node_worker_status{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01",worker_status="Transcoding"} 1
 # HELP tdarr_node_worker_status_timestamp_seconds Tdarr node worker last status update time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_status_timestamp_seconds gauge
 tdarr_node_worker_status_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.7000001e+09

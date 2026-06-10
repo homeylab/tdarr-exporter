@@ -500,13 +500,11 @@ func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryIn
 	// block on send because the drain is always consuming. pieData is written only
 	// by this goroutine and read only after resultWg.Wait(), so there is no race.
 	resultWg := &sync.WaitGroup{}
-	resultWg.Add(1)
-	go func() {
-		defer resultWg.Done()
+	resultWg.Go(func() {
 		for pie := range outChan {
 			pieData = append(pieData, pie)
 		}
-	}()
+	})
 
 	// wait for workers to finish producing, then close outChan to stop the drain
 	dataWg.Wait()
@@ -821,24 +819,33 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		for _, worker := range node.Workers {
 			c.logger.Debug().Interface("worker", worker).Msg("Worker data")
 
-			// plugin labels: empty strings for flow workers (no plugin step concept)
-			pluginId := worker.LastPluginDetails.Id
-			pluginPosition := worker.LastPluginDetails.PositionNumber
-			if worker.FlowWorker {
-				pluginId = ""
-				pluginPosition = ""
-			}
-
 			// unified worker info metric (all workers, flow or classic).
 			// Split Tdarr's compound workerType string into worker_type + compute_type labels.
 			wType, cType := parseWorkerType(worker.WorkerType)
 			ch <- m.nodeWorkerInfo.mustNewConstMetric(1,
 				node.Id, node.Name, worker.Id, wType, cType,
 				strconv.FormatBool(worker.FlowWorker),
-				worker.Status, worker.File,
-				pluginId, pluginPosition,
-				strconv.FormatBool(worker.Process.Connected), strconv.FormatBool(worker.Idle),
+				worker.File, strconv.FormatBool(worker.Process.Connected),
 			)
+
+			// worker status — free-form string, emitted for every worker (incl. "Scanning")
+			ch <- m.nodeWorkerStatus.mustNewConstMetric(1, node.Id, node.Name, worker.Id, worker.Status)
+
+			// plugin step — presence-gated: only classic transcode workers past the scan phase
+			// have plugin data. Gating on data presence (not worker type) is immune to the
+			// scan-phase isFlowWorker bug and naturally skips flow/health-check workers.
+			if worker.LastPluginDetails.Id != "" {
+				ch <- m.nodeWorkerPlugin.mustNewConstMetric(1,
+					node.Id, node.Name, worker.Id,
+					worker.LastPluginDetails.Id, worker.LastPluginDetails.PositionNumber)
+			}
+
+			// idle 0/1
+			idleVal := 0.0
+			if worker.Idle {
+				idleVal = 1.0
+			}
+			ch <- m.nodeWorkerIdle.mustNewConstMetric(idleVal, node.Id, node.Name, worker.Id)
 
 			// per-worker numeric gauges
 			ch <- m.nodeWorkerPercentage.mustNewConstMetric(
