@@ -2974,30 +2974,6 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "worker_plugin_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "worker_plugin_position"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "node_id"
                 },
                 "properties": [
@@ -3040,6 +3016,32 @@
                   {
                     "id": "custom.hidden",
                     "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Idle"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "false",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "true",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
                   }
                 ]
               }
@@ -3174,6 +3176,30 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id, worker_status) (tdarr_node_worker_status{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "J"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_idle{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "L"
             }
           ],
           "title": "Flow Workers",
@@ -3196,9 +3222,6 @@
                     "compute_type",
                     "worker_status",
                     "worker_file",
-                    "worker_plugin_id",
-                    "worker_plugin_position",
-                    "worker_idle",
                     "worker_connected",
                     "flow_worker",
                     "Value #B",
@@ -3208,7 +3231,8 @@
                     "Value #F",
                     "Value #G",
                     "Value #H",
-                    "Value #I"
+                    "Value #I",
+                    "Value #L"
                   ]
                 }
               }
@@ -3232,11 +3256,9 @@
                   "worker_connected": 19,
                   "worker_file": 10,
                   "worker_id": 1,
-                  "worker_idle": 18,
-                  "worker_plugin_id": 15,
-                  "worker_plugin_position": 16,
                   "worker_status": 6,
-                  "worker_type": 13
+                  "worker_type": 13,
+                  "Value #L": 18
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -3246,7 +3268,8 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update"
+                  "Value #I": "Last Status Update",
+                  "Value #L": "Idle"
                 }
               }
             }
@@ -3463,30 +3486,6 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "worker_plugin_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "worker_plugin_position"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "worker_connected"
                 },
                 "properties": [
@@ -3505,6 +3504,32 @@
                   {
                     "id": "custom.hidden",
                     "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Idle"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "false",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "true",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
                   }
                 ]
               }
@@ -3639,6 +3664,30 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id, worker_status) (tdarr_node_worker_status{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "J"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_idle{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "L"
             }
           ],
           "title": "Health Check Workers",
@@ -3667,8 +3716,8 @@
                     "Value #H",
                     "worker_type",
                     "compute_type",
-                    "worker_idle",
-                    "worker_connected"
+                    "worker_connected",
+                    "Value #L"
                   ]
                 }
               }
@@ -3689,9 +3738,9 @@
                   "worker_connected": 14,
                   "worker_file": 7,
                   "worker_id": 1,
-                  "worker_idle": 13,
                   "worker_status": 6,
-                  "worker_type": 11
+                  "worker_type": 11,
+                  "Value #L": 13
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -3701,7 +3750,8 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update"
+                  "Value #I": "Last Status Update",
+                  "Value #L": "Idle"
                 }
               }
             }
@@ -3938,6 +3988,32 @@
                     "value": true
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Idle"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "false",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "true",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },
@@ -4070,6 +4146,42 @@
               "instant": true,
               "legendFormat": "",
               "refId": "I"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id, worker_status) (tdarr_node_worker_status{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "J"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id, worker_plugin_id, worker_plugin_position) (tdarr_node_worker_plugin{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "K"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_idle{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "L"
             }
           ],
           "title": "Classic Plugin Workers",
@@ -4094,7 +4206,6 @@
                     "worker_file",
                     "worker_plugin_id",
                     "worker_plugin_position",
-                    "worker_idle",
                     "worker_connected",
                     "flow_worker",
                     "Value #B",
@@ -4104,7 +4215,8 @@
                     "Value #F",
                     "Value #G",
                     "Value #H",
-                    "Value #I"
+                    "Value #I",
+                    "Value #L"
                   ]
                 }
               }
@@ -4128,11 +4240,11 @@
                   "worker_connected": 19,
                   "worker_file": 12,
                   "worker_id": 1,
-                  "worker_idle": 18,
                   "worker_plugin_id": 7,
                   "worker_plugin_position": 8,
                   "worker_status": 6,
-                  "worker_type": 15
+                  "worker_type": 15,
+                  "Value #L": 18
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -4142,7 +4254,8 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
-                  "Value #I": "Last Status Update"
+                  "Value #I": "Last Status Update",
+                  "Value #L": "Idle"
                 }
               }
             }
@@ -4826,7 +4939,8 @@
             }
           ],
           "title": "Node Paused",
-          "type": "stat"
+          "type": "stat",
+          "description": "Whether the Tdarr node is paused. Paused = the node stops spawning new transcode/health-check workers (in-progress jobs may still finish). NO = actively processing."
         },
         {
           "datasource": {
