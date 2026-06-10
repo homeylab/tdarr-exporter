@@ -204,14 +204,13 @@ func TestCollect_ServerHealthy(t *testing.T) {
 		{"empty status", "", 0},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			cfg := newTestConfig(t)
 			api := newSuccessFakeAPI(cfg)
-			body := []byte(fmt.Sprintf(
+			body := fmt.Appendf(nil,
 				`{"status":%q,"isProduction":true,"os":"linux","version":"2.77.01","buildDate":"x","uptime":45}`,
-				tc.status))
+				tc.status)
 			api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, body)
 			c := newTdarrCollectorWithAPI(cfg, api)
 
@@ -433,7 +432,6 @@ func TestCollect_ErrorCause(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			cfg := newTestConfig(t)

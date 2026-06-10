@@ -500,13 +500,11 @@ func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryIn
 	// block on send because the drain is always consuming. pieData is written only
 	// by this goroutine and read only after resultWg.Wait(), so there is no race.
 	resultWg := &sync.WaitGroup{}
-	resultWg.Add(1)
-	go func() {
-		defer resultWg.Done()
+	resultWg.Go(func() {
 		for pie := range outChan {
 			pieData = append(pieData, pie)
 		}
-	}()
+	})
 
 	// wait for workers to finish producing, then close outChan to stop the drain
 	dataWg.Wait()
