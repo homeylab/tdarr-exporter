@@ -6103,7 +6103,7 @@
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "short"
             },
             "overrides": []
           },
@@ -6135,14 +6135,26 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "process_open_fds{job=~\".*tdarr.*\"} / process_max_fds{job=~\".*tdarr.*\"}",
+              "expr": "process_open_fds{job=~\".*tdarr.*\"}",
               "instant": false,
-              "legendFormat": "{{job}}",
+              "legendFormat": "used {{job}}",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "process_max_fds{job=~\".*tdarr.*\"}",
+              "instant": false,
+              "legendFormat": "limit {{job}}",
+              "range": true,
+              "refId": "B"
             }
           ],
-          "title": "File Descriptors",
+          "title": "File Descriptors (used vs limit)",
           "type": "timeseries"
         },
         {
@@ -6238,6 +6250,79 @@
           ],
           "title": "GC Pause (p75)",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Current open file descriptors as a fraction of the process limit (process_open_fds / process_max_fds). The limit is often the container default (~1M), so this normally reads near zero; watch for sustained climbs (descriptor leak) or values approaching 1.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 0.8
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.95
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 25
+          },
+          "id": 112,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "process_open_fds{job=~\".*tdarr.*\"} / process_max_fds{job=~\".*tdarr.*\"}",
+              "instant": true,
+              "legendFormat": "{{job}}",
+              "refId": "A"
+            }
+          ],
+          "title": "File Descriptors (% of limit)",
+          "type": "stat"
         }
       ],
       "title": "Exporter Internals (Go runtime)",
