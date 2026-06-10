@@ -64,7 +64,6 @@ func TestStaticHandlers(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			engine := newEngine(prometheus.NewRegistry(), "test-instance")
@@ -96,10 +95,10 @@ func TestMetricsHandler(t *testing.T) {
 		return rec
 	}
 
-	// First scrape. The scrape_requests_total counter is incremented in a
-	// deferred func that runs *after* promhttp has already written the body,
-	// so it is not visible until a later scrape. The scrape_duration gauge is
-	// registered eagerly, so it (and the const label) is present immediately.
+	// First scrape. The promhttp_metric_handler_requests_total counter is incremented
+	// inside promhttp's InstrumentMetricHandler after the body is written, so it is
+	// not visible until a later scrape. The scrape_duration gauge is registered
+	// eagerly, so it (and the const label) is present immediately.
 	rec := doGet()
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -122,8 +121,8 @@ func TestMetricsHandler(t *testing.T) {
 
 	// Second scrape: now the counter from the first request is exposed.
 	body2 := doGet().Body.String()
-	if !strings.Contains(body2, "tdarr_scrape_requests_total") {
-		t.Fatalf("metrics body missing %q\nbody:\n%s", "tdarr_scrape_requests_total", body2)
+	if !strings.Contains(body2, "promhttp_metric_handler_requests_total") {
+		t.Fatalf("metrics body missing %q\nbody:\n%s", "promhttp_metric_handler_requests_total", body2)
 	}
 	if !strings.Contains(body2, `tdarr_instance="`+instance+`"`) {
 		t.Fatalf("counter missing const label tdarr_instance=%q\nbody:\n%s", instance, body2)
@@ -134,19 +133,19 @@ func TestMetricsHandler(t *testing.T) {
 	got2 := counterValue(t, body2, instance)
 	got3 := counterValue(t, body3, instance)
 	if got2 < 0 || got3 < 0 {
-		t.Fatalf("scrape_requests_total{code=\"200\"} not found: second=%v third=%v", got2, got3)
+		t.Fatalf("promhttp_metric_handler_requests_total{code=\"200\"} not found: second=%v third=%v", got2, got3)
 	}
 	if got3 <= got2 {
-		t.Fatalf("scrape_requests_total did not increment: second=%v third=%v", got2, got3)
+		t.Fatalf("promhttp_metric_handler_requests_total did not increment: second=%v third=%v", got2, got3)
 	}
 }
 
-// counterValue extracts the tdarr_scrape_requests_total{code="200"} sample
+// counterValue extracts the promhttp_metric_handler_requests_total{code="200"} sample
 // value from a Prometheus text exposition body. Returns -1 if not present.
 func counterValue(t *testing.T, body, instance string) float64 {
 	t.Helper()
-	for _, line := range strings.Split(body, "\n") {
-		if strings.HasPrefix(line, "tdarr_scrape_requests_total{") &&
+	for line := range strings.SplitSeq(body, "\n") {
+		if strings.HasPrefix(line, "promhttp_metric_handler_requests_total{") &&
 			strings.Contains(line, `code="200"`) &&
 			strings.Contains(line, `tdarr_instance="`+instance+`"`) {
 			fields := strings.Fields(line)
@@ -220,7 +219,7 @@ func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
 	// The wrap is the point of P2.3: every handler-metric sample must carry tdarr_instance.
 	// Checking errors_total specifically locks the A1 fix — it is labeled only when
 	// opts.Registry points at the WRAPPED registry, not the raw one.
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if strings.HasPrefix(line, "promhttp_metric_handler_") &&
 			!strings.Contains(line, `tdarr_instance="`+instance+`"`) {
 			t.Fatalf("promhttp handler metric missing tdarr_instance label:\n%s", line)

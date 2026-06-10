@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,21 +30,13 @@ func RequestLogger() gin.HandlerFunc {
 
 func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrInstance string) gin.HandlerFunc {
 	// static metrics always present
-	var (
-		// use promAuto to auto register with existing registry
-		scrapDuration = promauto.With(reg).NewGauge(prometheus.GaugeOpts{
-			Namespace:   METRIC_NAMESPACE,
-			Name:        "scrape_duration_seconds",
-			Help:        "Duration of the last scrape of metrics from exporter.",
-			ConstLabels: prometheus.Labels{"tdarr_instance": tdarrInstance},
-		})
-		requestCount = promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Namespace:   METRIC_NAMESPACE,
-			Name:        "scrape_requests_total",
-			Help:        "Total number of HTTP requests made.",
-			ConstLabels: prometheus.Labels{"tdarr_instance": tdarrInstance},
-		}, []string{"code"})
-	)
+	// use promAuto to auto register with existing registry
+	scrapDuration := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
+		Namespace:   METRIC_NAMESPACE,
+		Name:        "scrape_duration_seconds",
+		Help:        "Duration of the last scrape of metrics from exporter.",
+		ConstLabels: prometheus.Labels{"tdarr_instance": tdarrInstance},
+	})
 
 	// Wrap the registry so the promhttp handler's own counters carry tdarr_instance,
 	// matching the const label on the custom metrics above. HandlerFor keeps the raw
@@ -60,7 +51,6 @@ func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrIn
 		start := time.Now()
 		defer func() {
 			scrapDuration.Set(time.Since(start).Seconds())
-			requestCount.WithLabelValues(fmt.Sprintf("%d", c.Writer.Status())).Inc()
 		}()
 		// promhttp serves back response
 		h.ServeHTTP(c.Writer, c.Request)
