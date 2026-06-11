@@ -1104,7 +1104,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_files_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_files{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
@@ -1178,7 +1178,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_transcodes_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
@@ -1252,7 +1252,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_health_checks_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
@@ -1589,7 +1589,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_files_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_files{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "files",
               "refId": "A"
@@ -1652,7 +1652,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "transcodes",
               "refId": "A"
@@ -1715,7 +1715,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "health checks",
               "refId": "A"

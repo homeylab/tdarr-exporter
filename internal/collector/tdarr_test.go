@@ -227,7 +227,7 @@ tdarr_server_healthy{tdarr_instance="test-instance"} %g
 }
 
 // TestCollect_AllSuccess_UpEquals1 verifies tdarr_up == 1 when all API endpoints succeed,
-// and that general stats metrics such as tdarr_files_total are emitted.
+// and that general stats metrics such as tdarr_files are emitted.
 func TestCollect_AllSuccess_UpEquals1(t *testing.T) {
 	cfg := newTestConfig(t)
 	c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
@@ -237,8 +237,8 @@ func TestCollect_AllSuccess_UpEquals1(t *testing.T) {
 		t.Errorf("tdarr_up: want 1.0, got %v", upValueFromFamilies(mfs))
 	}
 	// Verify general stats are emitted — a regression that drops all data but keeps up=1 would fail here.
-	if !hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("expected tdarr_files_total to be emitted on full success")
+	if !hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("expected tdarr_files to be emitted on full success")
 	}
 }
 
@@ -254,8 +254,8 @@ func TestCollect_StatsAPIFails_UpEquals0(t *testing.T) {
 	if upValueFromFamilies(mfs) != 0.0 {
 		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-	if hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("unexpected tdarr_files_total emitted after early-return on stats failure")
+	if hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("unexpected tdarr_files emitted after early-return on stats failure")
 	}
 }
 
@@ -285,8 +285,8 @@ func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
 	if upValueFromFamilies(mfs) != 0.0 {
 		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-	if !hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("expected tdarr_files_total to be emitted despite node failure")
+	if !hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("expected tdarr_files to be emitted despite node failure")
 	}
 }
 
@@ -304,10 +304,10 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
 	// Partial failure means general stats succeeded before the pie fetch failed.
-	// tdarr_files_total must still be emitted — that is the whole point of distinguishing
+	// tdarr_files must still be emitted — that is the whole point of distinguishing
 	// partial failure from a full stats fetch failure.
-	if !hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("expected tdarr_files_total to be emitted despite partial pie failure")
+	if !hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("expected tdarr_files to be emitted despite partial pie failure")
 	}
 }
 
@@ -371,8 +371,8 @@ func TestCollect_StatsScoreUnparseable_UpEquals0(t *testing.T) {
 	if upValueFromFamilies(mfs) != 0.0 {
 		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-	if hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("expected no tdarr_files_total: score parse failure should return before any data emissions")
+	if hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("expected no tdarr_files: score parse failure should return before any data emissions")
 	}
 }
 
@@ -391,8 +391,8 @@ func TestCollect_HealthScoreUnparseable_UpEquals0(t *testing.T) {
 	if upValueFromFamilies(mfs) != 0.0 {
 		t.Errorf("tdarr_up: want 0.0, got %v", upValueFromFamilies(mfs))
 	}
-	if hasMetricFamily(mfs, "tdarr_files_total") {
-		t.Error("expected no tdarr_files_total: health score parse failure should return before any data emissions")
+	if hasMetricFamily(mfs, "tdarr_files") {
+		t.Error("expected no tdarr_files: health score parse failure should return before any data emissions")
 	}
 }
 
@@ -524,7 +524,7 @@ func TestCollect_RegisteredInRegistry_NoDescribeError(t *testing.T) {
 }
 
 // descFqNameRe extracts the fqName from a *prometheus.Desc's String() form, e.g.
-// `Desc{fqName: "tdarr_files_total", ...}`. The fqName is not exported any other way.
+// `Desc{fqName: "tdarr_files", ...}`. The fqName is not exported any other way.
 var descFqNameRe = regexp.MustCompile(`fqName: "([^"]*)"`)
 
 func descFqName(t *testing.T, d *prometheus.Desc) string {
@@ -622,7 +622,7 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 	// Representative sample spanning collector totals, the up gauge, the drift counter,
 	// and both node-level and worker-level node descs.
 	wantPresent := []string{
-		"tdarr_files_total",
+		"tdarr_files",
 		"tdarr_up",
 		"tdarr_unknown_status_total",
 		"tdarr_library_audio_containers",

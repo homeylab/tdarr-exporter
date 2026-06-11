@@ -1,15 +1,15 @@
 # HELP tdarr_avg_num_streams Tdarr average number of streams in video
 # TYPE tdarr_avg_num_streams gauge
 tdarr_avg_num_streams{tdarr_instance="tdarr.localdomain"} 3.5
-# HELP tdarr_files_total Tdarr total file count - includes files in ignore lists within each library
-# TYPE tdarr_files_total gauge
-tdarr_files_total{tdarr_instance="tdarr.localdomain"} 1500
+# HELP tdarr_files Tdarr total file count - includes files in ignore lists within each library
+# TYPE tdarr_files gauge
+tdarr_files{tdarr_instance="tdarr.localdomain"} 1500
 # HELP tdarr_health_check_score_pct Tdarr health check score percentage - how much of your libraries has been health checked by tdarr
 # TYPE tdarr_health_check_score_pct gauge
 tdarr_health_check_score_pct{tdarr_instance="tdarr.localdomain"} 93.33
-# HELP tdarr_health_checks_total Tdarr total health check count for all libraries
-# TYPE tdarr_health_checks_total gauge
-tdarr_health_checks_total{tdarr_instance="tdarr.localdomain"} 1400
+# HELP tdarr_health_checks_completed_total Tdarr total health check count for all libraries
+# TYPE tdarr_health_checks_completed_total counter
+tdarr_health_checks_completed_total{tdarr_instance="tdarr.localdomain"} 1400
 # HELP tdarr_library_audio_codecs Tdarr audio codecs for library by type
 # TYPE tdarr_library_audio_codecs gauge
 tdarr_library_audio_codecs{codec="aac",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 310
@@ -19,10 +19,10 @@ tdarr_library_audio_codecs{codec="opus",library_id="lib-audio-01",library_name="
 # TYPE tdarr_library_audio_containers gauge
 tdarr_library_audio_containers{container_type="m4a",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 10
 tdarr_library_audio_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
-# HELP tdarr_library_files_total Tdarr total files in library
-# TYPE tdarr_library_files_total gauge
-tdarr_library_files_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 500
-tdarr_library_files_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 1000
+# HELP tdarr_library_files Tdarr total files in library
+# TYPE tdarr_library_files gauge
+tdarr_library_files{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 500
+tdarr_library_files{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 1000
 # HELP tdarr_library_health_checks Tdarr health checks for library by status
 # TYPE tdarr_library_health_checks gauge
 tdarr_library_health_checks{library_id="lib-audio-01",library_name="Music",status="cancelled",tdarr_instance="tdarr.localdomain"} 5
@@ -33,10 +33,10 @@ tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",statu
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="error",tdarr_instance="tdarr.localdomain"} 18
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 5
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 880
-# HELP tdarr_library_health_checks_total Tdarr total health checks for library by status
-# TYPE tdarr_library_health_checks_total gauge
-tdarr_library_health_checks_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
-tdarr_library_health_checks_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
+# HELP tdarr_library_health_checks_completed_total Tdarr total health checks for library by status
+# TYPE tdarr_library_health_checks_completed_total counter
+tdarr_library_health_checks_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
+tdarr_library_health_checks_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
 # HELP tdarr_library_size_diff_gb Tdarr size difference (+/-) in GB for library
 # TYPE tdarr_library_size_diff_gb gauge
 tdarr_library_size_diff_gb{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 15.5
@@ -58,10 +58,10 @@ tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="not required",tdarr_instance="tdarr.localdomain"} 400
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 8
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 250
-# HELP tdarr_library_transcodes_total Tdarr total transcodes for library by status
-# TYPE tdarr_library_transcodes_total gauge
-tdarr_library_transcodes_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 150
-tdarr_library_transcodes_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 700
+# HELP tdarr_library_transcodes_completed_total Tdarr total transcodes for library by status
+# TYPE tdarr_library_transcodes_completed_total counter
+tdarr_library_transcodes_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 150
+tdarr_library_transcodes_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 700
 # HELP tdarr_library_video_codecs Tdarr video codecs for library by type
 # TYPE tdarr_library_video_codecs gauge
 tdarr_library_video_codecs{codec="h264",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 20
@@ -224,9 +224,9 @@ tdarr_stream_stats_duration{stat_type="total",tdarr_instance="tdarr.localdomain"
 tdarr_stream_stats_num_frames{stat_type="average",tdarr_instance="tdarr.localdomain"} 57600
 tdarr_stream_stats_num_frames{stat_type="highest",tdarr_instance="tdarr.localdomain"} 216000
 tdarr_stream_stats_num_frames{stat_type="total",tdarr_instance="tdarr.localdomain"} 2.88e+07
-# HELP tdarr_transcodes_total Tdarr total transcode count for all libraries
-# TYPE tdarr_transcodes_total gauge
-tdarr_transcodes_total{tdarr_instance="tdarr.localdomain"} 850
+# HELP tdarr_transcodes_completed_total Tdarr total transcode count for all libraries
+# TYPE tdarr_transcodes_completed_total counter
+tdarr_transcodes_completed_total{tdarr_instance="tdarr.localdomain"} 850
 # HELP tdarr_unknown_status_total Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.
 # TYPE tdarr_unknown_status_total counter
 tdarr_unknown_status_total{job_kind="transcode",status="pending",tdarr_instance="tdarr.localdomain"} 1

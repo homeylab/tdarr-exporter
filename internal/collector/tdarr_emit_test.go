@@ -53,7 +53,7 @@ func drain(t *testing.T, ch <-chan prometheus.Metric) []sample {
 
 // fqNameFromDesc extracts the fqName from a Desc.String() rendering, which looks like:
 //
-//	Desc{fqName: "tdarr_files_total", help: "...", ...}
+//	Desc{fqName: "tdarr_files", help: "...", ...}
 func fqNameFromDesc(desc string) string {
 	const marker = `fqName: "`
 	i := len(marker)
@@ -304,9 +304,9 @@ func TestEmitPieMetrics(t *testing.T) {
 	})
 
 	// totals
-	if got := findOne(t, samples, "tdarr_library_files_total",
+	if got := findOne(t, samples, "tdarr_library_files",
 		map[string]string{"library_name": "Music", "library_id": "lib-audio-01"}).value; got != 12 {
-		t.Errorf("files_total = %v, want 12", got)
+		t.Errorf("library_files = %v, want 12", got)
 	}
 	if got := findOne(t, samples, "tdarr_library_size_diff_gb",
 		map[string]string{"library_id": "lib-audio-01"}).value; got != -1.5 {
@@ -345,7 +345,7 @@ func TestEmitPieMetrics(t *testing.T) {
 	}
 
 	// const instance label is propagated
-	s := findOne(t, samples, "tdarr_library_files_total",
+	s := findOne(t, samples, "tdarr_library_files",
 		map[string]string{"library_id": "lib-audio-01"})
 	if s.labels["tdarr_instance"] != "test-instance" {
 		t.Errorf("tdarr_instance label = %q, want test-instance", s.labels["tdarr_instance"])
@@ -554,8 +554,8 @@ func TestEmitGeneralMetrics(t *testing.T) {
 		c.emitGeneralMetrics(ch, metric, 88.0, 77.0)
 	})
 
-	if got := findOne(t, samples, "tdarr_files_total", map[string]string{}).value; got != 100 {
-		t.Errorf("files_total = %v, want 100", got)
+	if got := findOne(t, samples, "tdarr_files", map[string]string{}).value; got != 100 {
+		t.Errorf("files = %v, want 100", got)
 	}
 	if got := findOne(t, samples, "tdarr_score_pct", map[string]string{}).value; got != 88.0 {
 		t.Errorf("score_pct = %v, want 88.0", got)
