@@ -262,12 +262,12 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		),
 		pieNumTranscodes: newCounter(
 			"library_transcodes_completed_total",
-			"Tdarr total transcodes for library by status",
+			"Tdarr completed transcodes for a library, counted over its lifetime; increments each time a transcode alters a file (the same file can transcode again after a flow/process change), failed jobs excluded",
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieNumHealthChecks: newCounter(
 			"library_health_checks_completed_total",
-			"Tdarr total health checks for library by status",
+			"Tdarr completed health checks for a library, counted over its lifetime; increments each time a health check completes on a file, failed jobs excluded",
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieSizeDiff: newGauge(

@@ -1111,7 +1111,8 @@
             }
           ],
           "title": "Files by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Current number of files in the library."
         },
         {
           "datasource": {
@@ -1185,7 +1186,8 @@
             }
           ],
           "title": "Transcodes by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
         },
         {
           "datasource": {
@@ -1259,7 +1261,8 @@
             }
           ],
           "title": "Health Checks by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
         },
         {
           "datasource": {
@@ -1596,7 +1599,8 @@
             }
           ],
           "title": "Total Files",
-          "type": "stat"
+          "type": "stat",
+          "description": "Current number of files in the library."
         },
         {
           "datasource": {
@@ -1659,7 +1663,8 @@
             }
           ],
           "title": "Total Transcodes",
-          "type": "stat"
+          "type": "stat",
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
         },
         {
           "datasource": {
@@ -1722,7 +1727,8 @@
             }
           ],
           "title": "Total Health Checks",
-          "type": "stat"
+          "type": "stat",
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
         },
         {
           "datasource": {
@@ -1786,7 +1792,8 @@
             }
           ],
           "title": "Tdarr Score (%)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Percent of all media files successfully transcoded (successful ÷ total files)."
         },
         {
           "datasource": {
@@ -1850,7 +1857,8 @@
             }
           ],
           "title": "Health Check Score (%)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Percent of all media files successfully health-checked (successful ÷ total files)."
         },
         {
           "datasource": {
@@ -1914,7 +1922,8 @@
             }
           ],
           "title": "Size Difference (GB)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Net file-size change from transcodes. Negative = space saved, positive = grew."
         },
         {
           "datasource": {
@@ -1981,7 +1990,8 @@
             }
           ],
           "title": "Transcode Errors",
-          "type": "stat"
+          "type": "stat",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
         },
         {
           "datasource": {
@@ -2048,7 +2058,8 @@
             }
           ],
           "title": "Health Check Errors",
-          "type": "stat"
+          "type": "stat",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
         },
         {
           "datasource": {

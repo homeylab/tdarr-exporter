@@ -33,7 +33,7 @@ tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",statu
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="error",tdarr_instance="tdarr.localdomain"} 18
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 5
 tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 880
-# HELP tdarr_library_health_checks_completed_total Tdarr total health checks for library by status
+# HELP tdarr_library_health_checks_completed_total Tdarr completed health checks for a library, counted over its lifetime; increments each time a health check completes on a file, failed jobs excluded
 # TYPE tdarr_library_health_checks_completed_total counter
 tdarr_library_health_checks_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
 tdarr_library_health_checks_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
@@ -58,7 +58,7 @@ tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="not required",tdarr_instance="tdarr.localdomain"} 400
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="queued",tdarr_instance="tdarr.localdomain"} 8
 tdarr_library_transcodes{library_id="lib-video-01",library_name="Shows",status="success",tdarr_instance="tdarr.localdomain"} 250
-# HELP tdarr_library_transcodes_completed_total Tdarr total transcodes for library by status
+# HELP tdarr_library_transcodes_completed_total Tdarr completed transcodes for a library, counted over its lifetime; increments each time a transcode alters a file (the same file can transcode again after a flow/process change), failed jobs excluded
 # TYPE tdarr_library_transcodes_completed_total counter
 tdarr_library_transcodes_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 150
 tdarr_library_transcodes_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 700
