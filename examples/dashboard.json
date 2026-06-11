@@ -4940,7 +4940,7 @@
           ],
           "title": "Node Paused",
           "type": "stat",
-          "description": "Whether the Tdarr node is paused. Paused = the node stops spawning new transcode/health-check workers (in-progress jobs may still finish). NO = actively processing."
+          "description": "Whether the Tdarr node is paused. Paused = the node stops spawning new transcode/health-check workers (in-progress jobs may still finish). NO = ready or actively processing."
         },
         {
           "datasource": {
@@ -5221,6 +5221,71 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "GPU device this node targets for transcodes, from the node's GPU config. Auto = Tdarr picks the GPU; any other value is the specific GPU the node is pinned to.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "displayName": "${__field.labels.gpu_select}",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 12,
+            "x": 0,
+            "y": 170
+          },
+          "id": 113,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "name",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "label_replace(tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}, \"gpu_select\", \"Auto\", \"gpu_select\", \"-\")",
+              "instant": true,
+              "legendFormat": "{{gpu_select}}",
+              "refId": "A"
+            }
+          ],
+          "title": "GPU Select",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "description": "If Node is GPU worker that has \"CPU Tasks\" enabled, \"CPU/GPU\" tasks will be the same",
           "fieldConfig": {
             "defaults": {
@@ -5268,8 +5333,8 @@
           },
           "gridPos": {
             "h": 4,
-            "w": 24,
-            "x": 0,
+            "w": 12,
+            "x": 12,
             "y": 170
           },
           "id": 27,
