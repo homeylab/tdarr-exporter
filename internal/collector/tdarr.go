@@ -206,17 +206,17 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		statsCache:          NewTdarrLibStatsCache(),
 		unknownStatusCounts: make(map[unknownStatusKey]float64),
 		totalFilesMetric: newGauge(
-			"files_total",
+			"files",
 			"Tdarr total file count - includes files in ignore lists within each library",
 			nil, instance,
 		),
-		totalTranscodeCount: newGauge(
-			"transcodes_total",
+		totalTranscodeCount: newCounter(
+			"transcodes_completed_total",
 			"Tdarr total transcode count for all libraries",
 			nil, instance,
 		),
-		totalHealthCheckCount: newGauge(
-			"health_checks_total",
+		totalHealthCheckCount: newCounter(
+			"health_checks_completed_total",
 			"Tdarr total health check count for all libraries",
 			nil, instance,
 		),
@@ -256,18 +256,18 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			[]string{"stat_type"}, instance,
 		),
 		pieNumFiles: newGauge(
-			"library_files_total",
+			"library_files",
 			"Tdarr total files in library",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumTranscodes: newGauge(
-			"library_transcodes_total",
-			"Tdarr total transcodes for library by status",
+		pieNumTranscodes: newCounter(
+			"library_transcodes_completed_total",
+			"Tdarr completed transcodes for a library, counted over its lifetime; increments each time a transcode alters a file (the same file can transcode again after a flow/process change), failed jobs excluded",
 			[]string{"library_name", "library_id"}, instance,
 		),
-		pieNumHealthChecks: newGauge(
-			"library_health_checks_total",
-			"Tdarr total health checks for library by status",
+		pieNumHealthChecks: newCounter(
+			"library_health_checks_completed_total",
+			"Tdarr completed health checks for a library, counted over its lifetime; increments each time a health check completes on a file, failed jobs excluded",
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieSizeDiff: newGauge(

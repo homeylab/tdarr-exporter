@@ -1104,14 +1104,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_files_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_files{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
             }
           ],
           "title": "Files by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Current number of files in the library."
         },
         {
           "datasource": {
@@ -1178,14 +1179,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_transcodes_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
             }
           ],
           "title": "Transcodes by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
         },
         {
           "datasource": {
@@ -1252,14 +1254,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_health_checks_total{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
             }
           ],
           "title": "Health Checks by Library",
-          "type": "bargauge"
+          "type": "bargauge",
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
         },
         {
           "datasource": {
@@ -1589,14 +1592,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_files_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_files{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "files",
               "refId": "A"
             }
           ],
           "title": "Total Files",
-          "type": "stat"
+          "type": "stat",
+          "description": "Current number of files in the library."
         },
         {
           "datasource": {
@@ -1652,14 +1656,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "transcodes",
               "refId": "A"
             }
           ],
           "title": "Total Transcodes",
-          "type": "stat"
+          "type": "stat",
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
         },
         {
           "datasource": {
@@ -1715,14 +1720,15 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "health checks",
               "refId": "A"
             }
           ],
           "title": "Total Health Checks",
-          "type": "stat"
+          "type": "stat",
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
         },
         {
           "datasource": {
@@ -1786,7 +1792,8 @@
             }
           ],
           "title": "Tdarr Score (%)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Percent of all media files successfully transcoded (successful ÷ total files)."
         },
         {
           "datasource": {
@@ -1850,7 +1857,8 @@
             }
           ],
           "title": "Health Check Score (%)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Percent of all media files successfully health-checked (successful ÷ total files)."
         },
         {
           "datasource": {
@@ -1914,7 +1922,8 @@
             }
           ],
           "title": "Size Difference (GB)",
-          "type": "stat"
+          "type": "stat",
+          "description": "Net file-size change from transcodes. Negative = space saved, positive = grew."
         },
         {
           "datasource": {
@@ -1981,7 +1990,8 @@
             }
           ],
           "title": "Transcode Errors",
-          "type": "stat"
+          "type": "stat",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
         },
         {
           "datasource": {
@@ -2048,7 +2058,8 @@
             }
           ],
           "title": "Health Check Errors",
-          "type": "stat"
+          "type": "stat",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
         },
         {
           "datasource": {
