@@ -37,7 +37,7 @@ tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",statu
 # TYPE tdarr_library_health_checks_completed_total counter
 tdarr_library_health_checks_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
 tdarr_library_health_checks_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
-# HELP tdarr_library_size_diff_gb Tdarr size difference (+/-) in GB for library
+# HELP tdarr_library_size_diff_gb Tdarr net file-size change in GB for library (positive = space saved, negative = grew); lifetime, includes files since deleted
 # TYPE tdarr_library_size_diff_gb gauge
 tdarr_library_size_diff_gb{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 15.5
 tdarr_library_size_diff_gb{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 30.25
@@ -182,15 +182,15 @@ tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_in
 # HELP tdarr_node_worker_plugin Tdarr node worker current plugin step (always 1; emitted only when plugin data is present)
 # TYPE tdarr_node_worker_plugin gauge
 tdarr_node_worker_plugin{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01",worker_plugin_id="Tdarr_Plugin_MC93_Migz1FFMPEG",worker_plugin_position="3"} 1
-# HELP tdarr_node_worker_start_timestamp_seconds Tdarr node worker current plugin step start time as Unix timestamp in seconds
-# TYPE tdarr_node_worker_start_timestamp_seconds gauge
-tdarr_node_worker_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09
 # HELP tdarr_node_worker_status Tdarr node worker current status (always 1; state carried in the worker_status label)
 # TYPE tdarr_node_worker_status gauge
 tdarr_node_worker_status{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01",worker_status="Transcoding"} 1
 # HELP tdarr_node_worker_status_timestamp_seconds Tdarr node worker last status update time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_status_timestamp_seconds gauge
 tdarr_node_worker_status_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.7000001e+09
+# HELP tdarr_node_worker_step_start_timestamp_seconds Tdarr node worker current processing step (plugin or flow) start time as Unix timestamp in seconds
+# TYPE tdarr_node_worker_step_start_timestamp_seconds gauge
+tdarr_node_worker_step_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09
 # HELP tdarr_score_pct Tdarr score percentage - how much of your libraries has been handled by tdarr
 # TYPE tdarr_score_pct gauge
 tdarr_score_pct{tdarr_instance="tdarr.localdomain"} 78.5
@@ -206,7 +206,7 @@ tdarr_server_status_info{status="good",tdarr_instance="tdarr.localdomain"} 1
 # HELP tdarr_server_uptime_seconds Tdarr server process uptime in seconds, as reported by /api/v2/status
 # TYPE tdarr_server_uptime_seconds gauge
 tdarr_server_uptime_seconds{tdarr_instance="tdarr.localdomain"} 45
-# HELP tdarr_size_diff_gb Tdarr size difference (+/-) in GB
+# HELP tdarr_size_diff_gb Tdarr net file-size change in GB across files currently present (positive = space saved, negative = grew); live, excludes deleted files
 # TYPE tdarr_size_diff_gb gauge
 tdarr_size_diff_gb{tdarr_instance="tdarr.localdomain"} 45.75
 # HELP tdarr_stream_stats_bit_rate Tdarr stream stats bit rate

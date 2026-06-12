@@ -1066,7 +1066,7 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 6,
             "x": 0,
             "y": 102
           },
@@ -1141,8 +1141,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
+            "w": 6,
+            "x": 6,
             "y": 102
           },
           "id": 48,
@@ -1216,8 +1216,8 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 16,
+            "w": 6,
+            "x": 12,
             "y": 102
           },
           "id": 49,
@@ -1262,6 +1262,82 @@
           "title": "Health Checks by Library",
           "type": "bargauge",
           "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "decgbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 18,
+            "y": 102
+          },
+          "id": 116,
+          "options": {
+            "displayMode": "gradient",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}))",
+              "instant": true,
+              "legendFormat": "{{library_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Size Diff by Library",
+          "type": "bargauge",
+          "description": "Lifetime net space saved per library. Positive = saved, negative = grew. Sticky - retains files since deleted. Live server total: see 'Size Difference (Server Total)'."
         },
         {
           "datasource": {
@@ -1522,6 +1598,71 @@
           ],
           "title": "Stream Stats Num Frames",
           "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "decgbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 118
+          },
+          "id": 117,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "server total",
+              "refId": "A"
+            }
+          ],
+          "title": "Size Difference (Server Total)",
+          "type": "stat",
+          "description": "Current net space saved across files on disk now. Positive = saved, negative = grew. Live - excludes deleted files, so lower than the sum of per-library values."
         }
       ],
       "title": "All Libraries",
@@ -1914,7 +2055,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "sum(tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "size diff",
               "refId": "A"
@@ -1922,7 +2063,7 @@
           ],
           "title": "Size Difference (GB)",
           "type": "stat",
-          "description": "Net file-size change from transcodes. Negative = space saved, positive = grew."
+          "description": "Lifetime net space saved for the selected library(ies). Positive = saved, negative = grew. Sticky - includes files since deleted. Server live-current total: see 'Size Difference (Server Total)'."
         },
         {
           "datasource": {
@@ -3054,6 +3195,18 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Step Start"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  }
+                ]
               }
             ]
           },
@@ -3210,6 +3363,18 @@
               "instant": true,
               "legendFormat": "",
               "refId": "L"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_step_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "M"
             }
           ],
           "title": "Flow Workers",
@@ -3242,7 +3407,8 @@
                     "Value #G",
                     "Value #H",
                     "Value #I",
-                    "Value #L"
+                    "Value #L",
+                    "Value #M"
                   ]
                 }
               }
@@ -3259,6 +3425,7 @@
                   "Value #F": 8,
                   "Value #G": 9,
                   "Value #H": 12,
+                  "Value #M": 13,
                   "Value #I": 11,
                   "Value #L": 18,
                   "compute_type": 14,
@@ -3268,7 +3435,7 @@
                   "worker_file": 10,
                   "worker_id": 1,
                   "worker_status": 6,
-                  "worker_type": 13
+                  "worker_type": 15
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -3278,6 +3445,7 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
+                  "Value #M": "Step Start",
                   "Value #I": "Last Status Update",
                   "Value #L": "Idle"
                 }
@@ -4024,6 +4192,18 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Step Start"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  }
+                ]
               }
             ]
           },
@@ -4192,6 +4372,18 @@
               "instant": true,
               "legendFormat": "",
               "refId": "L"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_step_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "M"
             }
           ],
           "title": "Classic Plugin Workers",
@@ -4226,7 +4418,8 @@
                     "Value #G",
                     "Value #H",
                     "Value #I",
-                    "Value #L"
+                    "Value #L",
+                    "Value #M"
                   ]
                 }
               }
@@ -4243,18 +4436,19 @@
                   "Value #F": 10,
                   "Value #G": 11,
                   "Value #H": 14,
+                  "Value #M": 15,
                   "Value #I": 13,
-                  "Value #L": 18,
-                  "compute_type": 16,
-                  "flow_worker": 17,
+                  "Value #L": 19,
+                  "compute_type": 17,
+                  "flow_worker": 18,
                   "node_name": 0,
-                  "worker_connected": 19,
+                  "worker_connected": 20,
                   "worker_file": 12,
                   "worker_id": 1,
                   "worker_plugin_id": 7,
                   "worker_plugin_position": 8,
                   "worker_status": 6,
-                  "worker_type": 15
+                  "worker_type": 16
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -4264,6 +4458,7 @@
                   "Value #F": "Est Size (GB)",
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
+                  "Value #M": "Step Start",
                   "Value #I": "Last Status Update",
                   "Value #L": "Idle"
                 }
@@ -5296,6 +5491,136 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Node scheduling priority from the node's config (the node_priority label on tdarr_node_info). Lower number = higher priority.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "displayName": "${__field.labels.node_priority}",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 5,
+            "x": 5,
+            "y": 1255
+          },
+          "id": 114,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "name",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "instant": true,
+              "legendFormat": "{{node_priority}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Node Priority",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "Time since this node's worker process last started.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 5,
+            "x": 10,
+            "y": 1255
+          },
+          "id": 115,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "value",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_node_uptime_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "instant": true,
+              "legendFormat": "{{node_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Node Uptime",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
           "description": "If Node is GPU worker that has \"CPU Tasks\" enabled, \"CPU/GPU\" tasks will be the same",
           "fieldConfig": {
             "defaults": {
@@ -5343,8 +5668,8 @@
           },
           "gridPos": {
             "h": 4,
-            "w": 19,
-            "x": 5,
+            "w": 9,
+            "x": 15,
             "y": 1255
           },
           "id": 27,
