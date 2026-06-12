@@ -769,7 +769,7 @@
             "h": 5,
             "w": 6,
             "x": 0,
-            "y": 6
+            "y": 118
           },
           "id": 101,
           "options": {
@@ -863,7 +863,7 @@
             "h": 5,
             "w": 6,
             "x": 6,
-            "y": 6
+            "y": 118
           },
           "id": 102,
           "options": {
@@ -924,7 +924,7 @@
             "h": 5,
             "w": 6,
             "x": 12,
-            "y": 6
+            "y": 118
           },
           "id": 65,
           "options": {
@@ -987,7 +987,7 @@
             "h": 5,
             "w": 6,
             "x": 18,
-            "y": 6
+            "y": 118
           },
           "id": 100,
           "options": {
@@ -1043,6 +1043,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Current number of files in the library.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1066,9 +1067,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 6,
             "x": 0,
-            "y": 102
+            "y": 3
           },
           "id": 47,
           "options": {
@@ -1110,14 +1111,14 @@
             }
           ],
           "title": "Files by Library",
-          "type": "bargauge",
-          "description": "Current number of files in the library."
+          "type": "bargauge"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1141,9 +1142,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 102
+            "w": 6,
+            "x": 6,
+            "y": 3
           },
           "id": 48,
           "options": {
@@ -1185,14 +1186,14 @@
             }
           ],
           "title": "Transcodes by Library",
-          "type": "bargauge",
-          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
+          "type": "bargauge"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1216,9 +1217,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 102
+            "w": 6,
+            "x": 12,
+            "y": 3
           },
           "id": 49,
           "options": {
@@ -1260,8 +1261,148 @@
             }
           ],
           "title": "Health Checks by Library",
-          "type": "bargauge",
-          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
+          "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Lifetime net space saved per library. Positive = saved, negative = grew. Includes size differences from any deleted or replaced files. Live server total: see 'Size Difference (Server Total)'.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "decgbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 18,
+            "y": 3
+          },
+          "id": 116,
+          "options": {
+            "displayMode": "gradient",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}))",
+              "instant": true,
+              "legendFormat": "{{library_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Size Diff by Library",
+          "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Current net space saved across files on disk now. Positive = saved, negative = grew. Live - excludes deleted files, so lower than the sum of per-library values.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "decgbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 5,
+            "x": 0,
+            "y": 107
+          },
+          "id": 117,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "server total",
+              "refId": "A"
+            }
+          ],
+          "title": "Size Difference (Server Total)",
+          "type": "stat"
         },
         {
           "datasource": {
@@ -1320,9 +1461,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 0,
-            "y": 110
+            "w": 7,
+            "x": 5,
+            "y": 107
           },
           "id": 37,
           "options": {
@@ -1413,9 +1554,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 110
+            "w": 7,
+            "x": 12,
+            "y": 107
           },
           "id": 38,
           "options": {
@@ -1477,9 +1618,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 110
+            "w": 5,
+            "x": 19,
+            "y": 107
           },
           "id": 50,
           "options": {
@@ -1542,6 +1683,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Current number of files in the library.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1563,7 +1705,7 @@
             "h": 4,
             "w": 4,
             "x": 0,
-            "y": 916
+            "y": 453
           },
           "id": 7,
           "options": {
@@ -1598,14 +1740,14 @@
             }
           ],
           "title": "Total Files",
-          "type": "stat",
-          "description": "Current number of files in the library."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1627,7 +1769,7 @@
             "h": 4,
             "w": 4,
             "x": 4,
-            "y": 916
+            "y": 453
           },
           "id": 8,
           "options": {
@@ -1662,14 +1804,14 @@
             }
           ],
           "title": "Total Transcodes",
-          "type": "stat",
-          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1691,7 +1833,7 @@
             "h": 4,
             "w": 4,
             "x": 8,
-            "y": 916
+            "y": 453
           },
           "id": 9,
           "options": {
@@ -1726,14 +1868,14 @@
             }
           ],
           "title": "Total Health Checks",
-          "type": "stat",
-          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Percent of all media files successfully transcoded (successful ÷ total files).",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1756,7 +1898,7 @@
             "h": 4,
             "w": 4,
             "x": 12,
-            "y": 916
+            "y": 453
           },
           "id": 11,
           "options": {
@@ -1791,14 +1933,14 @@
             }
           ],
           "title": "Tdarr Score (%)",
-          "type": "stat",
-          "description": "Percent of all media files successfully transcoded (successful ÷ total files)."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Percent of all media files successfully health-checked (successful ÷ total files).",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1821,7 +1963,7 @@
             "h": 4,
             "w": 4,
             "x": 16,
-            "y": 916
+            "y": 453
           },
           "id": 12,
           "options": {
@@ -1856,14 +1998,14 @@
             }
           ],
           "title": "Health Check Score (%)",
-          "type": "stat",
-          "description": "Percent of all media files successfully health-checked (successful ÷ total files)."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Lifetime net space saved for the selected library(ies). Positive = saved, negative = grew. Includes size differences from any deleted or replaced files. Server live-current total: see 'Size Difference (Server Total)'.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1886,7 +2028,7 @@
             "h": 4,
             "w": 4,
             "x": 20,
-            "y": 916
+            "y": 453
           },
           "id": 10,
           "options": {
@@ -1914,21 +2056,21 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "sum(tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "size diff",
               "refId": "A"
             }
           ],
           "title": "Size Difference (GB)",
-          "type": "stat",
-          "description": "Net file-size change from transcodes. Negative = space saved, positive = grew."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1954,7 +2096,7 @@
             "h": 4,
             "w": 4,
             "x": 0,
-            "y": 920
+            "y": 457
           },
           "id": 42,
           "options": {
@@ -1989,14 +2131,14 @@
             }
           ],
           "title": "Transcode Errors",
-          "type": "stat",
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
+          "type": "stat"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2022,7 +2164,7 @@
             "h": 4,
             "w": 4,
             "x": 4,
-            "y": 920
+            "y": 457
           },
           "id": 43,
           "options": {
@@ -2057,8 +2199,7 @@
             }
           ],
           "title": "Health Check Errors",
-          "type": "stat",
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total."
+          "type": "stat"
         },
         {
           "datasource": {
@@ -2086,7 +2227,7 @@
             "h": 4,
             "w": 4,
             "x": 8,
-            "y": 920
+            "y": 457
           },
           "id": 44,
           "options": {
@@ -2153,7 +2294,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 920
+            "y": 457
           },
           "id": 45,
           "options": {
@@ -2228,7 +2369,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 920
+            "y": 457
           },
           "id": 46,
           "options": {
@@ -2297,7 +2438,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 924
+            "y": 461
           },
           "id": 13,
           "options": {
@@ -2369,7 +2510,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 924
+            "y": 461
           },
           "id": 14,
           "options": {
@@ -2441,7 +2582,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 924
+            "y": 461
           },
           "id": 15,
           "options": {
@@ -2518,7 +2659,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 932
+            "y": 469
           },
           "id": 19,
           "options": {
@@ -2592,7 +2733,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 932
+            "y": 469
           },
           "id": 17,
           "options": {
@@ -2666,7 +2807,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 932
+            "y": 469
           },
           "id": 16,
           "options": {
@@ -2740,7 +2881,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 932
+            "y": 469
           },
           "id": 18,
           "options": {
@@ -3054,6 +3195,18 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Step Start"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  }
+                ]
               }
             ]
           },
@@ -3061,7 +3214,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 1141
+            "y": 5
           },
           "id": 29,
           "options": {
@@ -3210,6 +3363,18 @@
               "instant": true,
               "legendFormat": "",
               "refId": "L"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_step_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "M"
             }
           ],
           "title": "Flow Workers",
@@ -3242,7 +3407,8 @@
                     "Value #G",
                     "Value #H",
                     "Value #I",
-                    "Value #L"
+                    "Value #L",
+                    "Value #M"
                   ]
                 }
               }
@@ -3258,17 +3424,18 @@
                   "Value #E": 7,
                   "Value #F": 8,
                   "Value #G": 9,
-                  "Value #H": 12,
+                  "Value #H": 13,
                   "Value #I": 11,
                   "Value #L": 18,
-                  "compute_type": 14,
+                  "Value #M": 12,
+                  "compute_type": 15,
                   "flow_worker": 17,
                   "node_name": 0,
                   "worker_connected": 19,
                   "worker_file": 10,
                   "worker_id": 1,
                   "worker_status": 6,
-                  "worker_type": 13
+                  "worker_type": 14
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -3279,7 +3446,8 @@
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
                   "Value #I": "Last Status Update",
-                  "Value #L": "Idle"
+                  "Value #L": "Idle",
+                  "Value #M": "Step Start"
                 }
               }
             }
@@ -3549,7 +3717,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 1149
+            "y": 13
           },
           "id": 31,
           "options": {
@@ -4024,6 +4192,18 @@
                     ]
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Step Start"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dateTimeFromNow"
+                  }
+                ]
               }
             ]
           },
@@ -4031,7 +4211,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 1157
+            "y": 21
           },
           "id": 30,
           "options": {
@@ -4192,6 +4372,18 @@
               "instant": true,
               "legendFormat": "",
               "refId": "L"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (worker_id) (tdarr_node_worker_step_start_timestamp_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "",
+              "refId": "M"
             }
           ],
           "title": "Classic Plugin Workers",
@@ -4226,7 +4418,8 @@
                     "Value #G",
                     "Value #H",
                     "Value #I",
-                    "Value #L"
+                    "Value #L",
+                    "Value #M"
                   ]
                 }
               }
@@ -4242,19 +4435,20 @@
                   "Value #E": 9,
                   "Value #F": 10,
                   "Value #G": 11,
-                  "Value #H": 14,
+                  "Value #H": 15,
                   "Value #I": 13,
-                  "Value #L": 18,
-                  "compute_type": 16,
-                  "flow_worker": 17,
+                  "Value #L": 19,
+                  "Value #M": 14,
+                  "compute_type": 17,
+                  "flow_worker": 18,
                   "node_name": 0,
-                  "worker_connected": 19,
+                  "worker_connected": 20,
                   "worker_file": 12,
                   "worker_id": 1,
                   "worker_plugin_id": 7,
                   "worker_plugin_position": 8,
                   "worker_status": 6,
-                  "worker_type": 15
+                  "worker_type": 16
                 },
                 "renameByName": {
                   "Value #B": "Progress %",
@@ -4265,7 +4459,8 @@
                   "Value #G": "Out Size (GB)",
                   "Value #H": "Job Start",
                   "Value #I": "Last Status Update",
-                  "Value #L": "Idle"
+                  "Value #L": "Idle",
+                  "Value #M": "Step Start"
                 }
               }
             }
@@ -4346,7 +4541,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 1234
+            "y": 118
           },
           "id": 33,
           "options": {
@@ -4440,7 +4635,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 1234
+            "y": 118
           },
           "id": 34,
           "options": {
@@ -4535,7 +4730,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 1234
+            "y": 118
           },
           "id": 35,
           "options": {
@@ -4630,7 +4825,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 1242
+            "y": 126
           },
           "id": 56,
           "options": {
@@ -4725,7 +4920,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 1242
+            "y": 126
           },
           "id": 57,
           "options": {
@@ -4820,7 +5015,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 1242
+            "y": 126
           },
           "id": 58,
           "options": {
@@ -4915,7 +5110,7 @@
             "h": 4,
             "w": 5,
             "x": 0,
-            "y": 1251
+            "y": 520
           },
           "id": 21,
           "options": {
@@ -4998,7 +5193,7 @@
             "h": 4,
             "w": 4,
             "x": 5,
-            "y": 1251
+            "y": 520
           },
           "id": 22,
           "options": {
@@ -5040,11 +5235,78 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Time since this node's worker process last started.",
           "fieldConfig": {
             "defaults": {
               "color": {
                 "mode": "thresholds"
               },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 5,
+            "x": 9,
+            "y": 520
+          },
+          "id": 115,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "value",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_node_uptime_seconds{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "instant": true,
+              "legendFormat": "{{node_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Node Uptime",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "GPU device this node targets for transcodes, from the node's GPU config. Auto = Tdarr picks the GPU; any other value is the specific GPU the node is pinned to.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "displayName": "${__field.labels.gpu_select}",
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -5060,10 +5322,10 @@
           "gridPos": {
             "h": 4,
             "w": 5,
-            "x": 9,
-            "y": 1251
+            "x": 14,
+            "y": 520
           },
-          "id": 23,
+          "id": 113,
           "options": {
             "colorMode": "value",
             "graphMode": "none",
@@ -5078,7 +5340,7 @@
               "values": false
             },
             "showPercentChange": false,
-            "textMode": "auto",
+            "textMode": "name",
             "wideLayout": true
           },
           "pluginVersion": "12.0.1",
@@ -5089,13 +5351,142 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_max_gpu_workers{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "label_replace(tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}, \"gpu_select\", \"Auto\", \"gpu_select\", \"-\")",
               "instant": true,
-              "legendFormat": "{{node_name}}",
+              "legendFormat": "{{gpu_select}}",
               "refId": "A"
             }
           ],
-          "title": "Max GPU Workers",
+          "title": "GPU Select",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "displayName": "ID: ${__field.labels.node_id} | PID: ${__field.labels.node_pid}",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 5,
+            "x": 19,
+            "y": 520
+          },
+          "id": 25,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "name",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "instant": true,
+              "legendFormat": " ID: {{node_id}} | PID: {{node_pid}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Node ID / PID",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "Node scheduling priority from the node's config (the node_priority label on tdarr_node_info). Lower number = higher priority.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "displayName": "${__field.labels.node_priority}",
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 5,
+            "x": 0,
+            "y": 524
+          },
+          "id": 114,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "name",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "instant": true,
+              "legendFormat": "{{node_priority}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Node Priority",
           "type": "stat"
         },
         {
@@ -5124,8 +5515,8 @@
           "gridPos": {
             "h": 4,
             "w": 5,
-            "x": 14,
-            "y": 1251
+            "x": 5,
+            "y": 524
           },
           "id": 24,
           "options": {
@@ -5172,7 +5563,6 @@
               "color": {
                 "mode": "thresholds"
               },
-              "displayName": "ID: ${__field.labels.node_id} | PID: ${__field.labels.node_pid}",
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -5188,10 +5578,10 @@
           "gridPos": {
             "h": 4,
             "w": 5,
-            "x": 19,
-            "y": 1251
+            "x": 10,
+            "y": 524
           },
-          "id": 25,
+          "id": 23,
           "options": {
             "colorMode": "value",
             "graphMode": "none",
@@ -5206,7 +5596,7 @@
               "values": false
             },
             "showPercentChange": false,
-            "textMode": "name",
+            "textMode": "auto",
             "wideLayout": true
           },
           "pluginVersion": "12.0.1",
@@ -5217,78 +5607,13 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_max_gpu_workers{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": true,
-              "legendFormat": " ID: {{node_id}} | PID: {{node_pid}}",
+              "legendFormat": "{{node_name}}",
               "refId": "A"
             }
           ],
-          "title": "Node ID / PID",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "GPU device this node targets for transcodes, from the node's GPU config. Auto = Tdarr picks the GPU; any other value is the specific GPU the node is pinned to.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "displayName": "${__field.labels.gpu_select}",
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 5,
-            "x": 0,
-            "y": 1255
-          },
-          "id": 113,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "center",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "name",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${datasource}"
-              },
-              "editorMode": "code",
-              "expr": "label_replace(tdarr_node_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}, \"gpu_select\", \"Auto\", \"gpu_select\", \"-\")",
-              "instant": true,
-              "legendFormat": "{{gpu_select}}",
-              "refId": "A"
-            }
-          ],
-          "title": "GPU Select",
+          "title": "Max GPU Workers",
           "type": "stat"
         },
         {
@@ -5343,9 +5668,9 @@
           },
           "gridPos": {
             "h": 4,
-            "w": 19,
-            "x": 5,
-            "y": 1255
+            "w": 9,
+            "x": 15,
+            "y": 524
           },
           "id": 27,
           "options": {
@@ -5414,7 +5739,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 1259
+            "y": 528
           },
           "id": 26,
           "options": {
@@ -5489,7 +5814,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 1259
+            "y": 528
           },
           "id": 60,
           "options": {
@@ -5603,7 +5928,7 @@
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 1265
+            "y": 534
           },
           "id": 51,
           "options": {
@@ -5697,7 +6022,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 1265
+            "y": 534
           },
           "id": 52,
           "options": {
@@ -5803,7 +6128,7 @@
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 1265
+            "y": 534
           },
           "id": 53,
           "options": {
@@ -5959,7 +6284,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 8
+            "y": 541
           },
           "id": 55,
           "options": {
@@ -6090,7 +6415,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 9
+            "y": 542
           },
           "id": 105,
           "options": {
@@ -6184,7 +6509,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 9
+            "y": 542
           },
           "id": 106,
           "options": {
@@ -6278,7 +6603,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 550
           },
           "id": 107,
           "options": {
@@ -6372,7 +6697,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 550
           },
           "id": 108,
           "options": {
@@ -6466,7 +6791,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 25
+            "y": 558
           },
           "id": 109,
           "options": {
@@ -6548,7 +6873,7 @@
             "h": 8,
             "w": 4,
             "x": 8,
-            "y": 25
+            "y": 558
           },
           "id": 112,
           "options": {
@@ -6645,7 +6970,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 25
+            "y": 558
           },
           "id": 110,
           "options": {
@@ -6776,6 +7101,6 @@
   "timezone": "browser",
   "title": "Tdarr",
   "uid": "7d103297-1876-4d26-8e2a-a02e119fb36e",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

@@ -222,7 +222,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		),
 		sizeDiff: newGauge(
 			"size_diff_gb",
-			"Tdarr size difference (+/-) in GB",
+			"Tdarr net file-size change in GB across files currently present (positive = space saved, negative = grew); live, excludes deleted files",
 			nil, instance,
 		),
 		tdarrScore: newGauge(
@@ -272,7 +272,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		),
 		pieSizeDiff: newGauge(
 			"library_size_diff_gb",
-			"Tdarr size difference (+/-) in GB for library",
+			"Tdarr net file-size change in GB for library (positive = space saved, negative = grew); lifetime, includes files since deleted",
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieTranscodes: newGauge(
@@ -860,7 +860,7 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 				worker.EstSizeGb, node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerJobStartTimestamp.mustNewConstMetric(
 				float64(worker.Job.StartTime), node.Id, node.Name, worker.Id)
-			ch <- m.nodeWorkerStartTimestamp.mustNewConstMetric(
+			ch <- m.nodeWorkerStepStartTimestamp.mustNewConstMetric(
 				float64(worker.StartTime), node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerStatusTimestamp.mustNewConstMetric(
 				float64(worker.StatusTs), node.Id, node.Name, worker.Id)

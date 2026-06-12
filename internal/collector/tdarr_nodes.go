@@ -88,7 +88,7 @@ type TdarrNodeMetrics struct {
 	nodeWorkerOutputFileSizeGb   typedDesc
 	nodeWorkerEstFileSizeGb      typedDesc
 	nodeWorkerJobStartTimestamp  typedDesc
-	nodeWorkerStartTimestamp     typedDesc
+	nodeWorkerStepStartTimestamp typedDesc
 	nodeWorkerStatusTimestamp    typedDesc
 	nodeWorkerEtaSeconds         typedDesc
 }
@@ -231,9 +231,9 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node worker job start time as Unix timestamp in seconds",
 			workerLabelPair, instance,
 		),
-		nodeWorkerStartTimestamp: newGauge(
-			"node_worker_start_timestamp_seconds",
-			"Tdarr node worker current plugin step start time as Unix timestamp in seconds",
+		nodeWorkerStepStartTimestamp: newGauge(
+			"node_worker_step_start_timestamp_seconds",
+			"Tdarr node worker current processing step (plugin or flow) start time as Unix timestamp in seconds",
 			workerLabelPair, instance,
 		),
 		nodeWorkerStatusTimestamp: newGauge(
@@ -277,7 +277,7 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeWorkerOutputFileSizeGb,
 		m.nodeWorkerEstFileSizeGb,
 		m.nodeWorkerJobStartTimestamp,
-		m.nodeWorkerStartTimestamp,
+		m.nodeWorkerStepStartTimestamp,
 		m.nodeWorkerStatusTimestamp,
 		m.nodeWorkerEtaSeconds,
 	}
