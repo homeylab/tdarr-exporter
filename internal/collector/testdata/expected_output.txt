@@ -37,10 +37,10 @@ tdarr_library_health_checks{library_id="lib-video-01",library_name="Shows",statu
 # TYPE tdarr_library_health_checks_completed_total counter
 tdarr_library_health_checks_completed_total{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 450
 tdarr_library_health_checks_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 950
-# HELP tdarr_library_size_diff_gb Tdarr net file-size change in GB for library (positive = space saved, negative = grew); lifetime, includes files since deleted
-# TYPE tdarr_library_size_diff_gb gauge
-tdarr_library_size_diff_gb{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 15.5
-tdarr_library_size_diff_gb{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 30.25
+# HELP tdarr_library_size_diff_bytes Tdarr net file-size change in bytes for library (positive = space saved, negative = grew); lifetime, includes files since deleted
+# TYPE tdarr_library_size_diff_bytes gauge
+tdarr_library_size_diff_bytes{library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 1.6642998272e+10
+tdarr_library_size_diff_bytes{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 3.2480690176e+10
 # HELP tdarr_library_transcodes Tdarr transcodes for library by status
 # TYPE tdarr_library_transcodes gauge
 tdarr_library_transcodes{library_id="lib-audio-01",library_name="Music",status="cancelled",tdarr_instance="tdarr.localdomain"} 0
@@ -64,11 +64,11 @@ tdarr_library_transcodes_completed_total{library_id="lib-audio-01",library_name=
 tdarr_library_transcodes_completed_total{library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 700
 # HELP tdarr_library_video_codecs Tdarr video codecs for library by type
 # TYPE tdarr_library_video_codecs gauge
+tdarr_library_video_codecs{codec="av1",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 10
 tdarr_library_video_codecs{codec="h264",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 20
 tdarr_library_video_codecs{codec="h264",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 370
 tdarr_library_video_codecs{codec="hevc",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 480
 tdarr_library_video_codecs{codec="hevc",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 620
-tdarr_library_video_codecs{codec="av1",library_id="lib-video-01",library_name="Shows",tdarr_instance="tdarr.localdomain"} 10
 # HELP tdarr_library_video_containers Tdarr video containers for library by type
 # TYPE tdarr_library_video_containers gauge
 tdarr_library_video_containers{container_type="mkv",library_id="lib-audio-01",library_name="Music",tdarr_instance="tdarr.localdomain"} 490
@@ -82,30 +82,30 @@ tdarr_library_video_resolutions{library_id="lib-audio-01",library_name="Music",r
 tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="1080p",tdarr_instance="tdarr.localdomain"} 700
 tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="4kuhd",tdarr_instance="tdarr.localdomain"} 200
 tdarr_library_video_resolutions{library_id="lib-video-01",library_name="Shows",resolution="720p",tdarr_instance="tdarr.localdomain"} 100
-# HELP tdarr_node_heap_total_mb Tdarr node heap total in MB
-# TYPE tdarr_node_heap_total_mb gauge
-tdarr_node_heap_total_mb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 128
-tdarr_node_heap_total_mb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 64
-# HELP tdarr_node_heap_used_mb Tdarr node heap used in MB
-# TYPE tdarr_node_heap_used_mb gauge
-tdarr_node_heap_used_mb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 72.8
-tdarr_node_heap_used_mb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 45.3
+# HELP tdarr_node_heap_total_bytes Tdarr node heap total in bytes
+# TYPE tdarr_node_heap_total_bytes gauge
+tdarr_node_heap_total_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1.34217728e+08
+tdarr_node_heap_total_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 6.7108864e+07
+# HELP tdarr_node_heap_used_bytes Tdarr node heap used in bytes
+# TYPE tdarr_node_heap_used_bytes gauge
+tdarr_node_heap_used_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 7.63363328e+07
+tdarr_node_heap_used_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 4.75004928e+07
 # HELP tdarr_node_host_cpu_percent Tdarr node cpu percent used
 # TYPE tdarr_node_host_cpu_percent gauge
 tdarr_node_host_cpu_percent{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 85.4
 tdarr_node_host_cpu_percent{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.1
-# HELP tdarr_node_host_mem_total_gb Total memory in GB for host that Tdarr node is running on
-# TYPE tdarr_node_host_mem_total_gb gauge
-tdarr_node_host_mem_total_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 16
-tdarr_node_host_mem_total_gb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 8
-# HELP tdarr_node_host_mem_used_gb Memory used in GB for host that Tdarr node is running on
-# TYPE tdarr_node_host_mem_used_gb gauge
-tdarr_node_host_mem_used_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 6.2
-tdarr_node_host_mem_used_gb{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.5
+# HELP tdarr_node_host_mem_total_bytes Total memory in bytes for host that Tdarr node is running on
+# TYPE tdarr_node_host_mem_total_bytes gauge
+tdarr_node_host_mem_total_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1.7179869184e+10
+tdarr_node_host_mem_total_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 8.589934592e+09
+# HELP tdarr_node_host_mem_used_bytes Memory used in bytes for host that Tdarr node is running on
+# TYPE tdarr_node_host_mem_used_bytes gauge
+tdarr_node_host_mem_used_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 6.6571993088e+09
+tdarr_node_host_mem_used_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.68435456e+09
 # HELP tdarr_node_info Tdarr node identity information
 # TYPE tdarr_node_info gauge
-tdarr_node_info{gpu_can_do_cpu="true",gpu_select="nvidia:0",node_id="node-busy-1",node_name="BusyNode",node_pid="2001",node_priority="1",tdarr_instance="tdarr.localdomain"} 1
 tdarr_node_info{gpu_can_do_cpu="false",gpu_select="-",node_id="node-idle-1",node_name="IdleNode",node_pid="1001",node_priority="0",tdarr_instance="tdarr.localdomain"} 1
+tdarr_node_info{gpu_can_do_cpu="true",gpu_select="nvidia:0",node_id="node-busy-1",node_name="BusyNode",node_pid="2001",node_priority="1",tdarr_instance="tdarr.localdomain"} 1
 # HELP tdarr_node_max_gpu_workers Maximum number of GPU workers configured for the Tdarr node
 # TYPE tdarr_node_max_gpu_workers gauge
 tdarr_node_max_gpu_workers{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1
@@ -118,10 +118,10 @@ tdarr_node_paused{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tda
 # TYPE tdarr_node_queue_length gauge
 tdarr_node_queue_length{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
 tdarr_node_queue_length{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 3
-tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
-tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
 tdarr_node_queue_length{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_queue_length{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_queue_length{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
 tdarr_node_queue_length{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_queue_length{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
 # HELP tdarr_node_schedule_enabled 1 if scheduled operation is enabled on the Tdarr node, 0 otherwise
@@ -136,15 +136,15 @@ tdarr_node_uptime_seconds{node_id="node-idle-1",node_name="IdleNode",tdarr_insta
 # TYPE tdarr_node_worker_count gauge
 tdarr_node_worker_count{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_worker_count{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 1
-tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
-tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
 tdarr_node_worker_count{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_worker_count{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
+tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_count{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
 tdarr_node_worker_count{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_worker_count{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
-# HELP tdarr_node_worker_est_file_size_gb Tdarr node worker estimated output file size in GB
-# TYPE tdarr_node_worker_est_file_size_gb gauge
-tdarr_node_worker_est_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.2
+# HELP tdarr_node_worker_est_file_size_bytes Tdarr node worker estimated output file size in bytes
+# TYPE tdarr_node_worker_est_file_size_bytes gauge
+tdarr_node_worker_est_file_size_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.5097156608e+09
 # HELP tdarr_node_worker_eta_seconds Tdarr node worker estimated time remaining in seconds
 # TYPE tdarr_node_worker_eta_seconds gauge
 tdarr_node_worker_eta_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 90
@@ -164,18 +164,18 @@ tdarr_node_worker_job_start_timestamp_seconds{node_id="node-busy-1",node_name="B
 # TYPE tdarr_node_worker_limit gauge
 tdarr_node_worker_limit{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
 tdarr_node_worker_limit{compute_type="cpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 2
-tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
-tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 1
 tdarr_node_worker_limit{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 1
 tdarr_node_worker_limit{compute_type="cpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 2
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
+tdarr_node_worker_limit{compute_type="gpu",node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 1
 tdarr_node_worker_limit{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="healthcheck"} 0
 tdarr_node_worker_limit{compute_type="gpu",node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain",worker_type="transcode"} 0
-# HELP tdarr_node_worker_original_file_size_gb Tdarr node worker original file size in GB
-# TYPE tdarr_node_worker_original_file_size_gb gauge
-tdarr_node_worker_original_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.5
-# HELP tdarr_node_worker_output_file_size_gb Tdarr node worker current output file size in GB
-# TYPE tdarr_node_worker_output_file_size_gb gauge
-tdarr_node_worker_output_file_size_gb{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 2.1
+# HELP tdarr_node_worker_original_file_size_bytes Tdarr node worker original file size in bytes
+# TYPE tdarr_node_worker_original_file_size_bytes gauge
+tdarr_node_worker_original_file_size_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 4.831838208e+09
+# HELP tdarr_node_worker_output_file_size_bytes Tdarr node worker current output file size in bytes
+# TYPE tdarr_node_worker_output_file_size_bytes gauge
+tdarr_node_worker_output_file_size_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 2.2548578304e+09
 # HELP tdarr_node_worker_percentage Tdarr node worker transcode/healthcheck progress percentage
 # TYPE tdarr_node_worker_percentage gauge
 tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 45.75
@@ -206,20 +206,20 @@ tdarr_server_status_info{status="good",tdarr_instance="tdarr.localdomain"} 1
 # HELP tdarr_server_uptime_seconds Tdarr server process uptime in seconds, as reported by /api/v2/status
 # TYPE tdarr_server_uptime_seconds gauge
 tdarr_server_uptime_seconds{tdarr_instance="tdarr.localdomain"} 45
-# HELP tdarr_size_diff_gb Tdarr net file-size change in GB across files currently present (positive = space saved, negative = grew); live, excludes deleted files
-# TYPE tdarr_size_diff_gb gauge
-tdarr_size_diff_gb{tdarr_instance="tdarr.localdomain"} 45.75
-# HELP tdarr_stream_stats_bit_rate Tdarr stream stats bit rate
+# HELP tdarr_size_diff_bytes Tdarr net file-size change in bytes across files currently present (positive = space saved, negative = grew); live, excludes deleted files
+# TYPE tdarr_size_diff_bytes gauge
+tdarr_size_diff_bytes{tdarr_instance="tdarr.localdomain"} 4.9123688448e+10
+# HELP tdarr_stream_stats_bit_rate Tdarr server-wide stream bit rate in bits per second; stat_type is average/highest/total aggregated across scanned media
 # TYPE tdarr_stream_stats_bit_rate gauge
 tdarr_stream_stats_bit_rate{stat_type="average",tdarr_instance="tdarr.localdomain"} 3.5e+06
 tdarr_stream_stats_bit_rate{stat_type="highest",tdarr_instance="tdarr.localdomain"} 2e+07
 tdarr_stream_stats_bit_rate{stat_type="total",tdarr_instance="tdarr.localdomain"} 1.75e+09
-# HELP tdarr_stream_stats_duration Tdarr stream stats duration
-# TYPE tdarr_stream_stats_duration gauge
-tdarr_stream_stats_duration{stat_type="average",tdarr_instance="tdarr.localdomain"} 2400
-tdarr_stream_stats_duration{stat_type="highest",tdarr_instance="tdarr.localdomain"} 9000
-tdarr_stream_stats_duration{stat_type="total",tdarr_instance="tdarr.localdomain"} 1.2e+06
-# HELP tdarr_stream_stats_num_frames Tdarr stream stats number of frames
+# HELP tdarr_stream_stats_duration_seconds Tdarr server-wide stream duration in seconds; stat_type is average/highest/total aggregated across scanned media
+# TYPE tdarr_stream_stats_duration_seconds gauge
+tdarr_stream_stats_duration_seconds{stat_type="average",tdarr_instance="tdarr.localdomain"} 2400
+tdarr_stream_stats_duration_seconds{stat_type="highest",tdarr_instance="tdarr.localdomain"} 9000
+tdarr_stream_stats_duration_seconds{stat_type="total",tdarr_instance="tdarr.localdomain"} 1.2e+06
+# HELP tdarr_stream_stats_num_frames Tdarr server-wide stream frame count; stat_type is average/highest/total aggregated across scanned media
 # TYPE tdarr_stream_stats_num_frames gauge
 tdarr_stream_stats_num_frames{stat_type="average",tdarr_instance="tdarr.localdomain"} 57600
 tdarr_stream_stats_num_frames{stat_type="highest",tdarr_instance="tdarr.localdomain"} 216000

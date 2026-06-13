@@ -308,9 +308,9 @@ func TestEmitPieMetrics(t *testing.T) {
 		map[string]string{"library_name": "Music", "library_id": "lib-audio-01"}).value; got != 12 {
 		t.Errorf("library_files = %v, want 12", got)
 	}
-	if got := findOne(t, samples, "tdarr_library_size_diff_gb",
-		map[string]string{"library_id": "lib-audio-01"}).value; got != -1.5 {
-		t.Errorf("size_diff = %v, want -1.5", got)
+	if got := findOne(t, samples, "tdarr_library_size_diff_bytes",
+		map[string]string{"library_id": "lib-audio-01"}).value; got != -1.5*bytesPerGB {
+		t.Errorf("size_diff = %v, want %v", got, -1.5*bytesPerGB)
 	}
 
 	// normalized status maps emit one series per key
@@ -452,17 +452,17 @@ func TestEmitNodeMetrics(t *testing.T) {
 	}
 
 	// resource stats: busy node parses all; idle node's heap-used is unparseable -> absent.
-	if got := findOne(t, samples, "tdarr_node_heap_used_mb", busyL).value; got != 128.5 {
-		t.Errorf("busy heap_used = %v, want 128.5", got)
+	if got := findOne(t, samples, "tdarr_node_heap_used_bytes", busyL).value; got != 128.5*bytesPerMB {
+		t.Errorf("busy heap_used_bytes = %v, want %v", got, 128.5*bytesPerMB)
 	}
 	// idle node heap-used must be skipped (unparseable), but heap-total (parseable) present.
 	for _, s := range samples {
-		if s.fqName == "tdarr_node_heap_used_mb" && s.labels["node_id"] == "node-idle" {
-			t.Errorf("idle node heap_used_mb should be skipped (unparseable), but was emitted: %v", s.value)
+		if s.fqName == "tdarr_node_heap_used_bytes" && s.labels["node_id"] == "node-idle" {
+			t.Errorf("idle node heap_used_bytes should be skipped (unparseable), but was emitted: %v", s.value)
 		}
 	}
-	if got := findOne(t, samples, "tdarr_node_heap_total_mb", idleL).value; got != 64.0 {
-		t.Errorf("idle heap_total = %v, want 64.0", got)
+	if got := findOne(t, samples, "tdarr_node_heap_total_bytes", idleL).value; got != 64.0*bytesPerMB {
+		t.Errorf("idle heap_total_bytes = %v, want %v", got, 64.0*bytesPerMB)
 	}
 	if got := findOne(t, samples, "tdarr_node_host_cpu_percent", busyL).value; got != 42.0 {
 		t.Errorf("busy cpu_percent = %v, want 42.0", got)
@@ -563,12 +563,12 @@ func TestEmitGeneralMetrics(t *testing.T) {
 	if got := findOne(t, samples, "tdarr_health_check_score_pct", map[string]string{}).value; got != 77.0 {
 		t.Errorf("health_check_score_pct = %v, want 77.0", got)
 	}
-	if got := findOne(t, samples, "tdarr_size_diff_gb", map[string]string{}).value; got != 12.5 {
-		t.Errorf("size_diff_gb = %v, want 12.5", got)
+	if got := findOne(t, samples, "tdarr_size_diff_bytes", map[string]string{}).value; got != 12.5*bytesPerGB {
+		t.Errorf("size_diff_bytes = %v, want %v", got, 12.5*bytesPerGB)
 	}
 	// stream stats: 3 stat_type series each for duration/bit_rate/num_frames.
-	if n := countByName(samples, "tdarr_stream_stats_duration"); n != 3 {
-		t.Errorf("stream_stats_duration series = %d, want 3", n)
+	if n := countByName(samples, "tdarr_stream_stats_duration_seconds"); n != 3 {
+		t.Errorf("stream_stats_duration_seconds series = %d, want 3", n)
 	}
 	if got := findOne(t, samples, "tdarr_stream_stats_bit_rate",
 		map[string]string{"stat_type": "total"}).value; got != 6 {

@@ -25,6 +25,8 @@ vars:
     sh: git rev-parse HEAD
   BUILDTIME:
     sh: date -u +%Y-%m-%dT%H:%M:%SZ
+  # Set to 'true' to enable pushing built image (used by --output push flag)
+  PUSH: 'false'
 
 tasks:
   dev:
@@ -101,6 +103,9 @@ tasks:
     desc: Build image for local platform only (linux/amd64 or linux/arm64) without pushing
     cmds:
       - docker build
+          {{- if eq .PUSH "true" }}
+          --output "type=image,push=true"
+          {{- end }}
           --build-arg BASE_IMAGE={{.BASE_IMAGE}}
           --build-arg BASE_IMAGE_TAG={{.BASE_IMAGE_TAG}}
           --build-arg RUN_IMAGE={{.RUN_IMAGE}}
