@@ -381,7 +381,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Filters by Prometheus job, not tdarr_instance \u2014 multi-deployment users may see all jobs.",
+          "description": "Filters by Prometheus job, not tdarr_instance — multi-deployment users may see all jobs.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -465,7 +465,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Custom gauge \u2014 1 if the last collection cycle succeeded, 0 if any failure occurred (Tdarr API error, response parse error, or partial pie-stats fetch). Check exporter logs for root cause when 0.",
+          "description": "Custom gauge — 1 if the last collection cycle succeeded, 0 if any failure occurred (Tdarr API error, response parse error, or partial pie-stats fetch). Check exporter logs for root cause when 0.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -738,7 +738,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -769,7 +769,7 @@
             "h": 5,
             "w": 6,
             "x": 0,
-            "y": 118
+            "y": 272
           },
           "id": 101,
           "options": {
@@ -832,7 +832,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -863,7 +863,7 @@
             "h": 5,
             "w": 6,
             "x": 6,
-            "y": 118
+            "y": 272
           },
           "id": 102,
           "options": {
@@ -924,7 +924,7 @@
             "h": 5,
             "w": 6,
             "x": 12,
-            "y": 118
+            "y": 272
           },
           "id": 65,
           "options": {
@@ -987,7 +987,7 @@
             "h": 5,
             "w": 6,
             "x": 18,
-            "y": 118
+            "y": 272
           },
           "id": 100,
           "options": {
@@ -1043,6 +1043,458 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "description": "Percent of all media files successfully transcoded (successful ÷ total files).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 0,
+            "y": 3
+          },
+          "id": 11,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "tdarr score",
+              "refId": "A"
+            }
+          ],
+          "title": "Tdarr Score (%)",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 3,
+            "y": 3
+          },
+          "id": 42,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_transcodes{tdarr_instance=~\"$tdarr_instance\", status=\"error\"}) by (tdarr_instance)",
+              "instant": true,
+              "legendFormat": "transcode errors",
+              "refId": "A"
+            }
+          ],
+          "title": "Transcode Errors",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 20,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 2,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 9,
+            "x": 6,
+            "y": 3
+          },
+          "id": 37,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (status) (tdarr_library_transcodes{tdarr_instance=~\"$tdarr_instance\"})",
+              "instant": false,
+              "legendFormat": "{{status}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Transcode Status Over Time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 20,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 2,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 9,
+            "x": 15,
+            "y": 3
+          },
+          "id": 38,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (status) (tdarr_library_health_checks{tdarr_instance=~\"$tdarr_instance\"})",
+              "instant": false,
+              "legendFormat": "{{status}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Health Check Status Over Time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Percent of all media files successfully health-checked (successful ÷ total files).",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 0,
+            "y": 7
+          },
+          "id": 12,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_health_check_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "health check score",
+              "refId": "A"
+            }
+          ],
+          "title": "Health Check Score (%)",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 3,
+            "x": 3,
+            "y": 7
+          },
+          "id": 43,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_health_checks{tdarr_instance=~\"$tdarr_instance\", status=\"error\"}) by (tdarr_instance)",
+              "instant": true,
+              "legendFormat": "health check errors",
+              "refId": "A"
+            }
+          ],
+          "title": "Health Check Errors",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "description": "Current number of files in the library.",
           "fieldConfig": {
             "defaults": {
@@ -1069,7 +1521,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 3
+            "y": 11
           },
           "id": 47,
           "options": {
@@ -1144,7 +1596,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 3
+            "y": 11
           },
           "id": 48,
           "options": {
@@ -1219,7 +1671,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 3
+            "y": 11
           },
           "id": 49,
           "options": {
@@ -1295,7 +1747,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 3
+            "y": 11
           },
           "id": 116,
           "options": {
@@ -1364,10 +1816,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 8,
-            "w": 5,
+            "h": 6,
+            "w": 4,
             "x": 0,
-            "y": 107
+            "y": 19
           },
           "id": 117,
           "options": {
@@ -1414,192 +1866,6 @@
               "color": {
                 "mode": "palette-classic"
               },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 20,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 2,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 7,
-            "x": 5,
-            "y": 107
-          },
-          "id": 37,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "hideZeros": false,
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (status) (tdarr_library_transcodes{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": false,
-              "legendFormat": "{{status}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Transcode Status Over Time",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 20,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 2,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 7,
-            "x": 12,
-            "y": 107
-          },
-          "id": 38,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "hideZeros": false,
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (status) (tdarr_library_health_checks{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": false,
-              "legendFormat": "{{status}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Health Check Status Over Time",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -1617,684 +1883,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 8,
-            "w": 5,
-            "x": 19,
-            "y": 107
-          },
-          "id": 50,
-          "options": {
-            "displayMode": "gradient",
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "maxVizHeight": 300,
-            "minVizHeight": 10,
-            "minVizWidth": 0,
-            "namePlacement": "auto",
-            "orientation": "horizontal",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showUnfilled": true,
-            "sizing": "auto",
-            "valueMode": "color"
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (stat_type) (tdarr_stream_stats_num_frames{tdarr_instance=~\"$tdarr_instance\"})",
-              "instant": true,
-              "legendFormat": "{{stat_type}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Stream Stats Num Frames",
-          "type": "bargauge"
-        }
-      ],
-      "title": "All Libraries",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 3
-      },
-      "id": 6,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Current number of files in the library.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 453
-          },
-          "id": 7,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_files{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": true,
-              "legendFormat": "files",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Files",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 4,
-            "y": 453
-          },
-          "id": 8,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": true,
-              "legendFormat": "transcodes",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Transcodes",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 8,
-            "y": 453
-          },
-          "id": 9,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": true,
-              "legendFormat": "health checks",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Health Checks",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Percent of all media files successfully transcoded (successful \u00f7 total files).",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              },
-              "unit": "percentunit"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 12,
-            "y": 453
-          },
-          "id": 11,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "tdarr_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
-              "instant": true,
-              "legendFormat": "tdarr score",
-              "refId": "A"
-            }
-          ],
-          "title": "Tdarr Score (%)",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Percent of all media files successfully health-checked (successful \u00f7 total files).",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              },
-              "unit": "percentunit"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 16,
-            "y": 453
-          },
-          "id": 12,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "tdarr_health_check_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
-              "instant": true,
-              "legendFormat": "health check score",
-              "refId": "A"
-            }
-          ],
-          "title": "Health Check Score (%)",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Lifetime net space saved for the selected library(ies). Positive = saved, negative = grew. Includes size differences from any deleted or replaced files. Server live-current total: see 'Size Difference (Server Total)'.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 20,
-            "y": 453
-          },
-          "id": 10,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_size_diff_bytes{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
-              "instant": true,
-              "legendFormat": "size diff",
-              "refId": "A"
-            }
-          ],
-          "title": "Size Difference (GB)",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) \u2014 not a lifetime total.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 457
-          },
-          "id": 42,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "center",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_transcodes{tdarr_instance=~\"$tdarr_instance\", status=\"error\"}) by (tdarr_instance)",
-              "instant": true,
-              "legendFormat": "transcode errors",
-              "refId": "A"
-            }
-          ],
-          "title": "Transcode Errors",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) \u2014 not a lifetime total.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 4,
-            "y": 457
-          },
-          "id": 43,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "justifyMode": "center",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(tdarr_library_health_checks{tdarr_instance=~\"$tdarr_instance\", status=\"error\"}) by (tdarr_instance)",
-              "instant": true,
-              "legendFormat": "health check errors",
-              "refId": "A"
-            }
-          ],
-          "title": "Health Check Errors",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "blue"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 8,
-            "y": 457
-          },
-          "id": 44,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "12.0.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "tdarr_avg_num_streams{tdarr_instance=~\"$tdarr_instance\"}",
-              "instant": true,
-              "legendFormat": "avg streams",
-              "refId": "A"
-            }
-          ],
-          "title": "Average Num Streams",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
+            "h": 6,
             "w": 6,
-            "x": 12,
-            "y": 457
+            "x": 4,
+            "y": 19
           },
           "id": 45,
           "options": {
@@ -2366,10 +1958,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 4,
+            "h": 6,
             "w": 6,
-            "x": 18,
-            "y": 457
+            "x": 10,
+            "y": 19
           },
           "id": 46,
           "options": {
@@ -2423,6 +2015,550 @@
               "color": {
                 "mode": "palette-classic"
               },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 16,
+            "y": 19
+          },
+          "id": 50,
+          "options": {
+            "displayMode": "gradient",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (stat_type) (tdarr_stream_stats_num_frames{tdarr_instance=~\"$tdarr_instance\"})",
+              "instant": true,
+              "legendFormat": "{{stat_type}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Stream Stats Num Frames",
+          "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 2,
+            "x": 22,
+            "y": 19
+          },
+          "id": 44,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "tdarr_avg_num_streams{tdarr_instance=~\"$tdarr_instance\"}",
+              "instant": true,
+              "legendFormat": "avg streams",
+              "refId": "A"
+            }
+          ],
+          "title": "Average Num Streams",
+          "type": "stat"
+        }
+      ],
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 6,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Current number of files in the library.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 0,
+            "y": 4
+          },
+          "id": 7,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_files{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "instant": true,
+              "legendFormat": "files",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Files",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Cumulative completed transcodes over the library's lifetime. A file is counted again each time a transcode alters it (e.g. after a flow/process change), so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_transcodes.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 4,
+            "y": 4
+          },
+          "id": 8,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_transcodes_completed_total{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "instant": true,
+              "legendFormat": "transcodes",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Transcodes",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Cumulative completed health checks over the library's lifetime. A file can be checked more than once, so this can exceed the file count. Failed jobs excluded. Per-status breakdown: tdarr_library_health_checks.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 8,
+            "y": 4
+          },
+          "id": 9,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_health_checks_completed_total{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "instant": true,
+              "legendFormat": "health checks",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Health Checks",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 12,
+            "y": 4
+          },
+          "id": 118,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_transcodes{tdarr_instance=~\"$tdarr_instance\", status=\"error\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"}) by (tdarr_instance)",
+              "instant": true,
+              "legendFormat": "transcode errors",
+              "refId": "A"
+            }
+          ],
+          "title": "Transcode Errors",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 16,
+            "y": 4
+          },
+          "id": 119,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_health_checks{tdarr_instance=~\"$tdarr_instance\", status=\"error\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"}) by (tdarr_instance)",
+              "instant": true,
+              "legendFormat": "health check errors",
+              "refId": "A"
+            }
+          ],
+          "title": "Health Check Errors",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "description": "Lifetime net space saved for the selected library(ies). Positive = saved, negative = grew. Includes size differences from any deleted or replaced files. Server live-current total: see 'Size Difference (Server Total)'.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 4,
+            "x": 20,
+            "y": 4
+          },
+          "id": 10,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "percentChangeColorMode": "standard",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "12.0.1",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(tdarr_library_size_diff_bytes{tdarr_instance=~\"$tdarr_instance\"} and on (library_id, tdarr_instance) tdarr_library_info{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "instant": true,
+              "legendFormat": "size diff",
+              "refId": "A"
+            }
+          ],
+          "title": "Size Difference",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
               "custom": {
                 "hideFrom": {
                   "legend": false,
@@ -2438,7 +2574,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 461
+            "y": 8
           },
           "id": 13,
           "options": {
@@ -2510,7 +2646,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 461
+            "y": 8
           },
           "id": 14,
           "options": {
@@ -2582,7 +2718,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 461
+            "y": 8
           },
           "id": 15,
           "options": {
@@ -2659,7 +2795,7 @@
             "h": 8,
             "w": 6,
             "x": 0,
-            "y": 469
+            "y": 16
           },
           "id": 19,
           "options": {
@@ -2733,7 +2869,7 @@
             "h": 8,
             "w": 6,
             "x": 6,
-            "y": 469
+            "y": 16
           },
           "id": 17,
           "options": {
@@ -2807,7 +2943,7 @@
             "h": 8,
             "w": 6,
             "x": 12,
-            "y": 469
+            "y": 16
           },
           "id": 16,
           "options": {
@@ -2881,7 +3017,7 @@
             "h": 8,
             "w": 6,
             "x": 18,
-            "y": 469
+            "y": 16
           },
           "id": 18,
           "options": {
@@ -3214,7 +3350,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 5
+            "y": 578
           },
           "id": 29,
           "options": {
@@ -3717,7 +3853,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 13
+            "y": 586
           },
           "id": 31,
           "options": {
@@ -4211,7 +4347,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 21
+            "y": 594
           },
           "id": 30,
           "options": {
@@ -4510,7 +4646,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -4541,7 +4677,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 118
+            "y": 195
           },
           "id": 33,
           "options": {
@@ -4604,7 +4740,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -4635,7 +4771,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 118
+            "y": 195
           },
           "id": 34,
           "options": {
@@ -4699,7 +4835,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -4730,7 +4866,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 118
+            "y": 195
           },
           "id": 35,
           "options": {
@@ -4794,7 +4930,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -4825,7 +4961,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 126
+            "y": 223
           },
           "id": 56,
           "options": {
@@ -4889,7 +5025,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -4920,7 +5056,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 126
+            "y": 223
           },
           "id": 57,
           "options": {
@@ -4984,7 +5120,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -5007,7 +5143,7 @@
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "s"
             },
             "overrides": []
           },
@@ -5015,7 +5151,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 126
+            "y": 223
           },
           "id": 58,
           "options": {
@@ -5110,7 +5246,7 @@
             "h": 4,
             "w": 5,
             "x": 0,
-            "y": 520
+            "y": 196
           },
           "id": 21,
           "options": {
@@ -5193,7 +5329,7 @@
             "h": 4,
             "w": 4,
             "x": 5,
-            "y": 520
+            "y": 196
           },
           "id": 22,
           "options": {
@@ -5258,7 +5394,7 @@
             "h": 4,
             "w": 5,
             "x": 9,
-            "y": 520
+            "y": 196
           },
           "id": 115,
           "options": {
@@ -5323,7 +5459,7 @@
             "h": 4,
             "w": 5,
             "x": 14,
-            "y": 520
+            "y": 196
           },
           "id": 113,
           "options": {
@@ -5387,7 +5523,7 @@
             "h": 4,
             "w": 5,
             "x": 19,
-            "y": 520
+            "y": 196
           },
           "id": 25,
           "options": {
@@ -5452,7 +5588,7 @@
             "h": 4,
             "w": 5,
             "x": 0,
-            "y": 524
+            "y": 200
           },
           "id": 114,
           "options": {
@@ -5516,7 +5652,7 @@
             "h": 4,
             "w": 5,
             "x": 5,
-            "y": 524
+            "y": 200
           },
           "id": 24,
           "options": {
@@ -5579,7 +5715,7 @@
             "h": 4,
             "w": 5,
             "x": 10,
-            "y": 524
+            "y": 200
           },
           "id": 23,
           "options": {
@@ -5670,7 +5806,7 @@
             "h": 4,
             "w": 9,
             "x": 15,
-            "y": 524
+            "y": 200
           },
           "id": 27,
           "options": {
@@ -5739,7 +5875,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 528
+            "y": 204
           },
           "id": 26,
           "options": {
@@ -5814,7 +5950,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 528
+            "y": 204
           },
           "id": 60,
           "options": {
@@ -5887,7 +6023,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -5928,7 +6064,7 @@
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 534
+            "y": 210
           },
           "id": 51,
           "options": {
@@ -5991,7 +6127,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 2,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -6022,7 +6158,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 534
+            "y": 210
           },
           "id": 52,
           "options": {
@@ -6097,7 +6233,7 @@
                 "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
-                "pointSize": 5,
+                "pointSize": 1,
                 "scaleDistribution": {
                   "type": "linear"
                 },
@@ -6128,7 +6264,7 @@
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 534
+            "y": 210
           },
           "id": 53,
           "options": {
@@ -6171,7 +6307,7 @@
               "refId": "B"
             }
           ],
-          "title": "Tdarr Heap (MB)",
+          "title": "Tdarr Heap",
           "type": "timeseries"
         }
       ],
@@ -6185,7 +6321,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 216
       },
       "id": 54,
       "panels": [
@@ -6194,7 +6330,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "Counter bumps when Tdarr returns a status string not in the exporter's known enum. Non-zero values indicate Tdarr added/renamed a status \u2014 file an issue at homeylab/tdarr-exporter to update the enum. Status is still emitted under a normalized label; this is a maintainer signal, not an operator alert.",
+          "description": "Counter bumps when Tdarr returns a status string not in the exporter's known enum. Non-zero values indicate Tdarr added/renamed a status — file an issue at homeylab/tdarr-exporter to update the enum. Status is still emitted under a normalized label; this is a maintainer signal, not an operator alert.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -6284,7 +6420,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 541
+            "y": 1118
           },
           "id": 55,
           "options": {
@@ -6351,7 +6487,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 217
       },
       "id": 111,
       "panels": [
@@ -6415,7 +6551,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 542
+            "y": 1127
           },
           "id": 105,
           "options": {
@@ -6509,7 +6645,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 542
+            "y": 1127
           },
           "id": 106,
           "options": {
@@ -6603,7 +6739,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 550
+            "y": 1135
           },
           "id": 107,
           "options": {
@@ -6697,7 +6833,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 550
+            "y": 1135
           },
           "id": 108,
           "options": {
@@ -6791,7 +6927,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 558
+            "y": 1143
           },
           "id": 109,
           "options": {
@@ -6873,7 +7009,7 @@
             "h": 8,
             "w": 4,
             "x": 8,
-            "y": 558
+            "y": 1143
           },
           "id": 112,
           "options": {
@@ -6970,7 +7106,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 558
+            "y": 1143
           },
           "id": 110,
           "options": {
@@ -7101,6 +7237,6 @@
   "timezone": "browser",
   "title": "Tdarr",
   "uid": "7d103297-1876-4d26-8e2a-a02e119fb36e",
-  "version": 2,
+  "version": 5,
   "weekStart": ""
 }
