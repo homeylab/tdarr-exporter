@@ -15,7 +15,7 @@ spec:
             description: One or more transcode tasks for Library {{ $labels.library_name }} has failed.
             summary: A tdarr transcode failed
           expr: |-
-            tdarr_library_transcodes{status="error"} > 0
+            tdarr_library_transcodes{status="error"} * on (library_id) group_left(library_name) tdarr_library_info > 0
           for: 5m
           labels:
             severity: warning

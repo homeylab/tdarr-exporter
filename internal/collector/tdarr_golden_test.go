@@ -23,6 +23,7 @@ var collectorMetricNames = []string{
 	"tdarr_library_files",
 	"tdarr_library_health_checks",
 	"tdarr_library_health_checks_completed_total",
+	"tdarr_library_info",
 	"tdarr_library_size_diff_bytes",
 	"tdarr_library_transcodes",
 	"tdarr_library_transcodes_completed_total",
