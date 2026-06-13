@@ -303,9 +303,15 @@ func TestEmitPieMetrics(t *testing.T) {
 		c.emitPieMetrics(ch, []*TdarrPieStats{pie})
 	})
 
+	// library_name lives only on the info metric now; value metrics key on library_id
+	if got := findOne(t, samples, "tdarr_library_info",
+		map[string]string{"library_id": "lib-audio-01", "library_name": "Music"}).value; got != 1 {
+		t.Errorf("library_info{lib-audio-01,Music} = %v, want 1", got)
+	}
+
 	// totals
 	if got := findOne(t, samples, "tdarr_library_files",
-		map[string]string{"library_name": "Music", "library_id": "lib-audio-01"}).value; got != 12 {
+		map[string]string{"library_id": "lib-audio-01"}).value; got != 12 {
 		t.Errorf("library_files = %v, want 12", got)
 	}
 	if got := findOne(t, samples, "tdarr_library_size_diff_bytes",
@@ -359,7 +365,7 @@ func TestEmitPieSlices_LowercasesNames(t *testing.T) {
 
 	slices := []TdarrPieSlice{{Name: "HEVC", Value: 3}, {Name: "Av1", Value: 9}}
 	samples := collectSamples(t, func(ch chan<- prometheus.Metric) {
-		emitPieSlices(ch, c.pieVideoCodecs, "Shows", "lib-video-01", slices)
+		emitPieSlices(ch, c.pieVideoCodecs, "lib-video-01", slices)
 	})
 
 	if len(samples) != 2 {
@@ -368,7 +374,7 @@ func TestEmitPieSlices_LowercasesNames(t *testing.T) {
 	var gotNames []string
 	for _, s := range samples {
 		gotNames = append(gotNames, s.labels["codec"])
-		if s.labels["library_name"] != "Shows" || s.labels["library_id"] != "lib-video-01" {
+		if s.labels["library_id"] != "lib-video-01" {
 			t.Errorf("unexpected library labels: %v", s.labels)
 		}
 	}

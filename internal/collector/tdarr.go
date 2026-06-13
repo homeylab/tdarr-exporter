@@ -122,6 +122,7 @@ type TdarrCollector struct {
 	pieVideoResolutions   typedDesc
 	pieAudioCodecs        typedDesc
 	pieAudioContainers    typedDesc
+	pieLibraryInfo        typedDesc           // library_id → library_name mapping (value always 1)
 	unknownStatusTotal    typedDesc           // counter for status values not in known enum
 	nodeCollector         *TdarrNodeCollector // node data
 	upMetric              typedDesc
@@ -264,57 +265,62 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		pieNumFiles: newGauge(
 			"library_files",
 			"Tdarr total files in library",
-			[]string{"library_name", "library_id"}, instance,
+			[]string{"library_id"}, instance,
 		),
 		pieNumTranscodes: newCounter(
 			"library_transcodes_completed_total",
 			"Tdarr completed transcodes for a library, counted over its lifetime; increments each time a transcode alters a file (the same file can transcode again after a flow/process change), failed jobs excluded",
-			[]string{"library_name", "library_id"}, instance,
+			[]string{"library_id"}, instance,
 		),
 		pieNumHealthChecks: newCounter(
 			"library_health_checks_completed_total",
 			"Tdarr completed health checks for a library, counted over its lifetime; increments each time a health check completes on a file, failed jobs excluded",
-			[]string{"library_name", "library_id"}, instance,
+			[]string{"library_id"}, instance,
 		),
 		pieSizeDiff: newGauge(
 			"library_size_diff_bytes",
 			"Tdarr net file-size change in bytes for library (positive = space saved, negative = grew); lifetime, includes files since deleted",
-			[]string{"library_name", "library_id"}, instance,
+			[]string{"library_id"}, instance,
 		),
 		pieTranscodes: newGauge(
 			"library_transcodes",
 			"Tdarr transcodes for library by status",
-			[]string{"library_name", "library_id", "status"}, instance,
+			[]string{"library_id", "status"}, instance,
 		),
 		pieHealthChecks: newGauge(
 			"library_health_checks",
 			"Tdarr health checks for library by status",
-			[]string{"library_name", "library_id", "status"}, instance,
+			[]string{"library_id", "status"}, instance,
 		),
 		pieVideoCodecs: newGauge(
 			"library_video_codecs",
 			"Tdarr video codecs for library by type",
-			[]string{"library_name", "library_id", "codec"}, instance,
+			[]string{"library_id", "codec"}, instance,
 		),
 		pieVideoContainers: newGauge(
 			"library_video_containers",
 			"Tdarr video containers for library by type",
-			[]string{"library_name", "library_id", "container_type"}, instance,
+			[]string{"library_id", "container_type"}, instance,
 		),
 		pieVideoResolutions: newGauge(
 			"library_video_resolutions",
 			"Tdarr video resolutions for library by type",
-			[]string{"library_name", "library_id", "resolution"}, instance,
+			[]string{"library_id", "resolution"}, instance,
 		),
 		pieAudioCodecs: newGauge(
 			"library_audio_codecs",
 			"Tdarr audio codecs for library by type",
-			[]string{"library_name", "library_id", "codec"}, instance,
+			[]string{"library_id", "codec"}, instance,
 		),
 		pieAudioContainers: newGauge(
 			"library_audio_containers",
 			"Tdarr audio containers for library by type",
-			[]string{"library_name", "library_id", "container_type"}, instance,
+			[]string{"library_id", "container_type"}, instance,
+		),
+		pieLibraryInfo: newGauge(
+			"library_info",
+			"Tdarr library metadata (value always 1); maps the stable library_id to its current library_name. Join other tdarr_library_* metrics on library_id to recover the name.",
+			[]string{"library_id", "library_name"}, instance,
 		),
 		unknownStatusTotal: newCounter(
 			"unknown_status_total",
@@ -378,6 +384,7 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 		c.pieVideoResolutions,
 		c.pieAudioCodecs,
 		c.pieAudioContainers,
+		c.pieLibraryInfo,
 		c.unknownStatusTotal,
 		c.upMetric,
 		c.serverUptime,
@@ -716,10 +723,10 @@ func (c *TdarrCollector) emitGeneralMetrics(ch chan<- prometheus.Metric, metric 
 
 // emitPieSlices emits one gauge per slice in a pie-slice list (codecs/containers/resolutions),
 // lowercasing the slice name as the final label. Shared by the five video/audio loops.
-func emitPieSlices(ch chan<- prometheus.Metric, desc typedDesc, libName, libId string, slices []TdarrPieSlice) {
+func emitPieSlices(ch chan<- prometheus.Metric, desc typedDesc, libId string, slices []TdarrPieSlice) {
 	for _, pieSlice := range slices {
 		ch <- desc.mustNewConstMetric(float64(pieSlice.Value),
-			libName, libId, strings.ToLower(pieSlice.Name))
+			libId, strings.ToLower(pieSlice.Name))
 	}
 }
 
@@ -727,25 +734,28 @@ func emitPieSlices(ch chan<- prometheus.Metric, desc typedDesc, libName, libId s
 // video/audio codec/container/resolution slices). Pure: reads pieData, writes to ch.
 func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*TdarrPieStats) {
 	for _, pie := range pieData {
-		ch <- c.pieNumFiles.mustNewConstMetric(float64(pie.PieStats.TotalFiles), pie.libraryName, pie.libraryId)
-		ch <- c.pieNumTranscodes.mustNewConstMetric(float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
-		ch <- c.pieNumHealthChecks.mustNewConstMetric(float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
-		ch <- c.pieSizeDiff.mustNewConstMetric(pie.PieStats.SizeDiff*bytesPerGB, pie.libraryName, pie.libraryId)
+		// library_name lives only on the info metric; every other series keys on library_id so a
+		// library rename doesn't churn them. Dashboards join back on library_id to recover the name.
+		ch <- c.pieLibraryInfo.mustNewConstMetric(1, pie.libraryId, pie.libraryName)
+		ch <- c.pieNumFiles.mustNewConstMetric(float64(pie.PieStats.TotalFiles), pie.libraryId)
+		ch <- c.pieNumTranscodes.mustNewConstMetric(float64(pie.PieStats.TotalTranscodeCount), pie.libraryId)
+		ch <- c.pieNumHealthChecks.mustNewConstMetric(float64(pie.PieStats.TotalHealthCheckCount), pie.libraryId)
+		ch <- c.pieSizeDiff.mustNewConstMetric(pie.PieStats.SizeDiff*bytesPerGB, pie.libraryId)
 		// Emit transcode statuses from the normalized map (pre-cleaned labels, full enum coverage).
 		for status, count := range pie.NormalizedTranscodes {
 			ch <- c.pieTranscodes.mustNewConstMetric(float64(count),
-				pie.libraryName, pie.libraryId, status)
+				pie.libraryId, status)
 		}
 		// Emit health check statuses from the normalized map (pre-cleaned labels, full enum coverage).
 		for status, count := range pie.NormalizedHealthChecks {
 			ch <- c.pieHealthChecks.mustNewConstMetric(float64(count),
-				pie.libraryName, pie.libraryId, status)
+				pie.libraryId, status)
 		}
-		emitPieSlices(ch, c.pieVideoCodecs, pie.libraryName, pie.libraryId, pie.PieStats.Video.Codecs)
-		emitPieSlices(ch, c.pieVideoContainers, pie.libraryName, pie.libraryId, pie.PieStats.Video.Containers)
-		emitPieSlices(ch, c.pieVideoResolutions, pie.libraryName, pie.libraryId, pie.PieStats.Video.Resolutions)
-		emitPieSlices(ch, c.pieAudioCodecs, pie.libraryName, pie.libraryId, pie.PieStats.Audio.Codecs)
-		emitPieSlices(ch, c.pieAudioContainers, pie.libraryName, pie.libraryId, pie.PieStats.Audio.Containers)
+		emitPieSlices(ch, c.pieVideoCodecs, pie.libraryId, pie.PieStats.Video.Codecs)
+		emitPieSlices(ch, c.pieVideoContainers, pie.libraryId, pie.PieStats.Video.Containers)
+		emitPieSlices(ch, c.pieVideoResolutions, pie.libraryId, pie.PieStats.Video.Resolutions)
+		emitPieSlices(ch, c.pieAudioCodecs, pie.libraryId, pie.PieStats.Audio.Codecs)
+		emitPieSlices(ch, c.pieAudioContainers, pie.libraryId, pie.PieStats.Audio.Containers)
 	}
 }
 
