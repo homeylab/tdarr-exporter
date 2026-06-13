@@ -17,7 +17,7 @@ var collectorMetricNames = []string{
 	"tdarr_avg_num_streams",
 	"tdarr_files",
 	"tdarr_health_check_score_ratio",
-	"tdarr_health_checks_completed_total",
+	"tdarr_health_checks_completed",
 	"tdarr_library_audio_codecs",
 	"tdarr_library_audio_containers",
 	"tdarr_library_files",
@@ -65,7 +65,7 @@ var collectorMetricNames = []string{
 	"tdarr_stream_stats_bit_rate",
 	"tdarr_stream_stats_duration_seconds",
 	"tdarr_stream_stats_num_frames",
-	"tdarr_transcodes_completed_total",
+	"tdarr_transcodes_completed",
 	"tdarr_unknown_status_total",
 	"tdarr_up",
 }

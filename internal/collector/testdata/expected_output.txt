@@ -7,9 +7,9 @@ tdarr_files{tdarr_instance="tdarr.localdomain"} 1500
 # HELP tdarr_health_check_score_ratio Tdarr health check score as a ratio 0-1 - fraction of your libraries health checked by tdarr
 # TYPE tdarr_health_check_score_ratio gauge
 tdarr_health_check_score_ratio{tdarr_instance="tdarr.localdomain"} 0.9333
-# HELP tdarr_health_checks_completed_total Tdarr total health check count for all libraries
-# TYPE tdarr_health_checks_completed_total counter
-tdarr_health_checks_completed_total{tdarr_instance="tdarr.localdomain"} 1400
+# HELP tdarr_health_checks_completed Tdarr completed health checks across files currently present; live aggregate that can decrease when files are purged (failed jobs excluded). For a monotonic rate, use tdarr_library_health_checks_completed_total.
+# TYPE tdarr_health_checks_completed gauge
+tdarr_health_checks_completed{tdarr_instance="tdarr.localdomain"} 1400
 # HELP tdarr_library_audio_codecs Tdarr audio codecs for library by type
 # TYPE tdarr_library_audio_codecs gauge
 tdarr_library_audio_codecs{codec="aac",library_id="lib-audio-01",tdarr_instance="tdarr.localdomain"} 310
@@ -228,9 +228,9 @@ tdarr_stream_stats_duration_seconds{stat_type="total",tdarr_instance="tdarr.loca
 tdarr_stream_stats_num_frames{stat_type="average",tdarr_instance="tdarr.localdomain"} 57600
 tdarr_stream_stats_num_frames{stat_type="highest",tdarr_instance="tdarr.localdomain"} 216000
 tdarr_stream_stats_num_frames{stat_type="total",tdarr_instance="tdarr.localdomain"} 2.88e+07
-# HELP tdarr_transcodes_completed_total Tdarr total transcode count for all libraries
-# TYPE tdarr_transcodes_completed_total counter
-tdarr_transcodes_completed_total{tdarr_instance="tdarr.localdomain"} 850
+# HELP tdarr_transcodes_completed Tdarr completed transcodes across files currently present; live aggregate that can decrease when files are purged (failed jobs excluded). For a monotonic rate, use tdarr_library_transcodes_completed_total.
+# TYPE tdarr_transcodes_completed gauge
+tdarr_transcodes_completed{tdarr_instance="tdarr.localdomain"} 850
 # HELP tdarr_unknown_status_total Count of pie status values not in the known enum, by job_kind (transcode|healthcheck) and status label. A non-zero value indicates Tdarr emitted a status that the exporter does not pre-emit zeros for. Use increase(tdarr_unknown_status_total[24h]) > 0 to alert on API drift.
 # TYPE tdarr_unknown_status_total counter
 tdarr_unknown_status_total{job_kind="transcode",status="pending",tdarr_instance="tdarr.localdomain"} 1
