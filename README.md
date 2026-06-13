@@ -150,4 +150,5 @@ Run `task --list` to see all available tasks.
 ## Breaking Updates
 | Version | Target Version | Description |
 | ------- | -------------- | ----------- |
-| `v.1.X.X` | `v2.0.0` | `v2.0.0` introduces a consider refactor of behavior and metrics. See `v2.0.0` release notes for all information |
+| `v2.X.X` | `v3.0.0` | `v3.0.0` aligns all metrics with Prometheus naming/typing best practice. Many metrics are renamed/retyped and the `library_name` label moves to `tdarr_library_info`. See the [`v3.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v3.0.0) for the full migration guide. |
+| `v1.X.X` | `v2.0.0` | `v2.0.0` introduces a considerable refactor of behavior and metrics. See the [`v2.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v2.0.0) for all information. |
