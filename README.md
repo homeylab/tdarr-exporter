@@ -21,7 +21,7 @@
 2. Current queues and counts.
 3. Progress updates for running transcode and health check jobs.
 
-Some samples below from Grafana, check `examples/` for more samples and a complete view of metrics.
+Some samples below from Grafana, check `examples/` for more samples and a complete view of metrics. For notes on why some metrics behave the way they do (counter vs gauge totals, size-diff sign, worker classification), see [`docs/metrics-internals.md`](docs/metrics-internals.md).
 <img src="./examples/images/demo-1.png" alt="overview" width="1050"/>
 <img src="./examples/images/demo-3.png" alt="overview" width="1050"/>
 <img src="./examples/images/demo-5.png" alt="overview" width="1050"/>
