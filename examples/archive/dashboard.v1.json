@@ -2390,7 +2390,7 @@
                   "node_transcode_gpu_queue": "",
                   "pod": "",
                   "tdarr_instance": "",
-                  "tdarr_node_info{container=\"tdarr-exporter\", endpoint=\"metrics\", gpu_select=\"-\", instance=\"10.42.5.90:9090\", job=\"tdarr-exporter\", namespace=\"local-tdarr-exporter\", node_cpu_health_check_limit=\"0\", node_cpu_transcode_limit=\"0\", node_gpu_health_check_limit=\"1\", node_gpu_transcode_limit=\"1\", node_health_check_cpu_queue=\"160\", node_health_check_gpu_queue=\"160\", node_id=\"NHgSUARFY\", node_name=\"PlexGpuNode\", node_paused=\"false\", node_pid=\"195\", node_priority=\"0\", node_transcode_cpu_queue=\"161\", node_transcode_gpu_queue=\"161\", pod=\"tdarr-exporter-bb8f8b9-whx9r\", service=\"tdarr-exporter\", tdarr_instance=\"tdarr.homeylab.org\"}": ""
+                  "tdarr_node_info{container=\"tdarr-exporter\", endpoint=\"metrics\", gpu_select=\"-\", instance=\"10.0.0.1:9090\", job=\"tdarr-exporter\", namespace=\"monitoring\", node_cpu_health_check_limit=\"0\", node_cpu_transcode_limit=\"0\", node_gpu_health_check_limit=\"1\", node_gpu_transcode_limit=\"1\", node_health_check_cpu_queue=\"160\", node_health_check_gpu_queue=\"160\", node_id=\"node-id-example\", node_name=\"ExampleNode\", node_paused=\"false\", node_pid=\"195\", node_priority=\"0\", node_transcode_cpu_queue=\"161\", node_transcode_gpu_queue=\"161\", pod=\"tdarr-exporter-0\", service=\"tdarr-exporter\", tdarr_instance=\"tdarr.example.com\"}": ""
                 }
               }
             },
