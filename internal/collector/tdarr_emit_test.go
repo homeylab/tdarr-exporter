@@ -464,8 +464,8 @@ func TestEmitNodeMetrics(t *testing.T) {
 	if got := findOne(t, samples, "tdarr_node_heap_total_bytes", idleL).value; got != 64.0*bytesPerMB {
 		t.Errorf("idle heap_total_bytes = %v, want %v", got, 64.0*bytesPerMB)
 	}
-	if got := findOne(t, samples, "tdarr_node_host_cpu_percent", busyL).value; got != 42.0 {
-		t.Errorf("busy cpu_percent = %v, want 42.0", got)
+	if got := findOne(t, samples, "tdarr_node_host_cpu_ratio", busyL).value; got != 0.42 {
+		t.Errorf("busy cpu_ratio = %v, want 0.42", got)
 	}
 
 	// per-type worker_count: four known dims always emitted per node (zeros included).
@@ -483,9 +483,9 @@ func TestEmitNodeMetrics(t *testing.T) {
 	}
 
 	// per-worker gauges only for the busy node's worker.
-	if got := findOne(t, samples, "tdarr_node_worker_percentage",
-		map[string]string{"node_id": "node-busy", "worker_id": "w1"}).value; got != 55.5 {
-		t.Errorf("worker percentage = %v, want 55.5", got)
+	if got := findOne(t, samples, "tdarr_node_worker_ratio",
+		map[string]string{"node_id": "node-busy", "worker_id": "w1"}).value; got != 0.555 {
+		t.Errorf("worker ratio = %v, want 0.555", got)
 	}
 	if got := findOne(t, samples, "tdarr_node_worker_fps",
 		map[string]string{"worker_id": "w1"}).value; got != 24 {
@@ -497,7 +497,7 @@ func TestEmitNodeMetrics(t *testing.T) {
 		t.Errorf("worker eta_seconds = %v, want 1800", got)
 	}
 	// idle node has no workers -> no per-worker series.
-	for _, fq := range []string{"tdarr_node_worker_percentage", "tdarr_node_worker_info"} {
+	for _, fq := range []string{"tdarr_node_worker_ratio", "tdarr_node_worker_info"} {
 		for _, s := range samples {
 			if s.fqName == fq && s.labels["node_id"] == "node-idle" {
 				t.Errorf("idle node should emit no %s, but got one", fq)
@@ -557,11 +557,11 @@ func TestEmitGeneralMetrics(t *testing.T) {
 	if got := findOne(t, samples, "tdarr_files", map[string]string{}).value; got != 100 {
 		t.Errorf("files = %v, want 100", got)
 	}
-	if got := findOne(t, samples, "tdarr_score_pct", map[string]string{}).value; got != 88.0 {
-		t.Errorf("score_pct = %v, want 88.0", got)
+	if got := findOne(t, samples, "tdarr_score_ratio", map[string]string{}).value; got != 0.88 {
+		t.Errorf("score_ratio = %v, want 0.88", got)
 	}
-	if got := findOne(t, samples, "tdarr_health_check_score_pct", map[string]string{}).value; got != 77.0 {
-		t.Errorf("health_check_score_pct = %v, want 77.0", got)
+	if got := findOne(t, samples, "tdarr_health_check_score_ratio", map[string]string{}).value; got != 0.77 {
+		t.Errorf("health_check_score_ratio = %v, want 0.77", got)
 	}
 	if got := findOne(t, samples, "tdarr_size_diff_bytes", map[string]string{}).value; got != 12.5*bytesPerGB {
 		t.Errorf("size_diff_bytes = %v, want %v", got, 12.5*bytesPerGB)

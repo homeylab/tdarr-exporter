@@ -20,8 +20,9 @@ import (
 const METRIC_PREFIX = "tdarr"
 
 const (
-	bytesPerMB = 1024 * 1024
-	bytesPerGB = 1024 * 1024 * 1024
+	bytesPerMB     = 1024 * 1024
+	bytesPerGB     = 1024 * 1024 * 1024
+	percentToRatio = 0.01
 )
 
 // Sentinel categories for collection failures so callers and tests can branch
@@ -231,13 +232,13 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			nil, instance,
 		),
 		tdarrScore: newGauge(
-			"score_pct",
-			"Tdarr score percentage - how much of your libraries has been handled by tdarr",
+			"score_ratio",
+			"Tdarr score as a ratio 0-1 - fraction of your libraries handled by tdarr",
 			nil, instance,
 		),
 		healthCheckScore: newGauge(
-			"health_check_score_pct",
-			"Tdarr health check score percentage - how much of your libraries has been health checked by tdarr",
+			"health_check_score_ratio",
+			"Tdarr health check score as a ratio 0-1 - fraction of your libraries health checked by tdarr",
 			nil, instance,
 		),
 		avgNumStreams: newGauge(
@@ -699,8 +700,8 @@ func (c *TdarrCollector) emitGeneralMetrics(ch chan<- prometheus.Metric, metric 
 	ch <- c.totalTranscodeCount.mustNewConstMetric(float64(metric.TotalTranscodeCount))
 	ch <- c.totalHealthCheckCount.mustNewConstMetric(float64(metric.TotalHealthCheckCount))
 	ch <- c.sizeDiff.mustNewConstMetric(metric.SizeDiff * bytesPerGB)
-	ch <- c.tdarrScore.mustNewConstMetric(score)
-	ch <- c.healthCheckScore.mustNewConstMetric(healthScore)
+	ch <- c.tdarrScore.mustNewConstMetric(score * percentToRatio)
+	ch <- c.healthCheckScore.mustNewConstMetric(healthScore * percentToRatio)
 	ch <- c.avgNumStreams.mustNewConstMetric(metric.AvgNumStreams)
 	ch <- c.streamStatsDuration.mustNewConstMetric(float64(metric.StreamStats.Duration.Average), "average")
 	ch <- c.streamStatsDuration.mustNewConstMetric(float64(metric.StreamStats.Duration.Highest), "highest")
@@ -782,7 +783,7 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		// convert resource stats to float from string; skip on parse failure
 		c.emitParsedFloat(ch, m.nodeHeapUsedBytes, node.ResourceStats.Process.HeapUsedMb, bytesPerMB, node.Id, node.Name)
 		c.emitParsedFloat(ch, m.nodeHeapTotalBytes, node.ResourceStats.Process.HeapTotalMb, bytesPerMB, node.Id, node.Name)
-		c.emitParsedFloat(ch, m.nodeHostCpuPercent, node.ResourceStats.Os.CpuPercent, 1, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostCpuRatio, node.ResourceStats.Os.CpuPercent, percentToRatio, node.Id, node.Name)
 		c.emitParsedFloat(ch, m.nodeHostMemUsedBytes, node.ResourceStats.Os.MemUsedGb, bytesPerGB, node.Id, node.Name)
 		c.emitParsedFloat(ch, m.nodeHostMemTotalBytes, node.ResourceStats.Os.MemTotalGb, bytesPerGB, node.Id, node.Name)
 
@@ -854,8 +855,8 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			ch <- m.nodeWorkerIdle.mustNewConstMetric(idleVal, node.Id, node.Name, worker.Id)
 
 			// per-worker numeric gauges
-			ch <- m.nodeWorkerPercentage.mustNewConstMetric(
-				worker.Percentage, node.Id, node.Name, worker.Id)
+			ch <- m.nodeWorkerRatio.mustNewConstMetric(
+				worker.Percentage*percentToRatio, node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerFps.mustNewConstMetric(
 				float64(worker.Fps), node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerOriginalFileSizeBytes.mustNewConstMetric(

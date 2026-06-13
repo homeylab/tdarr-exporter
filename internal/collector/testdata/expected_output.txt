@@ -4,9 +4,9 @@ tdarr_avg_num_streams{tdarr_instance="tdarr.localdomain"} 3.5
 # HELP tdarr_files Tdarr total file count - includes files in ignore lists within each library
 # TYPE tdarr_files gauge
 tdarr_files{tdarr_instance="tdarr.localdomain"} 1500
-# HELP tdarr_health_check_score_pct Tdarr health check score percentage - how much of your libraries has been health checked by tdarr
-# TYPE tdarr_health_check_score_pct gauge
-tdarr_health_check_score_pct{tdarr_instance="tdarr.localdomain"} 93.33
+# HELP tdarr_health_check_score_ratio Tdarr health check score as a ratio 0-1 - fraction of your libraries health checked by tdarr
+# TYPE tdarr_health_check_score_ratio gauge
+tdarr_health_check_score_ratio{tdarr_instance="tdarr.localdomain"} 0.9333
 # HELP tdarr_health_checks_completed_total Tdarr total health check count for all libraries
 # TYPE tdarr_health_checks_completed_total counter
 tdarr_health_checks_completed_total{tdarr_instance="tdarr.localdomain"} 1400
@@ -90,10 +90,10 @@ tdarr_node_heap_total_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_ins
 # TYPE tdarr_node_heap_used_bytes gauge
 tdarr_node_heap_used_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 7.63363328e+07
 tdarr_node_heap_used_bytes{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 4.75004928e+07
-# HELP tdarr_node_host_cpu_percent Tdarr node cpu percent used
-# TYPE tdarr_node_host_cpu_percent gauge
-tdarr_node_host_cpu_percent{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 85.4
-tdarr_node_host_cpu_percent{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 2.1
+# HELP tdarr_node_host_cpu_ratio Tdarr node cpu usage as a ratio 0-1
+# TYPE tdarr_node_host_cpu_ratio gauge
+tdarr_node_host_cpu_ratio{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 0.8540000000000001
+tdarr_node_host_cpu_ratio{node_id="node-idle-1",node_name="IdleNode",tdarr_instance="tdarr.localdomain"} 0.021
 # HELP tdarr_node_host_mem_total_bytes Total memory in bytes for host that Tdarr node is running on
 # TYPE tdarr_node_host_mem_total_bytes gauge
 tdarr_node_host_mem_total_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain"} 1.7179869184e+10
@@ -176,9 +176,9 @@ tdarr_node_worker_original_file_size_bytes{node_id="node-busy-1",node_name="Busy
 # HELP tdarr_node_worker_output_file_size_bytes Tdarr node worker current output file size in bytes
 # TYPE tdarr_node_worker_output_file_size_bytes gauge
 tdarr_node_worker_output_file_size_bytes{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 2.2548578304e+09
-# HELP tdarr_node_worker_percentage Tdarr node worker transcode/healthcheck progress percentage
-# TYPE tdarr_node_worker_percentage gauge
-tdarr_node_worker_percentage{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 45.75
+# HELP tdarr_node_worker_ratio Tdarr node worker transcode/healthcheck progress as a ratio 0-1
+# TYPE tdarr_node_worker_ratio gauge
+tdarr_node_worker_ratio{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 0.4575
 # HELP tdarr_node_worker_plugin Tdarr node worker current plugin step (always 1; emitted only when plugin data is present)
 # TYPE tdarr_node_worker_plugin gauge
 tdarr_node_worker_plugin{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01",worker_plugin_id="Tdarr_Plugin_MC93_Migz1FFMPEG",worker_plugin_position="3"} 1
@@ -191,9 +191,9 @@ tdarr_node_worker_status_timestamp_seconds{node_id="node-busy-1",node_name="Busy
 # HELP tdarr_node_worker_step_start_timestamp_seconds Tdarr node worker current processing step (plugin or flow) start time as Unix timestamp in seconds
 # TYPE tdarr_node_worker_step_start_timestamp_seconds gauge
 tdarr_node_worker_step_start_timestamp_seconds{node_id="node-busy-1",node_name="BusyNode",tdarr_instance="tdarr.localdomain",worker_id="worker-tc-01"} 1.70000005e+09
-# HELP tdarr_score_pct Tdarr score percentage - how much of your libraries has been handled by tdarr
-# TYPE tdarr_score_pct gauge
-tdarr_score_pct{tdarr_instance="tdarr.localdomain"} 78.5
+# HELP tdarr_score_ratio Tdarr score as a ratio 0-1 - fraction of your libraries handled by tdarr
+# TYPE tdarr_score_ratio gauge
+tdarr_score_ratio{tdarr_instance="tdarr.localdomain"} 0.785
 # HELP tdarr_server_healthy 1 if Tdarr server self-reported status is healthy ("good"/"ok"/"healthy", case-insensitive), 0 otherwise. Raw status string is on tdarr_server_status_info.
 # TYPE tdarr_server_healthy gauge
 tdarr_server_healthy{tdarr_instance="tdarr.localdomain"} 1
