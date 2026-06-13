@@ -217,14 +217,14 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			"Tdarr total file count - includes files in ignore lists within each library",
 			nil, instance,
 		),
-		totalTranscodeCount: newCounter(
-			"transcodes_completed_total",
-			"Tdarr total transcode count for all libraries",
+		totalTranscodeCount: newGauge(
+			"transcodes_completed",
+			"Tdarr completed transcodes across files currently present; live aggregate that can decrease when files are purged (failed jobs excluded). For a monotonic rate, use tdarr_library_transcodes_completed_total.",
 			nil, instance,
 		),
-		totalHealthCheckCount: newCounter(
-			"health_checks_completed_total",
-			"Tdarr total health check count for all libraries",
+		totalHealthCheckCount: newGauge(
+			"health_checks_completed",
+			"Tdarr completed health checks across files currently present; live aggregate that can decrease when files are purged (failed jobs excluded). For a monotonic rate, use tdarr_library_health_checks_completed_total.",
 			nil, instance,
 		),
 		sizeDiff: newGauge(

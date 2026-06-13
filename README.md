@@ -118,10 +118,11 @@ The new Tdarr API behavior is described in this [issue](https://github.com/homey
 ## Dashboard
 Dashboard example can be found on Grafana's portal [here](https://grafana.com/grafana/dashboards/20388).
 - Copy the ID `20388` and then import it in Grafana.
-- Note: Grafana dashboard latest version is a `v2.0.0` compatible dashboard. Use revision 3 for a `v1.X.X` compatible dashboard
+- Note: the latest published revision tracks the newest release. For earlier majors, import the archived dashboards from this repo: `archive/dashboard.v2.json` (`v2.X.X`), `archive/dashboard.v1.json` (`v1.X.X`).
 
 Dashboard example is also provided in the `examples/dashboard.json` file in case the dashboard from [Grafana](https://grafana.com/grafana/dashboards/20388) is not available.
 - In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.
+- Use `archive/dashboard.v2.json` for a `v2.X.X` compatible dashboard
 - Use `archive/dashboard.v1.json` for a `v1.X.X` compatible dashboard
 
 ## Development
@@ -150,4 +151,5 @@ Run `task --list` to see all available tasks.
 ## Breaking Updates
 | Version | Target Version | Description |
 | ------- | -------------- | ----------- |
-| `v.1.X.X` | `v2.0.0` | `v2.0.0` introduces a consider refactor of behavior and metrics. See `v2.0.0` release notes for all information |
+| `v2.X.X` | `v3.0.0` | `v3.0.0` aligns all metrics with Prometheus naming/typing best practice. Many metrics are renamed/retyped and the `library_name` label moves to `tdarr_library_info`. See the [`v3.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v3.0.0) for the full migration guide. |
+| `v1.X.X` | `v2.0.0` | `v2.0.0` introduces a considerable refactor of behavior and metrics. See the [`v2.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v2.0.0) for all information. |
