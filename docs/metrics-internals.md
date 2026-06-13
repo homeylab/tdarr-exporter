@@ -16,6 +16,23 @@ re-verify against the raw API before relying on a claim here.
 Every metric is derived from one of these Tdarr endpoints. When a Tdarr upgrade
 changes behavior, re-verify against the raw response from the relevant call.
 
+Tdarr publishes API docs at <https://docs.tdarr.io/docs/api/> (also bundled with
+your installation). Each instance also serves a **Swagger 2.0** spec — Swagger UI
+at `<your-tdarr-instance>/#/tools/api-docs`, raw JSON at
+`<your-tdarr-instance>/api/v2/public/api-docs/json`.
+
+Response-schema coverage is **uneven** (verified against a running instance), and
+it is thinnest exactly where this doc needs it. `/api/v2/status` is fully typed
+(`status`, `os`, `version`, `uptime`, … — the fields behind `tdarr_server_*`),
+but the stats endpoints are skeletons: `cruddb` responds with a bare
+`additionalProperties: true` object (no field names), `get-pies` types only the
+outer `pieStats` wrapper and leaves its contents free-form, and `get-nodes` is an
+untyped object. So for the `StatisticsJSONDB.*`, `pieStats.*`, and node/worker
+fields mapped above, the ground truth is a **captured live response** plus the Go
+models in `internal/collector/tdarr_models.go`. Request bodies, by contrast, are
+typed with field-level detail — use the spec for request shapes and endpoint
+discovery.
+
 | Endpoint | Source | Feeds |
 | --- | --- | --- |
 | `POST /api/v2/cruddb` (collection `StatisticsJSONDB`) | global stats document (`TdarrMetric`) | global `tdarr_*` |
