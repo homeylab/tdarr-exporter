@@ -1890,7 +1890,7 @@
                   }
                 ]
               },
-              "unit": "percent"
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -1926,7 +1926,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_score_pct{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "tdarr_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
               "instant": true,
               "legendFormat": "tdarr score",
               "refId": "A"
@@ -1955,7 +1955,7 @@
                   }
                 ]
               },
-              "unit": "percent"
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -1991,7 +1991,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_health_check_score_pct{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "tdarr_health_check_score_ratio{tdarr_instance=~\"$tdarr_instance\"}",
               "instant": true,
               "legendFormat": "health check score",
               "refId": "A"
@@ -2975,7 +2975,7 @@
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "percent"
+                    "value": "percentunit"
                   },
                   {
                     "id": "min",
@@ -2983,7 +2983,7 @@
                   },
                   {
                     "id": "max",
-                    "value": 100
+                    "value": 1
                   },
                   {
                     "id": "thresholds",
@@ -2995,11 +2995,11 @@
                         },
                         {
                           "color": "yellow",
-                          "value": 25
+                          "value": 0.25
                         },
                         {
                           "color": "green",
-                          "value": 75
+                          "value": 0.75
                         }
                       ]
                     }
@@ -3065,36 +3065,36 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Orig Size (GB)"
+                  "options": "Orig Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Est Size (GB)"
+                  "options": "Est Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Out Size (GB)"
+                  "options": "Out Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
@@ -3250,7 +3250,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_ratio{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3441,9 +3441,9 @@
                   "Value #B": "Progress %",
                   "Value #C": "FPS",
                   "Value #D": "ETA",
-                  "Value #E": "Orig Size (GB)",
-                  "Value #F": "Est Size (GB)",
-                  "Value #G": "Out Size (GB)",
+                  "Value #E": "Orig Size",
+                  "Value #F": "Est Size",
+                  "Value #G": "Out Size",
                   "Value #H": "Job Start",
                   "Value #I": "Last Status Update",
                   "Value #L": "Idle",
@@ -3490,7 +3490,7 @@
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "percent"
+                    "value": "percentunit"
                   },
                   {
                     "id": "min",
@@ -3498,7 +3498,7 @@
                   },
                   {
                     "id": "max",
-                    "value": 100
+                    "value": 1
                   },
                   {
                     "id": "thresholds",
@@ -3510,11 +3510,11 @@
                         },
                         {
                           "color": "yellow",
-                          "value": 25
+                          "value": 0.25
                         },
                         {
                           "color": "green",
-                          "value": 75
+                          "value": 0.75
                         }
                       ]
                     }
@@ -3580,36 +3580,36 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Orig Size (GB)"
+                  "options": "Orig Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Est Size (GB)"
+                  "options": "Est Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Out Size (GB)"
+                  "options": "Out Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
@@ -3753,7 +3753,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_ratio{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3924,9 +3924,9 @@
                   "Value #B": "Progress %",
                   "Value #C": "FPS",
                   "Value #D": "ETA",
-                  "Value #E": "File Size (GB)",
-                  "Value #F": "Est Size (GB)",
-                  "Value #G": "Out Size (GB)",
+                  "Value #E": "Orig Size",
+                  "Value #F": "Est Size",
+                  "Value #G": "Out Size",
                   "Value #H": "Job Start",
                   "Value #I": "Last Status Update",
                   "Value #L": "Idle"
@@ -3972,7 +3972,7 @@
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "percent"
+                    "value": "percentunit"
                   },
                   {
                     "id": "min",
@@ -3980,7 +3980,7 @@
                   },
                   {
                     "id": "max",
-                    "value": 100
+                    "value": 1
                   },
                   {
                     "id": "thresholds",
@@ -3992,11 +3992,11 @@
                         },
                         {
                           "color": "yellow",
-                          "value": 25
+                          "value": 0.25
                         },
                         {
                           "color": "green",
-                          "value": 75
+                          "value": 0.75
                         }
                       ]
                     }
@@ -4062,36 +4062,36 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Orig Size (GB)"
+                  "options": "Orig Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Est Size (GB)"
+                  "options": "Est Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Out Size (GB)"
+                  "options": "Out Size"
                 },
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "decgbytes"
+                    "value": "bytes"
                   }
                 ]
               },
@@ -4247,7 +4247,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_ratio{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -4454,9 +4454,9 @@
                   "Value #B": "Progress %",
                   "Value #C": "FPS",
                   "Value #D": "ETA",
-                  "Value #E": "Orig Size (GB)",
-                  "Value #F": "Est Size (GB)",
-                  "Value #G": "Out Size (GB)",
+                  "Value #E": "Orig Size",
+                  "Value #F": "Est Size",
+                  "Value #G": "Out Size",
                   "Value #H": "Job Start",
                   "Value #I": "Last Status Update",
                   "Value #L": "Idle",
@@ -4817,7 +4817,7 @@
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -4849,7 +4849,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_worker_percentage{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_worker_ratio{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "{{node_name}} / {{worker_id}}",
               "range": true,
@@ -5902,7 +5902,7 @@
                 }
               },
               "mappings": [],
-              "max": 100,
+              "max": 1,
               "min": 0,
               "thresholds": {
                 "mode": "absolute",
@@ -5912,15 +5912,15 @@
                   },
                   {
                     "color": "yellow",
-                    "value": 70
+                    "value": 0.7
                   },
                   {
                     "color": "red",
-                    "value": 90
+                    "value": 0.9
                   }
                 ]
               },
-              "unit": "percent"
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -5952,7 +5952,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_host_cpu_percent{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_host_cpu_ratio{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "{{node_name}}",
               "range": true,

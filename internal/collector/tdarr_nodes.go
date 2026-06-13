@@ -62,7 +62,7 @@ type TdarrNodeMetrics struct {
 	nodeUptime            typedDesc
 	nodeHeapUsedBytes     typedDesc
 	nodeHeapTotalBytes    typedDesc
-	nodeHostCpuPercent    typedDesc
+	nodeHostCpuRatio    typedDesc
 	nodeHostMemUsedBytes  typedDesc
 	nodeHostMemTotalBytes typedDesc
 	// node state gauges
@@ -82,7 +82,7 @@ type TdarrNodeMetrics struct {
 	nodeWorkerPlugin typedDesc
 	nodeWorkerIdle   typedDesc
 	// per-worker numeric gauges
-	nodeWorkerPercentage            typedDesc
+	nodeWorkerRatio            typedDesc
 	nodeWorkerFps                   typedDesc
 	nodeWorkerOriginalFileSizeBytes typedDesc
 	nodeWorkerOutputFileSizeBytes   typedDesc
@@ -131,9 +131,9 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node heap total in bytes",
 			nodeLabelPair, instance,
 		),
-		nodeHostCpuPercent: newGauge(
-			"node_host_cpu_percent",
-			"Tdarr node cpu percent used",
+		nodeHostCpuRatio: newGauge(
+			"node_host_cpu_ratio",
+			"Tdarr node cpu usage as a ratio 0-1",
 			nodeLabelPair, instance,
 		),
 		nodeHostMemUsedBytes: newGauge(
@@ -201,9 +201,9 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			[]string{"node_id", "node_name", "worker_id"},
 			instance,
 		),
-		nodeWorkerPercentage: newGauge(
-			"node_worker_percentage",
-			"Tdarr node worker transcode/healthcheck progress percentage",
+		nodeWorkerRatio: newGauge(
+			"node_worker_ratio",
+			"Tdarr node worker transcode/healthcheck progress as a ratio 0-1",
 			workerLabelPair, instance,
 		),
 		nodeWorkerFps: newGauge(
@@ -258,7 +258,7 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeUptime,
 		m.nodeHeapUsedBytes,
 		m.nodeHeapTotalBytes,
-		m.nodeHostCpuPercent,
+		m.nodeHostCpuRatio,
 		m.nodeHostMemUsedBytes,
 		m.nodeHostMemTotalBytes,
 		m.nodePaused,
@@ -271,7 +271,7 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeWorkerStatus,
 		m.nodeWorkerPlugin,
 		m.nodeWorkerIdle,
-		m.nodeWorkerPercentage,
+		m.nodeWorkerRatio,
 		m.nodeWorkerFps,
 		m.nodeWorkerOriginalFileSizeBytes,
 		m.nodeWorkerOutputFileSizeBytes,
