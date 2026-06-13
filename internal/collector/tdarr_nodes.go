@@ -59,12 +59,12 @@ type TdarrNodeMetrics struct {
 	// identity / info
 	nodeInfo typedDesc
 	// resource stats
-	nodeUptime         typedDesc
-	nodeHeapUsedMb     typedDesc
-	nodeHeapTotalMb    typedDesc
-	nodeHostCpuPercent typedDesc
-	nodeHostMemUsedGb  typedDesc
-	nodeHostMemTotalGb typedDesc
+	nodeUptime            typedDesc
+	nodeHeapUsedBytes     typedDesc
+	nodeHeapTotalBytes    typedDesc
+	nodeHostCpuPercent    typedDesc
+	nodeHostMemUsedBytes  typedDesc
+	nodeHostMemTotalBytes typedDesc
 	// node state gauges
 	nodePaused          typedDesc
 	nodeMaxGpuWorkers   typedDesc
@@ -82,15 +82,15 @@ type TdarrNodeMetrics struct {
 	nodeWorkerPlugin typedDesc
 	nodeWorkerIdle   typedDesc
 	// per-worker numeric gauges
-	nodeWorkerPercentage         typedDesc
-	nodeWorkerFps                typedDesc
-	nodeWorkerOriginalFileSizeGb typedDesc
-	nodeWorkerOutputFileSizeGb   typedDesc
-	nodeWorkerEstFileSizeGb      typedDesc
-	nodeWorkerJobStartTimestamp  typedDesc
-	nodeWorkerStepStartTimestamp typedDesc
-	nodeWorkerStatusTimestamp    typedDesc
-	nodeWorkerEtaSeconds         typedDesc
+	nodeWorkerPercentage            typedDesc
+	nodeWorkerFps                   typedDesc
+	nodeWorkerOriginalFileSizeBytes typedDesc
+	nodeWorkerOutputFileSizeBytes   typedDesc
+	nodeWorkerEstFileSizeBytes      typedDesc
+	nodeWorkerJobStartTimestamp     typedDesc
+	nodeWorkerStepStartTimestamp    typedDesc
+	nodeWorkerStatusTimestamp       typedDesc
+	nodeWorkerEtaSeconds            typedDesc
 }
 
 type TdarrNodeCollector struct {
@@ -121,14 +121,14 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node uptime in seconds",
 			nodeLabelPair, instance,
 		),
-		nodeHeapUsedMb: newGauge(
-			"node_heap_used_mb",
-			"Tdarr node heap used in MB",
+		nodeHeapUsedBytes: newGauge(
+			"node_heap_used_bytes",
+			"Tdarr node heap used in bytes",
 			nodeLabelPair, instance,
 		),
-		nodeHeapTotalMb: newGauge(
-			"node_heap_total_mb",
-			"Tdarr node heap total in MB",
+		nodeHeapTotalBytes: newGauge(
+			"node_heap_total_bytes",
+			"Tdarr node heap total in bytes",
 			nodeLabelPair, instance,
 		),
 		nodeHostCpuPercent: newGauge(
@@ -136,14 +136,14 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node cpu percent used",
 			nodeLabelPair, instance,
 		),
-		nodeHostMemUsedGb: newGauge(
-			"node_host_mem_used_gb",
-			"Memory used in GB for host that Tdarr node is running on",
+		nodeHostMemUsedBytes: newGauge(
+			"node_host_mem_used_bytes",
+			"Memory used in bytes for host that Tdarr node is running on",
 			nodeLabelPair, instance,
 		),
-		nodeHostMemTotalGb: newGauge(
-			"node_host_mem_total_gb",
-			"Total memory in GB for host that Tdarr node is running on",
+		nodeHostMemTotalBytes: newGauge(
+			"node_host_mem_total_bytes",
+			"Total memory in bytes for host that Tdarr node is running on",
 			nodeLabelPair, instance,
 		),
 		nodePaused: newGauge(
@@ -211,19 +211,19 @@ func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
 			"Tdarr node worker frames per second",
 			workerLabelPair, instance,
 		),
-		nodeWorkerOriginalFileSizeGb: newGauge(
-			"node_worker_original_file_size_gb",
-			"Tdarr node worker original file size in GB",
+		nodeWorkerOriginalFileSizeBytes: newGauge(
+			"node_worker_original_file_size_bytes",
+			"Tdarr node worker original file size in bytes",
 			workerLabelPair, instance,
 		),
-		nodeWorkerOutputFileSizeGb: newGauge(
-			"node_worker_output_file_size_gb",
-			"Tdarr node worker current output file size in GB",
+		nodeWorkerOutputFileSizeBytes: newGauge(
+			"node_worker_output_file_size_bytes",
+			"Tdarr node worker current output file size in bytes",
 			workerLabelPair, instance,
 		),
-		nodeWorkerEstFileSizeGb: newGauge(
-			"node_worker_est_file_size_gb",
-			"Tdarr node worker estimated output file size in GB",
+		nodeWorkerEstFileSizeBytes: newGauge(
+			"node_worker_est_file_size_bytes",
+			"Tdarr node worker estimated output file size in bytes",
 			workerLabelPair, instance,
 		),
 		nodeWorkerJobStartTimestamp: newGauge(
@@ -256,11 +256,11 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 	return []typedDesc{
 		m.nodeInfo,
 		m.nodeUptime,
-		m.nodeHeapUsedMb,
-		m.nodeHeapTotalMb,
+		m.nodeHeapUsedBytes,
+		m.nodeHeapTotalBytes,
 		m.nodeHostCpuPercent,
-		m.nodeHostMemUsedGb,
-		m.nodeHostMemTotalGb,
+		m.nodeHostMemUsedBytes,
+		m.nodeHostMemTotalBytes,
 		m.nodePaused,
 		m.nodeMaxGpuWorkers,
 		m.nodeScheduleEnabled,
@@ -273,9 +273,9 @@ func (m *TdarrNodeMetrics) descs() []typedDesc {
 		m.nodeWorkerIdle,
 		m.nodeWorkerPercentage,
 		m.nodeWorkerFps,
-		m.nodeWorkerOriginalFileSizeGb,
-		m.nodeWorkerOutputFileSizeGb,
-		m.nodeWorkerEstFileSizeGb,
+		m.nodeWorkerOriginalFileSizeBytes,
+		m.nodeWorkerOutputFileSizeBytes,
+		m.nodeWorkerEstFileSizeBytes,
 		m.nodeWorkerJobStartTimestamp,
 		m.nodeWorkerStepStartTimestamp,
 		m.nodeWorkerStatusTimestamp,

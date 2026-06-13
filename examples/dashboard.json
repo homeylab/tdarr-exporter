@@ -381,7 +381,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Filters by Prometheus job, not tdarr_instance — multi-deployment users may see all jobs.",
+          "description": "Filters by Prometheus job, not tdarr_instance \u2014 multi-deployment users may see all jobs.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -465,7 +465,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Custom gauge — 1 if the last collection cycle succeeded, 0 if any failure occurred (Tdarr API error, response parse error, or partial pie-stats fetch). Check exporter logs for root cause when 0.",
+          "description": "Custom gauge \u2014 1 if the last collection cycle succeeded, 0 if any failure occurred (Tdarr API error, response parse error, or partial pie-stats fetch). Check exporter logs for root cause when 0.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1287,7 +1287,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1330,7 +1330,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sort_desc(sum by (library_name) (tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}))",
+              "expr": "sort_desc(sum by (library_name) (tdarr_library_size_diff_bytes{tdarr_instance=~\"$tdarr_instance\"}))",
               "instant": true,
               "legendFormat": "{{library_name}}",
               "refId": "A"
@@ -1359,7 +1359,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1395,7 +1395,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_size_diff_gb{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "tdarr_size_diff_bytes{tdarr_instance=~\"$tdarr_instance\"}",
               "instant": true,
               "legendFormat": "server total",
               "refId": "A"
@@ -1875,7 +1875,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Percent of all media files successfully transcoded (successful ÷ total files).",
+          "description": "Percent of all media files successfully transcoded (successful \u00f7 total files).",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1940,7 +1940,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Percent of all media files successfully health-checked (successful ÷ total files).",
+          "description": "Percent of all media files successfully health-checked (successful \u00f7 total files).",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2020,7 +2020,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -2056,7 +2056,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(tdarr_library_size_diff_gb{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
+              "expr": "sum(tdarr_library_size_diff_bytes{tdarr_instance=~\"$tdarr_instance\", library_name=~\"$library\"})",
               "instant": true,
               "legendFormat": "size diff",
               "refId": "A"
@@ -2070,7 +2070,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) \u2014 not a lifetime total.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2138,7 +2138,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) — not a lifetime total.",
+          "description": "Files currently in an error state (point-in-time, from the per-status breakdown) \u2014 not a lifetime total.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2404,7 +2404,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (stat_type) (tdarr_stream_stats_duration{tdarr_instance=~\"$tdarr_instance\"})",
+              "expr": "sum by (stat_type) (tdarr_stream_stats_duration_seconds{tdarr_instance=~\"$tdarr_instance\"})",
               "instant": true,
               "legendFormat": "{{stat_type}}",
               "refId": "A"
@@ -3286,7 +3286,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3298,7 +3298,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3310,7 +3310,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"true\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3789,7 +3789,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3801,7 +3801,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -3813,7 +3813,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"healthcheck\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -4283,7 +4283,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_original_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -4295,7 +4295,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_est_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -4307,7 +4307,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
+              "expr": "sum by (worker_id) (tdarr_node_worker_output_file_size_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"} and on (worker_id) tdarr_node_worker_info{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\", flow_worker=\"false\", worker_type=\"transcode\"})",
               "format": "table",
               "instant": true,
               "legendFormat": "",
@@ -6014,7 +6014,7 @@
                   }
                 ]
               },
-              "unit": "decgbytes"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -6046,7 +6046,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_host_mem_used_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_host_mem_used_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "used",
               "range": true,
@@ -6058,7 +6058,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_host_mem_total_gb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_host_mem_total_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "total",
               "range": true,
@@ -6120,7 +6120,7 @@
                   }
                 ]
               },
-              "unit": "decmbytes"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -6152,7 +6152,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_heap_used_mb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_heap_used_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "used",
               "range": true,
@@ -6164,7 +6164,7 @@
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "tdarr_node_heap_total_mb{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
+              "expr": "tdarr_node_heap_total_bytes{tdarr_instance=~\"$tdarr_instance\", node_name=~\"$node_name\"}",
               "instant": false,
               "legendFormat": "total",
               "range": true,
@@ -6194,7 +6194,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "Counter bumps when Tdarr returns a status string not in the exporter's known enum. Non-zero values indicate Tdarr added/renamed a status — file an issue at homeylab/tdarr-exporter to update the enum. Status is still emitted under a normalized label; this is a maintainer signal, not an operator alert.",
+          "description": "Counter bumps when Tdarr returns a status string not in the exporter's known enum. Non-zero values indicate Tdarr added/renamed a status \u2014 file an issue at homeylab/tdarr-exporter to update the enum. Status is still emitted under a normalized label; this is a maintainer signal, not an operator alert.",
           "fieldConfig": {
             "defaults": {
               "color": {

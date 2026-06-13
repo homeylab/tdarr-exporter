@@ -19,6 +19,11 @@ import (
 
 const METRIC_PREFIX = "tdarr"
 
+const (
+	bytesPerMB = 1024 * 1024
+	bytesPerGB = 1024 * 1024 * 1024
+)
+
 // Sentinel categories for collection failures so callers and tests can branch
 // on the cause with errors.Is instead of matching error strings. Boundary errors
 // wrap one of these alongside the underlying cause (via multi-%w), so the original
@@ -221,8 +226,8 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			nil, instance,
 		),
 		sizeDiff: newGauge(
-			"size_diff_gb",
-			"Tdarr net file-size change in GB across files currently present (positive = space saved, negative = grew); live, excludes deleted files",
+			"size_diff_bytes",
+			"Tdarr net file-size change in bytes across files currently present (positive = space saved, negative = grew); live, excludes deleted files",
 			nil, instance,
 		),
 		tdarrScore: newGauge(
@@ -241,18 +246,18 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			nil, instance,
 		),
 		streamStatsDuration: newGauge(
-			"stream_stats_duration",
-			"Tdarr stream stats duration",
+			"stream_stats_duration_seconds",
+			"Tdarr server-wide stream duration in seconds; stat_type is average/highest/total aggregated across scanned media",
 			[]string{"stat_type"}, instance,
 		),
 		streamStatsBitRate: newGauge(
 			"stream_stats_bit_rate",
-			"Tdarr stream stats bit rate",
+			"Tdarr server-wide stream bit rate in bits per second; stat_type is average/highest/total aggregated across scanned media",
 			[]string{"stat_type"}, instance,
 		),
 		streamStatsNumFrames: newGauge(
 			"stream_stats_num_frames",
-			"Tdarr stream stats number of frames",
+			"Tdarr server-wide stream frame count; stat_type is average/highest/total aggregated across scanned media",
 			[]string{"stat_type"}, instance,
 		),
 		pieNumFiles: newGauge(
@@ -271,8 +276,8 @@ func newTdarrCollectorWithAPI(runConfig config.Config, api tdarrAPI) *TdarrColle
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieSizeDiff: newGauge(
-			"library_size_diff_gb",
-			"Tdarr net file-size change in GB for library (positive = space saved, negative = grew); lifetime, includes files since deleted",
+			"library_size_diff_bytes",
+			"Tdarr net file-size change in bytes for library (positive = space saved, negative = grew); lifetime, includes files since deleted",
 			[]string{"library_name", "library_id"}, instance,
 		),
 		pieTranscodes: newGauge(
@@ -693,7 +698,7 @@ func (c *TdarrCollector) emitGeneralMetrics(ch chan<- prometheus.Metric, metric 
 	ch <- c.totalFilesMetric.mustNewConstMetric(float64(metric.TotalFileCount))
 	ch <- c.totalTranscodeCount.mustNewConstMetric(float64(metric.TotalTranscodeCount))
 	ch <- c.totalHealthCheckCount.mustNewConstMetric(float64(metric.TotalHealthCheckCount))
-	ch <- c.sizeDiff.mustNewConstMetric(metric.SizeDiff)
+	ch <- c.sizeDiff.mustNewConstMetric(metric.SizeDiff * bytesPerGB)
 	ch <- c.tdarrScore.mustNewConstMetric(score)
 	ch <- c.healthCheckScore.mustNewConstMetric(healthScore)
 	ch <- c.avgNumStreams.mustNewConstMetric(metric.AvgNumStreams)
@@ -724,7 +729,7 @@ func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*
 		ch <- c.pieNumFiles.mustNewConstMetric(float64(pie.PieStats.TotalFiles), pie.libraryName, pie.libraryId)
 		ch <- c.pieNumTranscodes.mustNewConstMetric(float64(pie.PieStats.TotalTranscodeCount), pie.libraryName, pie.libraryId)
 		ch <- c.pieNumHealthChecks.mustNewConstMetric(float64(pie.PieStats.TotalHealthCheckCount), pie.libraryName, pie.libraryId)
-		ch <- c.pieSizeDiff.mustNewConstMetric(pie.PieStats.SizeDiff, pie.libraryName, pie.libraryId)
+		ch <- c.pieSizeDiff.mustNewConstMetric(pie.PieStats.SizeDiff*bytesPerGB, pie.libraryName, pie.libraryId)
 		// Emit transcode statuses from the normalized map (pre-cleaned labels, full enum coverage).
 		for status, count := range pie.NormalizedTranscodes {
 			ch <- c.pieTranscodes.mustNewConstMetric(float64(count),
@@ -743,12 +748,13 @@ func (c *TdarrCollector) emitPieMetrics(ch chan<- prometheus.Metric, pieData []*
 	}
 }
 
-// emitParsedFloat parses raw as a float64 and, on success, emits a node-scoped gauge.
+// emitParsedFloat parses raw as a float64 and, on success, emits a node-scoped gauge
+// with the value multiplied by scale (pass 1 for no rescale).
 // On parse failure it debug-logs and silently skips the metric (intentional: Tdarr may
 // send empty/non-numeric resource strings for nodes that haven't reported yet).
-func (c *TdarrCollector) emitParsedFloat(ch chan<- prometheus.Metric, desc typedDesc, raw string, nodeId, nodeName string) {
+func (c *TdarrCollector) emitParsedFloat(ch chan<- prometheus.Metric, desc typedDesc, raw string, scale float64, nodeId, nodeName string) {
 	if v, floatErr := strconv.ParseFloat(raw, 64); floatErr == nil {
-		ch <- desc.mustNewConstMetric(v, nodeId, nodeName)
+		ch <- desc.mustNewConstMetric(v*scale, nodeId, nodeName)
 	} else {
 		c.logger.Debug().Str("nodeId", nodeId).Str("nodeName", nodeName).
 			Str("raw", raw).Err(floatErr).Msg("Failed to parse node resource stat; skipping metric")
@@ -774,11 +780,11 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 			float64(node.ResourceStats.Process.Uptime), node.Id, node.Name)
 
 		// convert resource stats to float from string; skip on parse failure
-		c.emitParsedFloat(ch, m.nodeHeapUsedMb, node.ResourceStats.Process.HeapUsedMb, node.Id, node.Name)
-		c.emitParsedFloat(ch, m.nodeHeapTotalMb, node.ResourceStats.Process.HeapTotalMb, node.Id, node.Name)
-		c.emitParsedFloat(ch, m.nodeHostCpuPercent, node.ResourceStats.Os.CpuPercent, node.Id, node.Name)
-		c.emitParsedFloat(ch, m.nodeHostMemUsedGb, node.ResourceStats.Os.MemUsedGb, node.Id, node.Name)
-		c.emitParsedFloat(ch, m.nodeHostMemTotalGb, node.ResourceStats.Os.MemTotalGb, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHeapUsedBytes, node.ResourceStats.Process.HeapUsedMb, bytesPerMB, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHeapTotalBytes, node.ResourceStats.Process.HeapTotalMb, bytesPerMB, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostCpuPercent, node.ResourceStats.Os.CpuPercent, 1, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostMemUsedBytes, node.ResourceStats.Os.MemUsedGb, bytesPerGB, node.Id, node.Name)
+		c.emitParsedFloat(ch, m.nodeHostMemTotalBytes, node.ResourceStats.Os.MemTotalGb, bytesPerGB, node.Id, node.Name)
 
 		// node state gauges
 		pausedVal := 0.0
@@ -852,12 +858,12 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 				worker.Percentage, node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerFps.mustNewConstMetric(
 				float64(worker.Fps), node.Id, node.Name, worker.Id)
-			ch <- m.nodeWorkerOriginalFileSizeGb.mustNewConstMetric(
-				worker.OriginalfileSizeGb, node.Id, node.Name, worker.Id)
-			ch <- m.nodeWorkerOutputFileSizeGb.mustNewConstMetric(
-				worker.OutputFileSizeGb, node.Id, node.Name, worker.Id)
-			ch <- m.nodeWorkerEstFileSizeGb.mustNewConstMetric(
-				worker.EstSizeGb, node.Id, node.Name, worker.Id)
+			ch <- m.nodeWorkerOriginalFileSizeBytes.mustNewConstMetric(
+				worker.OriginalfileSizeGb*bytesPerGB, node.Id, node.Name, worker.Id)
+			ch <- m.nodeWorkerOutputFileSizeBytes.mustNewConstMetric(
+				worker.OutputFileSizeGb*bytesPerGB, node.Id, node.Name, worker.Id)
+			ch <- m.nodeWorkerEstFileSizeBytes.mustNewConstMetric(
+				worker.EstSizeGb*bytesPerGB, node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerJobStartTimestamp.mustNewConstMetric(
 				float64(worker.Job.StartTime), node.Id, node.Name, worker.Id)
 			ch <- m.nodeWorkerStepStartTimestamp.mustNewConstMetric(
