@@ -20,9 +20,9 @@ import (
 const METRIC_PREFIX = "tdarr"
 
 const (
-	bytesPerMB      = 1024 * 1024
-	bytesPerGB      = 1024 * 1024 * 1024
-	percentToRatio  = 0.01
+	bytesPerMB     = 1024 * 1024
+	bytesPerGB     = 1024 * 1024 * 1024
+	percentToRatio = 0.01
 )
 
 // Sentinel categories for collection failures so callers and tests can branch

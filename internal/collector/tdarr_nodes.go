@@ -62,7 +62,7 @@ type TdarrNodeMetrics struct {
 	nodeUptime            typedDesc
 	nodeHeapUsedBytes     typedDesc
 	nodeHeapTotalBytes    typedDesc
-	nodeHostCpuRatio    typedDesc
+	nodeHostCpuRatio      typedDesc
 	nodeHostMemUsedBytes  typedDesc
 	nodeHostMemTotalBytes typedDesc
 	// node state gauges
@@ -82,7 +82,7 @@ type TdarrNodeMetrics struct {
 	nodeWorkerPlugin typedDesc
 	nodeWorkerIdle   typedDesc
 	// per-worker numeric gauges
-	nodeWorkerRatio            typedDesc
+	nodeWorkerRatio                 typedDesc
 	nodeWorkerFps                   typedDesc
 	nodeWorkerOriginalFileSizeBytes typedDesc
 	nodeWorkerOutputFileSizeBytes   typedDesc
