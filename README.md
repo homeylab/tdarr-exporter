@@ -118,10 +118,11 @@ The new Tdarr API behavior is described in this [issue](https://github.com/homey
 ## Dashboard
 Dashboard example can be found on Grafana's portal [here](https://grafana.com/grafana/dashboards/20388).
 - Copy the ID `20388` and then import it in Grafana.
-- Note: Grafana dashboard latest version is a `v2.0.0` compatible dashboard. Use revision 3 for a `v1.X.X` compatible dashboard
+- Note: the latest published revision tracks the newest release. For earlier majors, import the archived dashboards from this repo: `archive/dashboard.v2.json` (`v2.X.X`), `archive/dashboard.v1.json` (`v1.X.X`).
 
 Dashboard example is also provided in the `examples/dashboard.json` file in case the dashboard from [Grafana](https://grafana.com/grafana/dashboards/20388) is not available.
 - In Grafana, add a new dashboard and then copy and paste the `dashboard.json` file contents.
+- Use `archive/dashboard.v2.json` for a `v2.X.X` compatible dashboard
 - Use `archive/dashboard.v1.json` for a `v1.X.X` compatible dashboard
 
 ## Development
