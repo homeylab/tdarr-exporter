@@ -1,8 +1,8 @@
 # Local dev/test tasks. Requires go-task (https://taskfile.dev).
-# config sourced from local/local.env (gitignored) via dotenv below.
+# config sourced from .local/local.env (gitignored) via dotenv below.
 version: '3'
 
-dotenv: ['local/local.env']
+dotenv: ['.local/local.env']
 
 vars:
   # Build args for Dockerfile
@@ -12,7 +12,7 @@ vars:
   RUN_IMAGE_TAG: nonroot
 
   # For local e2e testing (smoke tests). TEST_IMAGE_NAME/TEST_IMAGE_TAG come from
-  # local/local.env (gitignored, loaded via dotenv) so the committed Taskfile
+  # .local/local.env (gitignored, loaded via dotenv) so the committed Taskfile
   # carries no private registry. Cmds reference them as ${TEST_IMAGE_NAME:-tdarr-exporter}
   # / ${TEST_IMAGE_TAG:-test}; dotenv only reaches cmds, not var-level sh.
   PORT: '9090'
@@ -30,7 +30,7 @@ vars:
 
 tasks:
   dev:
-    desc: Live-reload dev loop (air), env from local/local.env
+    desc: Live-reload dev loop (air), env from .local/local.env
     cmds:
       - air
 
