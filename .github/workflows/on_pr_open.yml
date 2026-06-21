@@ -18,7 +18,7 @@ jobs:
     #     golangci-version: ["v1.51.2"]
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Go Tests
       uses: ./.github/actions/tests
   ## Build and test code to ensure it will work in a container
