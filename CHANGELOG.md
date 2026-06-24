@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.1](https://github.com/homeylab/tdarr-exporter/compare/v3.0.0...v3.0.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **deps:** update minor & patch updates ([fd7ecdf](https://github.com/homeylab/tdarr-exporter/commit/fd7ecdff4ea3835bd65f90e05570b502b8e4188c))
+* **deps:** update minor & patch updates ([85c5959](https://github.com/homeylab/tdarr-exporter/commit/85c59597dc6d0783aeb0a648d4b7db6b5a56d470))
+
 ## [3.0.0](https://github.com/homeylab/tdarr-exporter/compare/v2.1.0...v3.0.0) (2026-06-13)
 
 
