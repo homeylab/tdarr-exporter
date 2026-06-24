@@ -1,4 +1,9 @@
 # tdarr-exporter
+
+> [!NOTE]
+> This documentation tracks the `main` branch and may describe unreleased changes.
+> For docs matching your installed version, use the branch/tag dropdown to switch to your release tag. See [Releases](https://github.com/homeylab/tdarr-exporter/releases) for the list of published versions.
+
 - [tdarr-exporter](#tdarr-exporter)
   - [Background](#background)
   - [Usage](#usage)
