@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -672,7 +674,7 @@ func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
 	if up := upValueFromFamilies(mfs1); up != 0.0 {
 		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up)
 	}
-	if c.statsCache.GetLibStats() != nil {
+	if _, stats := c.statsCache.Read(); stats != nil {
 		t.Fatal("cache was written despite partial pie failure; partial data must not be cached")
 	}
 
@@ -691,7 +693,7 @@ func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
 	if got := libraryFilesSeriesCount(mfs2); got != 2 {
 		t.Errorf("scrape 2 tdarr_library_files series: want 2 (lib1+lib2), got %d", got)
 	}
-	if c.statsCache.GetLibStats() == nil {
+	if _, stats := c.statsCache.Read(); stats == nil {
 		t.Error("cache not written after fully successful scrape")
 	}
 }
@@ -705,4 +707,64 @@ func libraryFilesSeriesCount(mfs []*dto.MetricFamily) int {
 		}
 	}
 	return 0
+}
+
+// TestLibStatsCache_ReadWritePairing verifies Read always returns the exact
+// totals/stats pair the last Write stored, sequentially. This is the baseline
+// invariant check for the single-lock Read/Write API replacing the four
+// separately-locked getters/setters.
+func TestLibStatsCache_ReadWritePairing(t *testing.T) {
+	c := NewTdarrLibStatsCache()
+	// empty cache: stats nil (refetch signal), zero totals
+	if tot, stats := c.Read(); stats != nil || tot != (tdarrCacheTotals{}) {
+		t.Fatalf("empty cache: want zero totals + nil stats, got %+v / %v", tot, stats)
+	}
+	totals := tdarrCacheTotals{totalFileCount: 42}
+	stats := []*TdarrPieStats{{libraryId: "lib1"}}
+	c.Write(totals, stats)
+	gotT, gotS := c.Read()
+	if gotT != totals {
+		t.Errorf("totals: want %+v, got %+v", totals, gotT)
+	}
+	if len(gotS) != 1 || gotS[0].libraryId != "lib1" {
+		t.Errorf("stats: want [lib1], got %v", gotS)
+	}
+}
+
+// TestLibStatsCache_ReadWritePairing_Concurrent races N writers against N
+// readers under -race. Each writer stores a totals/stats pair whose values
+// are derived from the same index, so any Read that observed a torn pair
+// (totals from one Write, stats from another) would show a mismatched index.
+func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
+	c := NewTdarrLibStatsCache()
+	const n = 100
+
+	var wg sync.WaitGroup
+	wg.Add(2 * n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			c.Write(
+				tdarrCacheTotals{totalFileCount: i},
+				[]*TdarrPieStats{{libraryId: fmt.Sprintf("lib%d", i)}},
+			)
+		}()
+		go func() {
+			defer wg.Done()
+			tot, stats := c.Read()
+			if stats == nil {
+				return // cache not yet written; not a torn pair
+			}
+			id := strings.TrimPrefix(stats[0].libraryId, "lib")
+			want, err := strconv.Atoi(id)
+			if err != nil {
+				t.Errorf("unexpected libraryId format %q: %v", stats[0].libraryId, err)
+				return
+			}
+			if tot.totalFileCount != want {
+				t.Errorf("torn pair: totals.totalFileCount=%d does not match stats libraryId=%q", tot.totalFileCount, stats[0].libraryId)
+			}
+		}()
+	}
+	wg.Wait()
 }

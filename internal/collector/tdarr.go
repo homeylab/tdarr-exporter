@@ -151,27 +151,24 @@ func NewTdarrLibStatsCache() *TdarrLibStatsCache {
 	}
 }
 
-func (c *TdarrLibStatsCache) GetTotals() tdarrCacheTotals {
+// Read returns the cached totals and library stats as a consistent pair under a
+// single lock. libraryStats is nil until the first fully-successful sweep is
+// cached (callers treat nil as "cache empty" and refetch). Returning both
+// together prevents a torn read where totals and stats come from different
+// scrapes.
+func (c *TdarrLibStatsCache) Read() (tdarrCacheTotals, []*TdarrPieStats) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.totals
+	return c.totals, c.libraryStats
 }
 
-func (c *TdarrLibStatsCache) SetTotals(totals tdarrCacheTotals) {
+// Write stores the totals and library stats together under a single lock, so
+// the two fields — which must correspond — are never observed as a torn pair by
+// a concurrent Read. Only a fully-successful pie sweep is written (see collect()).
+func (c *TdarrLibStatsCache) Write(totals tdarrCacheTotals, stats []*TdarrPieStats) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.totals = totals
-}
-
-func (c *TdarrLibStatsCache) GetLibStats() []*TdarrPieStats {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.libraryStats
-}
-
-func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.libraryStats = stats
 }
 
@@ -631,21 +628,21 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// already have total file count from general stats (`metric.TotalFileCount`)
 	// check cache for all libraries data
 	// this won't block other reads when checking
-	cacheTotals := c.statsCache.GetTotals()
+	cacheTotals, cachedStats := c.statsCache.Read()
 	// Refetch if the cache is empty (first run) or any of the 10 totals changed.
 	// Beyond the three top-level counts, the seven per-bucket queue fields
 	// (holdQueue/transcodeQueue/… on TdarrMetric) catch state transitions the totals miss
 	// (e.g. files queued but not yet transcoded). Their Tdarr JSON source (table0Count–table6Count)
 	// and bucket meanings are documented on TdarrMetric in tdarr_models.go. Older Tdarr versions
 	// omit those fields; they decode to 0, so 0==0 never triggers a spurious refetch.
-	shouldCollect := shouldRefetch(cacheTotals, c.statsCache.GetLibStats() == nil, metric)
+	shouldCollect := shouldRefetch(cacheTotals, cachedStats == nil, metric)
 	if shouldCollect {
 		c.logger.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
 	}
 	// if counts are the same use cache
 	if !shouldCollect {
 		c.logger.Debug().Msg("Using cached library stats - api totals matches cached values")
-		pieData = c.statsCache.GetLibStats()
+		pieData = cachedStats
 	} else { // fetch new data and update cache
 		getLibsPayload := getGeneralReqPayload("library")
 		allLibs := []TdarrLibraryInfo{}
@@ -665,9 +662,8 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 			c.logger.Warn().Msg("Partial library pie fetch failure - cache not updated, will re-fetch next scrape")
 		} else {
 			c.logger.Debug().Msg("All library stats gathered - setting cache")
-			c.statsCache.SetLibStats(pieData)
-			// set totals here after all data is collected
-			c.statsCache.SetTotals(totalsFromMetric(metric))
+			// Store totals and stats together so a concurrent scrape never reads a torn pair.
+			c.statsCache.Write(totalsFromMetric(metric), pieData)
 		}
 	}
 
