@@ -291,8 +291,8 @@ func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
 }
 
 // TestCollect_PartialPieFailure_UpEquals0 verifies tdarr_up == 0 when the get-pies call fails
-// (the worker records a partial failure via c.partialFailure.Store(true)), while general stats
-// emitted before the pie fetch are still present.
+// (the worker records the failure on the per-scrape partial flag returned by collect()),
+// while general stats emitted before the pie fetch are still present.
 func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	cfg := newTestConfig(t)
 	api := newSuccessFakeAPI(cfg)
@@ -311,13 +311,14 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	}
 }
 
-// TestCollect_ConsecutiveScrapes_PartialFlagResets is a critical regression test for the
-// partialFailure.Swap(false) fix in Collect(). It verifies that a stale partialFailure flag
-// from a failed scrape does not contaminate the following successful scrape.
+// TestCollect_ConsecutiveScrapes_PartialFlagResets is a critical regression test verifying
+// that the partial-failure signal is scoped to a single scrape. Since collect() returns a
+// local partial-failure bool per call (rather than storing it on a shared collector field),
+// a failed scrape cannot leak its partial flag into the next scrape's result.
 //
-// If the flag were reset via short-circuit OR (e.g. `err != nil || partial` before Swap), the
-// flag would leak across scrapes: scrape 2 would still report tdarr_up == 0 even when all
-// endpoints succeed.
+// If partial failure were instead tracked via a shared field across concurrent/consecutive
+// scrapes, a stale true from a failed scrape could contaminate a later successful one:
+// scrape 2 would still report tdarr_up == 0 even when all endpoints succeed.
 func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 	cfg := newTestConfig(t)
 	api := newSuccessFakeAPI(cfg)
@@ -440,7 +441,7 @@ func TestCollect_ErrorCause(t *testing.T) {
 
 			// Drain emissions into a buffered channel so collect() never blocks.
 			ch := make(chan prometheus.Metric, 512)
-			err := c.collect(context.Background(), ch)
+			_, err := c.collect(context.Background(), ch)
 			close(ch)
 
 			if err == nil {
@@ -492,7 +493,7 @@ func TestCollect_ContextCancelled_Aborts(t *testing.T) {
 	c.baseCtx = ctx
 
 	ch := make(chan prometheus.Metric, 512)
-	err := c.collect(ctx, ch)
+	_, err := c.collect(ctx, ch)
 	close(ch)
 
 	if err == nil {
