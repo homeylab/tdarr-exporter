@@ -447,9 +447,9 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 		err := c.httpReqHelper(ctx, c.pieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			c.logger.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
-			// Signal partial failure so Collect() can set tdarr_up=0.
-			// Previously-cached normalized data for this library is preserved (acceptable:
-			// last-known zero-padded series keep emitting while tdarr_up signals the issue).
+			// Signal partial failure so Collect() sets tdarr_up=0 and collect()
+			// skips the cache write (partial results are never cached; the next
+			// scrape re-fetches). This scrape emits only the libraries that succeeded.
 			c.partialFailure.Store(true)
 			continue
 		}
@@ -657,11 +657,20 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 		}
 
 		pieData = c.fetchPies(ctx, allLibs)
-		c.logger.Debug().Msg("All library stats gathered - setting cache")
-		c.statsCache.SetLibStats(pieData)
-
-		// set totals here after all data is collected
-		c.statsCache.SetTotals(totalsFromMetric(metric))
+		// Cache invariant: only a fully successful pie sweep may be cached.
+		// Caching a partial result would let the next scrape serve incomplete
+		// data from cache with tdarr_up=1 (the partialFailure flag resets each
+		// scrape), silently dropping the failed library's series until the
+		// totals next change. Skipping both writes keeps the cache stale/nil,
+		// so shouldRefetch() triggers a full refetch on the next scrape.
+		if c.partialFailure.Load() {
+			c.logger.Warn().Msg("Partial library pie fetch failure - cache not updated, will re-fetch next scrape")
+		} else {
+			c.logger.Debug().Msg("All library stats gathered - setting cache")
+			c.statsCache.SetLibStats(pieData)
+			// set totals here after all data is collected
+			c.statsCache.SetTotals(totalsFromMetric(metric))
+		}
 	}
 
 	// add metrics to collector

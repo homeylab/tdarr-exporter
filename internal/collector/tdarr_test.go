@@ -338,11 +338,10 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up1)
 	}
 
-	// Flip to success mode for scrape 2.
+	// Flip to success mode for scrape 2. No manual cache reset needed: the
+	// partial failure in scrape 1 already left the cache unwritten (see the
+	// cache-write guard in collect()), so the collector re-fetches on its own.
 	delete(api.errors, pieKey)
-	// Reset the stats cache so the collector re-fetches library pie stats
-	// (cache hit avoids pie calls entirely, which would skip the test's purpose).
-	c.statsCache = NewTdarrLibStatsCache()
 
 	// Scrape 2: all endpoints succeed → tdarr_up must be 1, not 0.
 	reg2 := prometheus.NewRegistry()
@@ -634,4 +633,75 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 			t.Errorf("Describe missing expected desc %q", name)
 		}
 	}
+}
+
+// TestCollect_PartialPieFailure_DoesNotPoisonCache verifies that a partial
+// per-library pie fetch failure does not write incomplete data into the stats
+// cache. Regression test: previously the partial result was cached together
+// with the current totals, so the NEXT scrape hit the cache, served incomplete
+// data (lib2's series missing), and reported tdarr_up=1 — masking the gap
+// until the totals next changed.
+//
+// Two libraries are required: lib1 succeeds, lib2 fails. With a single library
+// the partial result is empty (nil), nothing meaningful is cached, and the bug
+// cannot be observed.
+func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	twoLibs, _ := json.Marshal([]TdarrLibraryInfo{
+		{LibraryId: "lib1", Name: "Library One"},
+		{LibraryId: "lib2", Name: "Library Two"},
+	})
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, twoLibs)
+	// Register lib2's success response up front; the error registered next takes
+	// precedence (see fakeTdarrAPI.setError), and deleting the error later
+	// reveals the response for scrape 2.
+	pieKey2 := fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib2"}
+	api.setResponse(pieKey2, validPieBody())
+	api.setError(pieKey2, statErr{"pie fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
+
+	// Scrape 1: lib1 ok, lib2 fails → up=0 and, critically, cache stays empty.
+	reg1 := prometheus.NewRegistry()
+	reg1.MustRegister(c)
+	mfs1, err := reg1.Gather()
+	if err != nil {
+		t.Fatalf("scrape 1 gather: %v", err)
+	}
+	if up := upValueFromFamilies(mfs1); up != 0.0 {
+		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up)
+	}
+	if c.statsCache.GetLibStats() != nil {
+		t.Fatal("cache was written despite partial pie failure; partial data must not be cached")
+	}
+
+	// Scrape 2: lib2 recovers. NO manual cache reset — the collector must
+	// refetch on its own because the cache was never written.
+	delete(api.errors, pieKey2)
+	reg2 := prometheus.NewRegistry()
+	reg2.MustRegister(c)
+	mfs2, err := reg2.Gather()
+	if err != nil {
+		t.Fatalf("scrape 2 gather: %v", err)
+	}
+	if up := upValueFromFamilies(mfs2); up != 1.0 {
+		t.Errorf("scrape 2 tdarr_up: want 1.0, got %v", up)
+	}
+	if got := libraryFilesSeriesCount(mfs2); got != 2 {
+		t.Errorf("scrape 2 tdarr_library_files series: want 2 (lib1+lib2), got %d", got)
+	}
+	if c.statsCache.GetLibStats() == nil {
+		t.Error("cache not written after fully successful scrape")
+	}
+}
+
+// libraryFilesSeriesCount returns the number of series in the
+// tdarr_library_files family (one per library emitted).
+func libraryFilesSeriesCount(mfs []*dto.MetricFamily) int {
+	for _, mf := range mfs {
+		if mf.GetName() == "tdarr_library_files" {
+			return len(mf.GetMetric())
+		}
+	}
+	return 0
 }
