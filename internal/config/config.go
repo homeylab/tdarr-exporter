@@ -180,12 +180,16 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	if *httpTimeoutSeconds <= 0 {
 		return Config{}, fmt.Errorf("http_timeout_seconds must be at least 1")
 	}
-	if port, err := strconv.Atoi(*promPort); err != nil || port < 1 || port > 65535 {
+	// strconv.Itoa(port) == *promPort rejects non-canonical spellings that Atoi
+	// accepts but net rejects at listen time (a leading '+' or '0', e.g.
+	// "+9090"/"09090"), so a bad port fails fast here rather than at ListenAndServe.
+	if port, err := strconv.Atoi(*promPort); err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != *promPort {
 		return Config{}, fmt.Errorf("prometheus_port must be an integer between 1 and 65535, got %q", *promPort)
 	}
-	// The exporter's mux (internal/server/server.go) registers "/" (index) and
-	// "/healthz"; a PrometheusPath equal to a reserved route would panic at mux
-	// registration ("/healthz") or shadow the index ("/"). Reject at startup.
+	// The Gin router (internal/server/server.go) registers PrometheusPath, "/"
+	// (index) and "/healthz". A PrometheusPath equal to "/" or "/healthz" collides
+	// with those routes and panics at registration ("handlers are already
+	// registered for path"). Reject at startup instead.
 	if !strings.HasPrefix(*promPath, "/") {
 		return Config{}, fmt.Errorf("prometheus_path must start with '/', got %q", *promPath)
 	}
