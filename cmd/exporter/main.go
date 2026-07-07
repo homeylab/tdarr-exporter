@@ -22,14 +22,6 @@ import (
 )
 
 func main() {
-	// Handle --version before config parsing so it doesn't interfere with
-	// config.NewConfig's own flag set.
-	for _, arg := range os.Args[1:] {
-		if arg == "--version" || arg == "-version" {
-			fmt.Println(version.Print("tdarr_exporter"))
-			os.Exit(0)
-		}
-	}
 	os.Exit(run())
 }
 
@@ -38,6 +30,10 @@ func main() {
 // error. Split out of main so os.Exit does not skip deferred cleanup.
 func run() int {
 	userConfig := config.NewConfig()
+	if userConfig.Version {
+		fmt.Println(version.Print("tdarr_exporter"))
+		return 0
+	}
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 	log.Info().Str("version", version.Version).Str("revision", version.Revision).Str("buildDate", version.BuildDate).Str("goVersion", version.GoVersion).Msg("Starting tdarr-exporter")
 
