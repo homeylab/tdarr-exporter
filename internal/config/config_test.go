@@ -319,7 +319,7 @@ func TestPrometheusPortValidation(t *testing.T) {
 		{"zero", "0", true},
 		{"too large", "70000", true},
 		{"leading plus", "+9090", true},
-		{"leading zero", "09090", true},
+		{"leading zero accepted (net accepts it too)", "09090", false},
 	}
 	for _, tt := range tests {
 		tt := tt

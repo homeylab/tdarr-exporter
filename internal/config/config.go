@@ -180,10 +180,10 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	if *httpTimeoutSeconds <= 0 {
 		return Config{}, fmt.Errorf("http_timeout_seconds must be at least 1")
 	}
-	// strconv.Itoa(port) == *promPort rejects non-canonical spellings that Atoi
-	// accepts but net rejects at listen time (a leading '+' or '0', e.g.
-	// "+9090"/"09090"), so a bad port fails fast here rather than at ListenAndServe.
-	if port, err := strconv.Atoi(*promPort); err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != *promPort {
+	// ParseUint with bitSize 16 rejects out-of-range and signed ports for free;
+	// port 0 is a valid uint16 but means "pick a random port", so reject it
+	// explicitly. Fails fast here rather than later at ListenAndServe.
+	if port, err := strconv.ParseUint(*promPort, 10, 16); err != nil || port == 0 {
 		return Config{}, fmt.Errorf("prometheus_port must be an integer between 1 and 65535, got %q", *promPort)
 	}
 	// The Gin router (internal/server/server.go) registers PrometheusPath, "/"

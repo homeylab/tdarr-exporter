@@ -88,6 +88,8 @@ $ ./tdarr-exporter -h
         valid url for tdarr instance, ex: https://tdarr.somedomain.com
   -verify_ssl
         verify ssl certificates from tdarr (default true)
+  -version
+        print version information and exit
 ```
 
 A valid URL for the tdarr instance must be provided and can include protocol (`http/https`) and port if needed.
@@ -101,6 +103,7 @@ A valid URL for the tdarr instance must be provided and can include protocol (`h
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
 | `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
 | `prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+| `version`         | —                     | `false`    | Print version information and exit. Flag only (`-version`), no environment variable. |
 
 If the URL is a valid URL, the hostname inside the URL will be used to identify the instance in the metrics as `tdarr_instance` label, i.e. `https://tdarr.example.com` will be shown as `tdarr.example.com` in the metrics (if using version `v1.2.0` or later).
 
