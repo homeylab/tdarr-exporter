@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -291,8 +293,8 @@ func TestCollect_NodeFetchFails_UpEquals0(t *testing.T) {
 }
 
 // TestCollect_PartialPieFailure_UpEquals0 verifies tdarr_up == 0 when the get-pies call fails
-// (the worker records a partial failure via c.partialFailure.Store(true)), while general stats
-// emitted before the pie fetch are still present.
+// (the worker records the failure on the per-scrape partial flag returned by collect()),
+// while general stats emitted before the pie fetch are still present.
 func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	cfg := newTestConfig(t)
 	api := newSuccessFakeAPI(cfg)
@@ -311,13 +313,14 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	}
 }
 
-// TestCollect_ConsecutiveScrapes_PartialFlagResets is a critical regression test for the
-// partialFailure.Swap(false) fix in Collect(). It verifies that a stale partialFailure flag
-// from a failed scrape does not contaminate the following successful scrape.
+// TestCollect_ConsecutiveScrapes_PartialFlagResets is a critical regression test verifying
+// that the partial-failure signal is scoped to a single scrape. Since collect() returns a
+// local partial-failure bool per call (rather than storing it on a shared collector field),
+// a failed scrape cannot leak its partial flag into the next scrape's result.
 //
-// If the flag were reset via short-circuit OR (e.g. `err != nil || partial` before Swap), the
-// flag would leak across scrapes: scrape 2 would still report tdarr_up == 0 even when all
-// endpoints succeed.
+// If partial failure were instead tracked via a shared field across concurrent/consecutive
+// scrapes, a stale true from a failed scrape could contaminate a later successful one:
+// scrape 2 would still report tdarr_up == 0 even when all endpoints succeed.
 func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 	cfg := newTestConfig(t)
 	api := newSuccessFakeAPI(cfg)
@@ -338,11 +341,10 @@ func TestCollect_ConsecutiveScrapes_PartialFlagResets(t *testing.T) {
 		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up1)
 	}
 
-	// Flip to success mode for scrape 2.
+	// Flip to success mode for scrape 2. No manual cache reset needed: the
+	// partial failure in scrape 1 already left the cache unwritten (see the
+	// cache-write guard in collect()), so the collector re-fetches on its own.
 	delete(api.errors, pieKey)
-	// Reset the stats cache so the collector re-fetches library pie stats
-	// (cache hit avoids pie calls entirely, which would skip the test's purpose).
-	c.statsCache = NewTdarrLibStatsCache()
 
 	// Scrape 2: all endpoints succeed → tdarr_up must be 1, not 0.
 	reg2 := prometheus.NewRegistry()
@@ -441,7 +443,7 @@ func TestCollect_ErrorCause(t *testing.T) {
 
 			// Drain emissions into a buffered channel so collect() never blocks.
 			ch := make(chan prometheus.Metric, 512)
-			err := c.collect(context.Background(), ch)
+			_, err := c.collect(context.Background(), ch)
 			close(ch)
 
 			if err == nil {
@@ -493,7 +495,7 @@ func TestCollect_ContextCancelled_Aborts(t *testing.T) {
 	c.baseCtx = ctx
 
 	ch := make(chan prometheus.Metric, 512)
-	err := c.collect(ctx, ch)
+	_, err := c.collect(ctx, ch)
 	close(ch)
 
 	if err == nil {
@@ -634,4 +636,135 @@ func TestDescribe_EmitsAllDescs(t *testing.T) {
 			t.Errorf("Describe missing expected desc %q", name)
 		}
 	}
+}
+
+// TestCollect_PartialPieFailure_DoesNotPoisonCache verifies that a partial
+// per-library pie fetch failure does not write incomplete data into the stats
+// cache. Regression test: previously the partial result was cached together
+// with the current totals, so the NEXT scrape hit the cache, served incomplete
+// data (lib2's series missing), and reported tdarr_up=1 — masking the gap
+// until the totals next changed.
+//
+// Two libraries are required: lib1 succeeds, lib2 fails. With a single library
+// the partial result is empty (nil), nothing meaningful is cached, and the bug
+// cannot be observed.
+func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	twoLibs, _ := json.Marshal([]TdarrLibraryInfo{
+		{LibraryId: "lib1", Name: "Library One"},
+		{LibraryId: "lib2", Name: "Library Two"},
+	})
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, twoLibs)
+	// Register lib2's success response up front; the error registered next takes
+	// precedence (see fakeTdarrAPI.setError), and deleting the error later
+	// reveals the response for scrape 2.
+	pieKey2 := fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib2"}
+	api.setResponse(pieKey2, validPieBody())
+	api.setError(pieKey2, statErr{"pie fetch failed"})
+	c := newTdarrCollectorWithAPI(cfg, api)
+
+	// Scrape 1: lib1 ok, lib2 fails → up=0 and, critically, cache stays empty.
+	reg1 := prometheus.NewRegistry()
+	reg1.MustRegister(c)
+	mfs1, err := reg1.Gather()
+	if err != nil {
+		t.Fatalf("scrape 1 gather: %v", err)
+	}
+	if up := upValueFromFamilies(mfs1); up != 0.0 {
+		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up)
+	}
+	if _, stats := c.statsCache.Read(); stats != nil {
+		t.Fatal("cache was written despite partial pie failure; partial data must not be cached")
+	}
+
+	// Scrape 2: lib2 recovers. NO manual cache reset — the collector must
+	// refetch on its own because the cache was never written.
+	delete(api.errors, pieKey2)
+	reg2 := prometheus.NewRegistry()
+	reg2.MustRegister(c)
+	mfs2, err := reg2.Gather()
+	if err != nil {
+		t.Fatalf("scrape 2 gather: %v", err)
+	}
+	if up := upValueFromFamilies(mfs2); up != 1.0 {
+		t.Errorf("scrape 2 tdarr_up: want 1.0, got %v", up)
+	}
+	if got := libraryFilesSeriesCount(mfs2); got != 2 {
+		t.Errorf("scrape 2 tdarr_library_files series: want 2 (lib1+lib2), got %d", got)
+	}
+	if _, stats := c.statsCache.Read(); stats == nil {
+		t.Error("cache not written after fully successful scrape")
+	}
+}
+
+// libraryFilesSeriesCount returns the number of series in the
+// tdarr_library_files family (one per library emitted).
+func libraryFilesSeriesCount(mfs []*dto.MetricFamily) int {
+	for _, mf := range mfs {
+		if mf.GetName() == "tdarr_library_files" {
+			return len(mf.GetMetric())
+		}
+	}
+	return 0
+}
+
+// TestLibStatsCache_ReadWritePairing verifies Read always returns the exact
+// totals/stats pair the last Write stored, sequentially. This is the baseline
+// invariant check for the single-lock Read/Write API replacing the four
+// separately-locked getters/setters.
+func TestLibStatsCache_ReadWritePairing(t *testing.T) {
+	c := NewTdarrLibStatsCache()
+	// empty cache: stats nil (refetch signal), zero totals
+	if tot, stats := c.Read(); stats != nil || tot != (tdarrCacheTotals{}) {
+		t.Fatalf("empty cache: want zero totals + nil stats, got %+v / %v", tot, stats)
+	}
+	totals := tdarrCacheTotals{totalFileCount: 42}
+	stats := []*TdarrPieStats{{libraryId: "lib1"}}
+	c.Write(totals, stats)
+	gotT, gotS := c.Read()
+	if gotT != totals {
+		t.Errorf("totals: want %+v, got %+v", totals, gotT)
+	}
+	if len(gotS) != 1 || gotS[0].libraryId != "lib1" {
+		t.Errorf("stats: want [lib1], got %v", gotS)
+	}
+}
+
+// TestLibStatsCache_ReadWritePairing_Concurrent races N writers against N
+// readers under -race. Each writer stores a totals/stats pair whose values
+// are derived from the same index, so any Read that observed a torn pair
+// (totals from one Write, stats from another) would show a mismatched index.
+func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
+	c := NewTdarrLibStatsCache()
+	const n = 100
+
+	var wg sync.WaitGroup
+	wg.Add(2 * n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			c.Write(
+				tdarrCacheTotals{totalFileCount: i},
+				[]*TdarrPieStats{{libraryId: fmt.Sprintf("lib%d", i)}},
+			)
+		}()
+		go func() {
+			defer wg.Done()
+			tot, stats := c.Read()
+			if stats == nil {
+				return // cache not yet written; not a torn pair
+			}
+			id := strings.TrimPrefix(stats[0].libraryId, "lib")
+			want, err := strconv.Atoi(id)
+			if err != nil {
+				t.Errorf("unexpected libraryId format %q: %v", stats[0].libraryId, err)
+				return
+			}
+			if tot.totalFileCount != want {
+				t.Errorf("torn pair: totals.totalFileCount=%d does not match stats libraryId=%q", tot.totalFileCount, stats[0].libraryId)
+			}
+		}()
+	}
+	wg.Wait()
 }

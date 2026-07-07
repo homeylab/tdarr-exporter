@@ -98,7 +98,6 @@ type TdarrCollector struct {
 	// collector at construction. Injected so tests can silence or capture logs.
 	logger                zerolog.Logger
 	statsCache            *TdarrLibStatsCache
-	partialFailure        atomic.Bool // set by getLibStats workers on per-library fetch error
 	unknownStatusMu       sync.Mutex
 	unknownStatusCounts   map[unknownStatusKey]float64 // monotonic counter for enum drift detection
 	totalFilesMetric      typedDesc
@@ -152,27 +151,24 @@ func NewTdarrLibStatsCache() *TdarrLibStatsCache {
 	}
 }
 
-func (c *TdarrLibStatsCache) GetTotals() tdarrCacheTotals {
+// Read returns the cached totals and library stats as a consistent pair under a
+// single lock. libraryStats is nil until the first fully-successful sweep is
+// cached (callers treat nil as "cache empty" and refetch). Returning both
+// together prevents a torn read where totals and stats come from different
+// scrapes.
+func (c *TdarrLibStatsCache) Read() (tdarrCacheTotals, []*TdarrPieStats) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.totals
+	return c.totals, c.libraryStats
 }
 
-func (c *TdarrLibStatsCache) SetTotals(totals tdarrCacheTotals) {
+// Write stores the totals and library stats together under a single lock, so
+// the two fields — which must correspond — are never observed as a torn pair by
+// a concurrent Read. Only a fully-successful pie sweep is written (see collect()).
+func (c *TdarrLibStatsCache) Write(totals tdarrCacheTotals, stats []*TdarrPieStats) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.totals = totals
-}
-
-func (c *TdarrLibStatsCache) GetLibStats() []*TdarrPieStats {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.libraryStats
-}
-
-func (c *TdarrLibStatsCache) SetLibStats(stats []*TdarrPieStats) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.libraryStats = stats
 }
 
@@ -439,7 +435,7 @@ func (c *TdarrCollector) bumpUnknownStatus(kind, status string) {
 }
 
 // support concurrency
-func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats) {
+func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, inChan <-chan TdarrPieDataRequest, outChan chan<- *TdarrPieStats, partial *atomic.Bool) {
 	defer wg.Done()
 	for piePayload := range inChan {
 		pieMetric := &TdarrPieStats{}
@@ -447,10 +443,10 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 		err := c.httpReqHelper(ctx, c.pieStatsPath, piePayload, pieMetric)
 		if err != nil {
 			c.logger.Error().Interface("payload", piePayload).Err(err).Msg("Failed to get Lib stats pie data")
-			// Signal partial failure so Collect() can set tdarr_up=0.
-			// Previously-cached normalized data for this library is preserved (acceptable:
-			// last-known zero-padded series keep emitting while tdarr_up signals the issue).
-			c.partialFailure.Store(true)
+			// Signal partial failure so Collect() sets tdarr_up=0 and collect()
+			// skips the cache write (partial results are never cached; the next
+			// scrape re-fetches). This scrape emits only the libraries that succeeded.
+			partial.Store(true)
 			continue
 		}
 		pieMetric.libraryName = piePayload.Data.libraryName
@@ -477,10 +473,12 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 
 // fetchPies fans the per-library pie requests across HttpMaxConcurrency workers and
 // fans the results back in. Per-library fetch failures are handled inside getLibStats
-// (it sets partialFailure and skips that library), so this returns only the gathered
-// pie stats — the same set collect() previously assembled inline before caching.
-func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryInfo) []*TdarrPieStats {
+// (it stores true into the per-scrape partial flag and skips that library), so this returns
+// the gathered pie stats alongside whether any library failed — the same set collect()
+// previously assembled inline before caching.
+func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryInfo) ([]*TdarrPieStats, bool) {
 	var pieData []*TdarrPieStats
+	var partial atomic.Bool
 
 	dataWg := &sync.WaitGroup{}
 	inChan := make(chan TdarrPieDataRequest, len(allLibs))
@@ -488,7 +486,7 @@ func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryIn
 	// start workers
 	for i := 0; i < c.maxConcurrency; i++ {
 		dataWg.Add(1)
-		go c.getLibStats(ctx, dataWg, inChan, outChan)
+		go c.getLibStats(ctx, dataWg, inChan, outChan, &partial)
 	}
 
 	// send data to workers
@@ -525,7 +523,7 @@ func (c *TdarrCollector) fetchPies(ctx context.Context, allLibs []TdarrLibraryIn
 
 	// wait for results to be collected
 	resultWg.Wait()
-	return pieData
+	return pieData, partial.Load()
 }
 
 func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
@@ -536,21 +534,17 @@ func (c *TdarrCollector) Collect(ch chan<- prometheus.Metric) {
 	defer cancel()
 	// Recover from any panic in the scrape path so a single bad scrape degrades to
 	// tdarr_up=0 instead of crashing the process (client_golang's collectWorker has
-	// no recover of its own). Reset partialFailure here too: the normal Swap below is
-	// skipped on panic, so without this the flag would leak into the next scrape.
+	// no recover of its own).
 	defer func() {
 		if r := recover(); r != nil {
-			c.partialFailure.Store(false)
 			c.logger.Error().Interface("panic", r).Msg("Panic during collection; emitting tdarr_up=0")
 			ch <- c.upMetric.mustNewConstMetric(0.0)
 		}
 	}()
-	err := c.collect(ctx, ch)
+	partial, err := c.collect(ctx, ch)
 	if err != nil {
 		c.logger.Error().Err(err).Msg("Collection cycle failed")
 	}
-	// Always reset partialFailure flag — must NOT short-circuit via OR or the flag leaks across scrapes.
-	partial := c.partialFailure.Swap(false)
 	v := 1.0
 	if err != nil || partial {
 		v = 0.0
@@ -580,17 +574,30 @@ func totalsFromMetric(metric *TdarrMetric) tdarrCacheTotals {
 // true when the cache is empty (libStatsNil) or any of the 10 cached totals differs
 // from the current metric. tdarrCacheTotals is all-int and thus comparable, so the
 // struct != comparison is equivalent to the prior field-by-field OR chain.
+//
+// Invalidation is deliberately GLOBAL (all-or-nothing across every library), not
+// per-library, and this is forced by the Tdarr API's shape — do not "optimize" it
+// to a per-library cache. The only cheap signal Tdarr exposes is the general-stats
+// document (StatisticsJSONDB, ~ms), and it is aggregate-only: it carries no
+// per-library breakdown. Per-library data lives solely in the get-pies call, which
+// is the expensive per-library fan-out the cache exists to skip (seconds across all
+// libraries). So there is no cheap "did library X change?" probe: checking one
+// library would cost the same fetch the cache is trying to avoid. A per-library
+// cache is therefore not viable, and with it the sync.Map that concurrent
+// per-library cache writes would need is moot — the whole-slice cache guarded by a
+// single RWMutex, written by one drain goroutine, is the correct shape here.
 func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetric) bool {
 	return libStatsNil || cached != totalsFromMetric(metric)
 }
 
-func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) error {
+func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) (bool, error) {
+	partialFail := false
 	// Fetch server status (/api/v2/status) first. Cheapest call and a liveness/version
 	// probe, so fail fast here before the heavier stats/pie/node work. Required: a failure
 	// returns an error like every other upstream fetch, flipping tdarr_up=0 via Collect().
 	serverStatus := &TdarrServerStatus{}
 	if err := c.api.DoRequest(ctx, c.statusPath, serverStatus); err != nil {
-		return fmt.Errorf("get server status: %w: %w", ErrUpstream, err)
+		return false, fmt.Errorf("get server status: %w: %w", ErrUpstream, err)
 	}
 	if !isHealthyServerStatus(serverStatus.Status) {
 		c.logger.Warn().Str("status", serverStatus.Status).
@@ -603,7 +610,7 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	metric := &TdarrMetric{}
 	err := c.httpReqHelper(ctx, c.statsPath, metricReqBody, &metric)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	c.logger.Debug().Int("totalFiles", metric.TotalFileCount).
@@ -621,11 +628,11 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 
 	score, floatConvertErr = strconv.ParseFloat(metric.TdarrScore, 64)
 	if floatConvertErr != nil {
-		return fmt.Errorf("parse tdarr score %q: %w: %w", metric.TdarrScore, ErrParse, floatConvertErr)
+		return false, fmt.Errorf("parse tdarr score %q: %w: %w", metric.TdarrScore, ErrParse, floatConvertErr)
 	}
 	healthScore, floatConvertErr = strconv.ParseFloat(metric.HealthCheckScore, 64)
 	if floatConvertErr != nil {
-		return fmt.Errorf("parse health score %q: %w: %w", metric.HealthCheckScore, ErrParse, floatConvertErr)
+		return false, fmt.Errorf("parse health score %q: %w: %w", metric.HealthCheckScore, ErrParse, floatConvertErr)
 	}
 
 	// supports only api versions: v2.24.01+
@@ -633,35 +640,43 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// already have total file count from general stats (`metric.TotalFileCount`)
 	// check cache for all libraries data
 	// this won't block other reads when checking
-	cacheTotals := c.statsCache.GetTotals()
+	cacheTotals, cachedStats := c.statsCache.Read()
 	// Refetch if the cache is empty (first run) or any of the 10 totals changed.
 	// Beyond the three top-level counts, the seven per-bucket queue fields
 	// (holdQueue/transcodeQueue/… on TdarrMetric) catch state transitions the totals miss
 	// (e.g. files queued but not yet transcoded). Their Tdarr JSON source (table0Count–table6Count)
 	// and bucket meanings are documented on TdarrMetric in tdarr_models.go. Older Tdarr versions
 	// omit those fields; they decode to 0, so 0==0 never triggers a spurious refetch.
-	shouldCollect := shouldRefetch(cacheTotals, c.statsCache.GetLibStats() == nil, metric)
+	shouldCollect := shouldRefetch(cacheTotals, cachedStats == nil, metric)
 	if shouldCollect {
 		c.logger.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
 	}
 	// if counts are the same use cache
 	if !shouldCollect {
 		c.logger.Debug().Msg("Using cached library stats - api totals matches cached values")
-		pieData = c.statsCache.GetLibStats()
+		pieData = cachedStats
 	} else { // fetch new data and update cache
 		getLibsPayload := getGeneralReqPayload("library")
 		allLibs := []TdarrLibraryInfo{}
 		err := c.httpReqHelper(ctx, c.statsPath, getLibsPayload, &allLibs)
 		if err != nil {
-			return fmt.Errorf("get library details: %w", err)
+			return false, fmt.Errorf("get library details: %w", err)
 		}
 
-		pieData = c.fetchPies(ctx, allLibs)
-		c.logger.Debug().Msg("All library stats gathered - setting cache")
-		c.statsCache.SetLibStats(pieData)
-
-		// set totals here after all data is collected
-		c.statsCache.SetTotals(totalsFromMetric(metric))
+		pieData, partialFail = c.fetchPies(ctx, allLibs)
+		// Cache invariant: only a fully successful pie sweep may be cached.
+		// Caching a partial result would let the next scrape serve incomplete
+		// data from cache with tdarr_up=1 (partial failure is scoped to this
+		// scrape only), silently dropping the failed library's series until the
+		// totals next change. Skipping both writes keeps the cache stale/nil,
+		// so shouldRefetch() triggers a full refetch on the next scrape.
+		if partialFail {
+			c.logger.Warn().Msg("Partial library pie fetch failure - cache not updated, will re-fetch next scrape")
+		} else {
+			c.logger.Debug().Msg("All library stats gathered - setting cache")
+			// Store totals and stats together so a concurrent scrape never reads a torn pair.
+			c.statsCache.Write(totalsFromMetric(metric), pieData)
+		}
 	}
 
 	// add metrics to collector
@@ -680,11 +695,11 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 	// get all node metrics
 	nodeData, err := c.nodeCollector.GetNodeData(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// get worker data for each node
 	c.emitNodeMetrics(ch, nodeData)
-	return nil
+	return partialFail, nil
 }
 
 // emitServerMetrics emits the /api/v2/status-derived series: uptime gauge plus the
