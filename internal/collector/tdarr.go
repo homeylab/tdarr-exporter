@@ -574,6 +574,18 @@ func totalsFromMetric(metric *TdarrMetric) tdarrCacheTotals {
 // true when the cache is empty (libStatsNil) or any of the 10 cached totals differs
 // from the current metric. tdarrCacheTotals is all-int and thus comparable, so the
 // struct != comparison is equivalent to the prior field-by-field OR chain.
+//
+// Invalidation is deliberately GLOBAL (all-or-nothing across every library), not
+// per-library, and this is forced by the Tdarr API's shape — do not "optimize" it
+// to a per-library cache. The only cheap signal Tdarr exposes is the general-stats
+// document (StatisticsJSONDB, ~ms), and it is aggregate-only: it carries no
+// per-library breakdown. Per-library data lives solely in the get-pies call, which
+// is the expensive per-library fan-out the cache exists to skip (seconds across all
+// libraries). So there is no cheap "did library X change?" probe: checking one
+// library would cost the same fetch the cache is trying to avoid. A per-library
+// cache is therefore not viable, and with it the sync.Map that concurrent
+// per-library cache writes would need is moot — the whole-slice cache guarded by a
+// single RWMutex, written by one drain goroutine, is the correct shape here.
 func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetric) bool {
 	return libStatsNil || cached != totalsFromMetric(metric)
 }
