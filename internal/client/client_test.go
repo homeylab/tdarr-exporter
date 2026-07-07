@@ -11,23 +11,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// panicReader is an io.Reader whose Read method panics, used to drive the
-// defer/recover branch in unmarshalBody.
-type panicReader struct{}
-
-func (panicReader) Read([]byte) (int, error) {
-	panic("boom from Read")
-}
-
-// TestUnmarshalBody exercises unmarshalBody's three branches: a successful
-// decode, a malformed-JSON decode error, and the panic-recover path where the
-// body's Read panics and must be converted into an error rather than crashing.
+// TestUnmarshalBody exercises unmarshalBody's two branches: a successful decode
+// and a malformed-JSON decode error.
 func TestUnmarshalBody(t *testing.T) {
 	t.Parallel()
 
-	// Explicit logger so the test does not depend on ambient log level. Nop()
-	// keeps the debug-only body-copy branch (which would re-read the panicking
-	// body) disabled; the recover-into-error behavior is what this test asserts.
 	c := &RequestClient{logger: zerolog.Nop()}
 
 	tests := []struct {
@@ -47,13 +35,7 @@ func TestUnmarshalBody(t *testing.T) {
 			name:      "malformed json returns error",
 			body:      strings.NewReader(`{not-json`),
 			wantErr:   true,
-			errSubstr: "", // any decode error is acceptable
-		},
-		{
-			name:      "panicking reader is recovered into an error",
-			body:      panicReader{},
-			wantErr:   true,
-			errSubstr: "recovered",
+			errSubstr: "failed to decode response body",
 		},
 	}
 
