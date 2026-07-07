@@ -30,8 +30,13 @@ func main() {
 			os.Exit(0)
 		}
 	}
+	os.Exit(run())
+}
 
-	defer os.Exit(0)
+// run holds the real main body and returns the process exit code: 0 for a
+// signal-triggered shutdown, 1 when shutdown was caused by an HTTP server
+// error. Split out of main so os.Exit does not skip deferred cleanup.
+func run() int {
 	userConfig := config.NewConfig()
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 	log.Info().Str("version", version.Version).Str("revision", version.Revision).Str("buildDate", version.BuildDate).Str("goVersion", version.GoVersion).Msg("Starting tdarr-exporter")
@@ -45,7 +50,8 @@ func main() {
 	// prometheus set up
 	tdarrCollector, err := collector.NewTdarrCollector(scrapeCtx, userConfig)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create Tdarr collector")
+		log.Error().Err(err).Msg("Failed to create Tdarr collector")
+		return 1
 	}
 	registry := prometheus.NewRegistry()
 	// registering a collector uses JIT and first scrape will be slower
@@ -83,12 +89,14 @@ func main() {
 		syscall.SIGTERM,
 	)
 	// Shut down on either an OS signal or a fatal server error. A server error
-	// triggers the same graceful-shutdown path instead of hanging silently.
+	// triggers the same graceful-shutdown path but yields a non-zero exit code.
+	exitCode := 0
 	select {
 	case <-quitServer:
 		log.Info().Msg("Received Interrupt - shutting down...")
 	case err := <-errHttpChan:
 		log.Error().Err(err).Msg("HTTP server error - shutting down...")
+		exitCode = 1
 	}
 	go func() {
 		<-quitServer
@@ -99,6 +107,7 @@ func main() {
 	stopHttpChan <- true
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")
+	return exitCode
 }
 
 func init() {
