@@ -22,17 +22,18 @@ import (
 )
 
 func main() {
-	// Handle --version before config parsing so it doesn't interfere with
-	// config.NewConfig's own flag set.
-	for _, arg := range os.Args[1:] {
-		if arg == "--version" || arg == "-version" {
-			fmt.Println(version.Print("tdarr_exporter"))
-			os.Exit(0)
-		}
-	}
+	os.Exit(run())
+}
 
-	defer os.Exit(0)
+// run holds the real main body and returns the process exit code: 0 for a
+// signal-triggered shutdown, 1 when shutdown was caused by an HTTP server
+// error. Split out of main so os.Exit does not skip deferred cleanup.
+func run() int {
 	userConfig := config.NewConfig()
+	if userConfig.Version {
+		fmt.Println(version.Print("tdarr_exporter"))
+		return 0
+	}
 	log.Debug().Interface("config", userConfig).Msg("Using generated configuration")
 	log.Info().Str("version", version.Version).Str("revision", version.Revision).Str("buildDate", version.BuildDate).Str("goVersion", version.GoVersion).Msg("Starting tdarr-exporter")
 
@@ -45,7 +46,8 @@ func main() {
 	// prometheus set up
 	tdarrCollector, err := collector.NewTdarrCollector(scrapeCtx, userConfig)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create Tdarr collector")
+		log.Error().Err(err).Msg("Failed to create Tdarr collector")
+		return 1
 	}
 	registry := prometheus.NewRegistry()
 	// registering a collector uses JIT and first scrape will be slower
@@ -82,14 +84,9 @@ func main() {
 		syscall.SIGQUIT,
 		syscall.SIGTERM,
 	)
-	// Shut down on either an OS signal or a fatal server error. A server error
-	// triggers the same graceful-shutdown path instead of hanging silently.
-	select {
-	case <-quitServer:
-		log.Info().Msg("Received Interrupt - shutting down...")
-	case err := <-errHttpChan:
-		log.Error().Err(err).Msg("HTTP server error - shutting down...")
-	}
+	// Shut down on either an OS signal or a fatal server error; the latter
+	// yields a non-zero exit code.
+	exitCode := awaitShutdown(quitServer, errHttpChan)
 	go func() {
 		<-quitServer
 		log.Fatal().Msg("Killing app on 2nd forced interrupt...")
@@ -99,6 +96,21 @@ func main() {
 	stopHttpChan <- true
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")
+	return exitCode
+}
+
+// awaitShutdown blocks until either an OS signal or a fatal HTTP server error
+// arrives, logs the reason, and returns the process exit code: 0 for a
+// signal-triggered shutdown, 1 when a server error triggered it.
+func awaitShutdown(quit <-chan os.Signal, errCh <-chan error) int {
+	select {
+	case <-quit:
+		log.Info().Msg("Received Interrupt - shutting down...")
+		return 0
+	case err := <-errCh:
+		log.Error().Err(err).Msg("HTTP server error - shutting down...")
+		return 1
+	}
 }
 
 func init() {

@@ -306,3 +306,66 @@ func TestParseLogLevel(t *testing.T) {
 		}
 	})
 }
+
+func TestPrometheusPortValidation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		port    string
+		wantErr bool
+	}{
+		{"valid", "9090", false},
+		{"non-numeric", "abc", true},
+		{"zero", "0", true},
+		{"too large", "70000", true},
+		{"leading plus", "+9090", true},
+		{"leading zero accepted (net accepts it too)", "09090", false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_port", tt.port}, envFunc(nil))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("port %q: wantErr=%v, got err=%v", tt.port, tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestPrometheusPathValidation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"default ok", "/metrics", false},
+		{"custom ok", "/prom", false},
+		{"no leading slash", "metrics", true},
+		{"root conflicts with index route", "/", true},
+		{"healthz conflicts with reserved route", "/healthz", true},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_path", tt.path}, envFunc(nil))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("path %q: wantErr=%v, got err=%v", tt.path, tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestVersionFlagShortCircuits(t *testing.T) {
+	t.Parallel()
+	// no -url: version requests must not require or validate other config
+	cfg, err := parseConfig(newFS(), []string{"-version"}, envFunc(nil))
+	if err != nil {
+		t.Fatalf("parseConfig with -version: %v", err)
+	}
+	if !cfg.Version {
+		t.Error("cfg.Version: want true")
+	}
+}

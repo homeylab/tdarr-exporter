@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -56,27 +55,14 @@ func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, ap
 	}, nil
 }
 
-func (c *RequestClient) unmarshalBody(body io.Reader, target any) (err error) {
-	// return error instead of panic
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("recovered from panic: %s", r)
-			// if debug, log body
-			if c.logger.GetLevel() == zerolog.DebugLevel {
-				// try to copy io.Reader to string for troubleshooting
-				s := new(strings.Builder)
-				_, copyErr := io.Copy(s, body)
-				if copyErr != nil {
-					c.logger.Error().Err(copyErr).Interface("recover", r).Msg("Failed to copy body to string in recover for troubleshooting")
-				}
-				c.logger.Error().Str("body", s.String()).Msg("Problem body")
-			}
-			c.logger.Error().Err(err).Interface("recover", r).Msg("Recovered while unmarshalling response")
-		}
-	}()
-	// read body into target
-	err = json.NewDecoder(body).Decode(target)
-	return
+// unmarshalBody decodes a JSON response body into target. A panic inside a
+// scrape (e.g. from a pathological reader) is already converted to tdarr_up=0
+// by the collector's Collect recover, so no recover is needed here.
+func (c *RequestClient) unmarshalBody(body io.Reader, target any) error {
+	if err := json.NewDecoder(body).Decode(target); err != nil {
+		return fmt.Errorf("failed to decode response body: %w", err)
+	}
+	return nil
 }
 
 // DoRequest - Take a HTTP Request and return Unmarshaled data. The ctx is

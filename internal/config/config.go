@@ -24,6 +24,7 @@ const (
 )
 
 type Config struct {
+	Version            bool
 	LogLevel           string
 	url                string
 	UrlParsed          *url.URL
@@ -159,9 +160,15 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	logLevel := fs.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
 	httpMaxConcurrency := fs.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
 	httpTimeoutSeconds := fs.Int("http_timeout_seconds", defaults.HttpTimeoutSeconds, "timeout in seconds for http requests to the tdarr instance")
+	versionFlag := fs.Bool("version", false, "print version information and exit")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
+	}
+
+	if *versionFlag {
+		// Short-circuit: -version must work without any other config present.
+		return Config{Version: true}, nil
 	}
 
 	if *url == "" {
@@ -172,6 +179,22 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	}
 	if *httpTimeoutSeconds <= 0 {
 		return Config{}, fmt.Errorf("http_timeout_seconds must be at least 1")
+	}
+	// ParseUint with bitSize 16 rejects out-of-range and signed ports for free;
+	// port 0 is a valid uint16 but means "pick a random port", so reject it
+	// explicitly. Fails fast here rather than later at ListenAndServe.
+	if port, err := strconv.ParseUint(*promPort, 10, 16); err != nil || port == 0 {
+		return Config{}, fmt.Errorf("prometheus_port must be an integer between 1 and 65535, got %q", *promPort)
+	}
+	// The Gin router (internal/server/server.go) registers PrometheusPath, "/"
+	// (index) and "/healthz". A PrometheusPath equal to "/" or "/healthz" collides
+	// with those routes and panics at registration ("handlers are already
+	// registered for path"). Reject at startup instead.
+	if !strings.HasPrefix(*promPath, "/") {
+		return Config{}, fmt.Errorf("prometheus_path must start with '/', got %q", *promPath)
+	}
+	if *promPath == "/" || *promPath == "/healthz" {
+		return Config{}, fmt.Errorf("prometheus_path %q conflicts with a reserved exporter route", *promPath)
 	}
 
 	// validate the log level here (without mutating global state).
@@ -212,6 +235,10 @@ func NewConfig() Config {
 	cfg, err := parseConfig(fs, os.Args[1:], os.Getenv)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to load configuration")
+	}
+
+	if cfg.Version {
+		return cfg
 	}
 
 	// parseConfig already validated the log level; apply it globally here.
