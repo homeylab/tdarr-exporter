@@ -67,7 +67,7 @@ func TestRoundTrip_ClosesDiscardedBodies(t *testing.T) {
 			rt := &seqRoundTripper{statuses: tt.statuses}
 			transport := NewClientTransport(rt,
 				WithBackoff([]time.Duration{0}), // one retry, no real delay
-				WithSleep(func(time.Duration) {}),
+				WithAfter(immediateAfter),
 			)
 
 			req, err := http.NewRequest(http.MethodGet, "http://example.test", nil)
