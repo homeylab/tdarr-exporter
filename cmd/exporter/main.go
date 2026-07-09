@@ -67,7 +67,7 @@ func run() int {
 		TdarrInstance:   userConfig.InstanceName,
 		PrometheusPort:  userConfig.PrometheusPort,
 		PrometheusPath:  userConfig.PrometheusPath,
-		ListenAddress:   "0.0.0.0",
+		ListenAddress:   userConfig.ListenAddress,
 		GracefulTimeout: 30 * time.Second,
 	}
 	httpWg.Add(1)

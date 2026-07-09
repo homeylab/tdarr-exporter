@@ -369,3 +369,29 @@ func TestVersionFlagShortCircuits(t *testing.T) {
 		t.Error("cfg.Version: want true")
 	}
 }
+
+func TestListenAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+		want string
+	}{
+		{"default", nil, nil, "0.0.0.0"},
+		{"env override", nil, map[string]string{"LISTEN_ADDRESS": "127.0.0.1"}, "127.0.0.1"},
+		{"flag override", []string{"-listen_address", "::1"}, nil, "::1"},
+		{"flag beats env", []string{"-listen_address", "127.0.0.1"}, map[string]string{"LISTEN_ADDRESS": "0.0.0.0"}, "127.0.0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{"-url", "http://tdarr.test"}, tt.args...)
+			cfg, err := parseConfig(newFS(), args, envFunc(tt.env))
+			if err != nil {
+				t.Fatalf("parseConfig: %v", err)
+			}
+			if cfg.ListenAddress != tt.want {
+				t.Errorf("ListenAddress: want %q, got %q", tt.want, cfg.ListenAddress)
+			}
+		})
+	}
+}
