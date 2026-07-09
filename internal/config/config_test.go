@@ -202,7 +202,6 @@ func TestParseConfigErrors(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), tc.args, envFunc(tc.env))
@@ -248,7 +247,6 @@ func TestParseConfigUrlSchemeDefaulting(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			env := map[string]string{envTdarrUrl: tc.url}
@@ -286,7 +284,6 @@ func TestParseLogLevel(t *testing.T) {
 		{"INFO", zerolog.InfoLevel}, // case-insensitive
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 			got, err := parseLogLevel(tc.input)
@@ -322,7 +319,6 @@ func TestPrometheusPortValidation(t *testing.T) {
 		{"leading zero accepted (net accepts it too)", "09090", false},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_port", tt.port}, envFunc(nil))
@@ -347,7 +343,6 @@ func TestPrometheusPathValidation(t *testing.T) {
 		{"healthz conflicts with reserved route", "/healthz", true},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_path", tt.path}, envFunc(nil))
