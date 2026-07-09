@@ -22,11 +22,11 @@ func WithBackoff(durations []time.Duration) ClientTransportOption {
 	}
 }
 
-// WithSleep injects a custom sleep function, replacing time.Sleep.
-// Intended for tests to avoid real wall-clock delays.
-func WithSleep(fn func(time.Duration)) ClientTransportOption {
+// WithAfter injects the timer function used for retry backoff, replacing
+// time.After. Intended for tests to avoid real wall-clock delays.
+func WithAfter(fn func(time.Duration) <-chan time.Time) ClientTransportOption {
 	return func(t *ClientTransport) {
-		t.sleep = fn
+		t.after = fn
 	}
 }
 
@@ -41,18 +41,18 @@ func WithLogger(logger zerolog.Logger) ClientTransportOption {
 type ClientTransport struct {
 	inner   http.RoundTripper
 	backoff []time.Duration
-	sleep   func(time.Duration)
+	after   func(time.Duration) <-chan time.Time
 	logger  zerolog.Logger
 }
 
 // NewClientTransport constructs a ClientTransport wrapping inner.
-// Default: 2 retries with backoff [1s, 3s], using time.Sleep.
+// Default: 2 retries with backoff [1s, 3s], using time.After.
 // The existing call site NewClientTransport(baseTransport) keeps working unchanged.
 func NewClientTransport(inner http.RoundTripper, opts ...ClientTransportOption) *ClientTransport {
 	t := &ClientTransport{
 		inner:   inner,
 		backoff: []time.Duration{1 * time.Second, 3 * time.Second},
-		sleep:   time.Sleep,
+		after:   time.After,
 		logger:  log.Logger,
 	}
 	for _, opt := range opts {
@@ -101,8 +101,15 @@ func (t *ClientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			// returns to the pool instead of leaking (nil-safe on the first
 			// iteration when the initial attempt errored with no response).
 			drainClose(resp)
-			// first try already failed so wait before retrying
-			t.sleep(backoffDur)
+			// first try already failed so wait before retrying — but abort the
+			// wait immediately if the request's context is cancelled (shutdown
+			// or Prometheus scrape timeout); retrying with a dead context is
+			// pointless and delays shutdown by the full backoff.
+			select {
+			case <-req.Context().Done():
+				return nil, fmt.Errorf("aborting retries - request context done: %w", req.Context().Err())
+			case <-t.after(backoffDur):
+			}
 			// re-add body to request
 			if req.Body != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))

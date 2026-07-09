@@ -1,12 +1,17 @@
 package client
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 // fakeRoundTripper records calls and returns pre-configured responses/errors.
@@ -44,13 +49,21 @@ func (f *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	}, nil
 }
 
-// noopSleep is a sleep func that never blocks and records nothing.
-func noopSleep(_ time.Duration) {}
+// immediateAfter is an after func that fires immediately without blocking.
+func immediateAfter(time.Duration) <-chan time.Time {
+	ch := make(chan time.Time, 1)
+	ch <- time.Time{}
+	return ch
+}
 
-// collectingSleep returns a sleep func that appends durations to *out.
-func collectingSleep(out *[]time.Duration) func(time.Duration) {
-	return func(d time.Duration) {
-		*out = append(*out, d)
+// collectingAfter returns an after func that appends durations to *out and
+// fires immediately.
+func collectingAfter(sleeps *[]time.Duration) func(time.Duration) <-chan time.Time {
+	return func(d time.Duration) <-chan time.Time {
+		*sleeps = append(*sleeps, d)
+		ch := make(chan time.Time, 1)
+		ch <- time.Time{}
+		return ch
 	}
 }
 
@@ -200,7 +213,7 @@ func TestClientTransport_RetryBehavior(t *testing.T) {
 			t.Parallel()
 			var sleeps []time.Duration
 			inner := &fakeRoundTripper{responses: tc.responses}
-			tr := NewClientTransport(inner, WithBackoff(tc.backoff), WithSleep(collectingSleep(&sleeps)))
+			tr := NewClientTransport(inner, WithBackoff(tc.backoff), WithAfter(collectingAfter(&sleeps)))
 
 			req := newRequest(t, http.MethodGet, "http://example.com/test", "")
 			resp, err := tr.RoundTrip(req)
@@ -260,7 +273,7 @@ func TestClientTransport_PostBodyReusedAcrossRetries(t *testing.T) {
 	}
 	tr := NewClientTransport(inner,
 		WithBackoff([]time.Duration{0, 0}),
-		WithSleep(noopSleep),
+		WithAfter(immediateAfter),
 	)
 
 	req := newRequest(t, http.MethodPost, "http://example.com/post", `{"key":"value"}`)
@@ -286,8 +299,8 @@ func TestClientTransport_DefaultsArePreserved(t *testing.T) {
 	inner := &fakeRoundTripper{responses: []fakeResponse{{statusCode: 200}}}
 	tr := NewClientTransport(inner) // no options — use defaults
 
-	if tr.sleep == nil {
-		t.Error("default sleep should be non-nil")
+	if tr.after == nil {
+		t.Error("default after should be non-nil")
 	}
 	// Default backoff should be [1s, 3s].
 	want := []time.Duration{1 * time.Second, 3 * time.Second}
@@ -308,5 +321,49 @@ func TestClientTransport_DefaultsArePreserved(t *testing.T) {
 	}
 	if resp != nil {
 		_ = resp.Body.Close()
+	}
+}
+
+// roundTripFunc adapts a function to http.RoundTripper, for tests that need
+// full control over every attempt (fakeRoundTripper replays a fixed list).
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// TestClientTransport_ContextCancelDuringBackoff verifies that cancelling the
+// request context while the transport is waiting out a retry backoff aborts
+// the wait immediately (no further attempts, prompt ctx error) instead of
+// sleeping the full backoff and retrying with a dead context.
+func TestClientTransport_ContextCancelDuringBackoff(t *testing.T) {
+	attempts := 0
+	inner := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		attempts++
+		return nil, errors.New("dial refused")
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// after() that never fires and cancels the context instead: the only way
+	// RoundTrip can return is via the ctx.Done() select arm.
+	blockedAfter := func(time.Duration) <-chan time.Time {
+		cancel()
+		return make(chan time.Time) // never fires
+	}
+
+	tr := NewClientTransport(inner,
+		WithBackoff([]time.Duration{time.Hour, time.Hour}),
+		WithAfter(blockedAfter),
+		WithLogger(zerolog.Nop()),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "http://tdarr.test/api", nil).WithContext(ctx)
+	resp, err := tr.RoundTrip(req) //nolint:bodyclose // resp is nil on error
+	if resp != nil {
+		t.Fatalf("expected nil response, got %v", resp)
+	}
+	if err == nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled in error chain, got %v", err)
+	}
+	if attempts != 1 {
+		t.Errorf("attempts: want 1 (no retry after cancel), got %d", attempts)
 	}
 }
