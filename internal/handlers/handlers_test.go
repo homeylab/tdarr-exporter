@@ -1,33 +1,29 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func init() {
-	gin.SetMode(gin.ReleaseMode)
-}
-
-// newEngine wires a gin engine the same way internal/server/server.go does.
-func newEngine(reg *prometheus.Registry, tdarrInstance string) *gin.Engine {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Route Not Found: Try /metrics"})
+// newMux wires a handler stack the same way internal/server/server.go does.
+func newMux(reg *prometheus.Registry, tdarrInstance string) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", MetricsHandler(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, tdarrInstance))
+	mux.Handle("GET /{$}", IndexHandler())
+	mux.Handle("GET /healthz", HealthzHandler())
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Route Not Found: Try /metrics"})
 	})
-	router.Use(RequestLogger())
-	router.GET("/metrics", MetricsHandler(reg, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, tdarrInstance))
-	router.GET("/", IndexHandler())
-	router.GET("/healthz", HealthzHandler())
-	return router
+	return Recovery(RequestLogger(mux))
 }
 
 func TestStaticHandlers(t *testing.T) {
@@ -61,16 +57,27 @@ func TestStaticHandlers(t *testing.T) {
 			wantStatus:   http.StatusNotFound,
 			wantContains: `"error":"Route Not Found: Try /metrics"`,
 		},
+		{
+			// A wrong-method request to a known path is absorbed by the
+			// catch-all `/` handler (ServeMux routes it there rather than
+			// returning 405, because a less-specific matching pattern exists).
+			// This matches gin's old NoRoute 404 — no behavior delta.
+			name:         "post to healthz returns 404 via catch-all",
+			method:       http.MethodPost,
+			path:         "/healthz",
+			wantStatus:   http.StatusNotFound,
+			wantContains: `"error":"Route Not Found: Try /metrics"`,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			engine := newEngine(prometheus.NewRegistry(), "test-instance")
+			mux := newMux(prometheus.NewRegistry(), "test-instance")
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(tc.method, tc.path, nil)
 
-			engine.ServeHTTP(rec, req)
+			mux.ServeHTTP(rec, req)
 
 			if rec.Code != tc.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
@@ -86,12 +93,12 @@ func TestMetricsHandler(t *testing.T) {
 	t.Parallel()
 
 	const instance = "metrics-instance"
-	engine := newEngine(prometheus.NewRegistry(), instance)
+	mux := newMux(prometheus.NewRegistry(), instance)
 
 	doGet := func() *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-		engine.ServeHTTP(rec, req)
+		mux.ServeHTTP(rec, req)
 		return rec
 	}
 
@@ -166,15 +173,14 @@ func TestRequestLoggerPassesThrough(t *testing.T) {
 	t.Parallel()
 
 	const wantBody = "logger-passthrough-body"
-	router := gin.New()
-	router.Use(RequestLogger())
-	router.GET("/probe", func(c *gin.Context) {
-		c.String(http.StatusTeapot, wantBody)
-	})
+	h := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte(wantBody))
+	}))
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/probe", nil)
-	router.ServeHTTP(rec, req)
+	h.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusTeapot {
 		t.Fatalf("status = %d, want %d (RequestLogger altered status)", rec.Code, http.StatusTeapot)
@@ -192,12 +198,12 @@ func TestMetricsHandler_PromhttpInstrumented(t *testing.T) {
 	t.Parallel()
 
 	const instance = "promhttp-instance"
-	engine := newEngine(prometheus.NewRegistry(), instance)
+	mux := newMux(prometheus.NewRegistry(), instance)
 
 	doGet := func() string {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-		engine.ServeHTTP(rec, req)
+		mux.ServeHTTP(rec, req)
 		return rec.Body.String()
 	}
 
@@ -241,19 +247,35 @@ func (d dupCollector) Collect(ch chan<- prometheus.Metric) {
 // TestMetricsHandler_ContinueOnError_Serves200OnGatherError locks the ContinueOnError
 // wiring (matches production server.go): on a registry-level Gather error the handler
 // must still serve HTTP 200 with whatever could be gathered, NOT 500. Under the default
-// HTTPErrorOnError this would be 500, so the test fails if newEngine's opts regress.
+// HTTPErrorOnError this would be 500, so the test fails if newMux's opts regress.
 func TestMetricsHandler_ContinueOnError_Serves200OnGatherError(t *testing.T) {
 	t.Parallel()
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(dupCollector{desc: prometheus.NewDesc("dup_metric", "duplicate on purpose", nil, nil)})
-	engine := newEngine(reg, "continue-on-error")
+	mux := newMux(reg, "continue-on-error")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	engine.ServeHTTP(rec, req)
+	mux.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (ContinueOnError must not 500 on a Gather error)", rec.Code)
+	}
+}
+
+// TestRecoveryConvertsPanicTo500 verifies the Recovery middleware converts a
+// handler panic into a 500 response instead of crashing the connection
+// (replaces gin.Recovery's equivalent behavior).
+func TestRecoveryConvertsPanicTo500(t *testing.T) {
+	t.Parallel()
+
+	h := Recovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status: want 500, got %d", rec.Code)
 	}
 }

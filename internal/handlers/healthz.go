@@ -1,9 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
 // http server structs
@@ -12,10 +11,12 @@ type InternalHealth struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// middleware to handle healthz
-func HealthzHandler() gin.HandlerFunc {
-	// define a function to handle this route using gin pkg context
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, InternalHealth{Status: "ok"})
-	}
+// HealthzHandler reports exporter process liveness (not Tdarr reachability —
+// that is tdarr_up's job).
+func HealthzHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(InternalHealth{Status: "ok"})
+	})
 }

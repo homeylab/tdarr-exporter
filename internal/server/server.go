@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/homeylab/tdarr-exporter/internal/handlers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -24,22 +24,19 @@ type HttpServerConfig struct {
 
 func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool, errChan chan<- error) {
 	defer wg.Done()
-	router := gin.New()
-	// Recovery returns a middleware that recovers from any panics and writes a 500 if there was one.
-	router.Use(gin.Recovery())
-	router.NoRoute(func(c *gin.Context) {
+	mux := http.NewServeMux()
+	mux.Handle("GET "+runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
+	mux.Handle("GET /{$}", handlers.IndexHandler())
+	mux.Handle("GET /healthz", handlers.HealthzHandler())
+	// Fallback for everything else (gin's old NoRoute behavior).
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Warn().
-			Str("route", c.Request.URL.Path).
+			Str("route", r.URL.Path).
 			Msg("Route Not Found")
-		c.JSON(404, gin.H{"error": "Route Not Found: Try /metrics"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Route Not Found: Try /metrics"})
 	})
-
-	// add middleware
-	router.Use(handlers.RequestLogger())
-	// add handlers
-	router.GET(runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
-	router.GET("/", handlers.IndexHandler())
-	router.GET("/healthz", handlers.HealthzHandler())
 
 	log.Info().
 		Str("interface", runConfig.ListenAddress).
@@ -48,7 +45,10 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 
 	srv := http.Server{
 		Addr:    fmt.Sprintf("%s:%s", runConfig.ListenAddress, runConfig.PrometheusPort),
-		Handler: router,
+		Handler: handlers.Recovery(handlers.RequestLogger(mux)),
+		// Bound header read time so idle half-open connections cannot pin
+		// goroutines indefinitely (slowloris; gosec G112).
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {

@@ -1,34 +1,27 @@
 package handlers
 
 import (
+	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog/log"
 )
 
 const METRIC_NAMESPACE = "tdarr"
 
-// Log internal request
-func RequestLogger() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		t := time.Now()
-		c.Next()
-		duration := time.Since(t)
-
-		log.Debug().
-			Str("method", c.Request.Method).
-			Str("request_uri", c.Request.RequestURI).
-			Str("proto", c.Request.Proto).
-			Interface("duration_seconds", duration.Seconds()).
-			Msg("Incoming request")
-	}
-}
-
-func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrInstance string) gin.HandlerFunc {
+// MetricsHandler returns the promhttp handler for the registry. The handler's
+// own instrumentation counters are labeled with tdarr_instance to match the
+// const label on the collector metrics. HandlerFor keeps the raw reg (it
+// gathers the real metrics); only the handler-internal counters are wrapped.
+// Setting opts.Registry routes promhttp_metric_handler_errors_total through
+// instReg too (it is registered only when opts.Registry != nil).
+//
+// NOTE: the scrapDuration timing wrapper is preserved verbatim from the gin
+// version (DEPRECATED, off-by-one — reports the previous scrape). It is removed
+// in v4 (pre-v4 plan B1); do not alter or "fix" it here.
+func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrInstance string) http.Handler {
 	// static metrics always present
 	// use promAuto to auto register with existing registry
 	scrapDuration := promauto.With(reg).NewGauge(prometheus.GaugeOpts{
@@ -38,21 +31,16 @@ func MetricsHandler(reg *prometheus.Registry, opts promhttp.HandlerOpts, tdarrIn
 		ConstLabels: prometheus.Labels{"tdarr_instance": tdarrInstance},
 	})
 
-	// Wrap the registry so the promhttp handler's own counters carry tdarr_instance,
-	// matching the const label on the custom metrics above. HandlerFor keeps the raw
-	// reg (it gathers the real metrics); only the handler-internal counters are wrapped.
-	// Setting opts.Registry routes promhttp_metric_handler_errors_total through instReg
-	// too (it is registered only when opts.Registry != nil).
 	instReg := prometheus.WrapRegistererWith(prometheus.Labels{"tdarr_instance": tdarrInstance}, reg)
 	opts.Registry = instReg
 	h := promhttp.InstrumentMetricHandler(instReg, promhttp.HandlerFor(reg, opts))
 
-	return func(c *gin.Context) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		defer func() {
-			scrapDuration.Set(time.Since(start).Seconds())
-		}()
+		// defer keeps the original (broken) semantics: Set runs after ServeHTTP,
+		// so it reports the previous scrape. Preserved intentionally until v4-B1.
+		defer func() { scrapDuration.Set(time.Since(start).Seconds()) }()
 		// promhttp serves back response
-		h.ServeHTTP(c.Writer, c.Request)
-	}
+		h.ServeHTTP(w, r)
+	})
 }

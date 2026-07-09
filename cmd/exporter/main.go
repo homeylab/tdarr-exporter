@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/homeylab/tdarr-exporter/internal/collector"
 	"github.com/homeylab/tdarr-exporter/internal/config"
 	"github.com/homeylab/tdarr-exporter/internal/server"
@@ -111,8 +110,4 @@ func awaitShutdown(quit <-chan os.Signal, errCh <-chan error) int {
 		log.Error().Err(err).Msg("HTTP server error - shutting down...")
 		return 1
 	}
-}
-
-func init() {
-	gin.SetMode(gin.ReleaseMode)
 }
