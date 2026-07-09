@@ -8,13 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-func init() {
-	gin.SetMode(gin.ReleaseMode)
-}
 
 // freePort returns an available TCP port on 127.0.0.1 by binding to :0 and
 // immediately releasing it. There is a small race window before ServeHttp

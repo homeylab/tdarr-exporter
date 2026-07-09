@@ -1,15 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
-// middleware to handle index '/' route
-func IndexHandler() gin.HandlerFunc {
-	// define a function to handle this route using gin pkg context
-	return func(c *gin.Context) {
-		c.String(http.StatusOK, `<h1>tdarr-exporter</h1><p><a href='/metrics'>metrics</a></p>`)
-	}
+// IndexHandler serves the landing page at '/'.
+func IndexHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprint(w, `<h1>tdarr-exporter</h1><p><a href='/metrics'>metrics</a></p>`)
+	})
 }

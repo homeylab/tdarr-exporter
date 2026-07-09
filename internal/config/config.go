@@ -186,10 +186,10 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	if port, err := strconv.ParseUint(*promPort, 10, 16); err != nil || port == 0 {
 		return Config{}, fmt.Errorf("prometheus_port must be an integer between 1 and 65535, got %q", *promPort)
 	}
-	// The Gin router (internal/server/server.go) registers PrometheusPath, "/"
-	// (index) and "/healthz". A PrometheusPath equal to "/" or "/healthz" collides
-	// with those routes and panics at registration ("handlers are already
-	// registered for path"). Reject at startup instead.
+	// The http.ServeMux (internal/server/server.go) registers PrometheusPath,
+	// "/{$}" (index) and "/healthz". A PrometheusPath of "/" collides with the
+	// index pattern and "/healthz" duplicates that route; ServeMux panics at
+	// registration on a duplicate pattern. Reject at startup instead.
 	if !strings.HasPrefix(*promPath, "/") {
 		return Config{}, fmt.Errorf("prometheus_path must start with '/', got %q", *promPath)
 	}
