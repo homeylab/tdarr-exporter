@@ -21,6 +21,8 @@ const (
 	envLogLevel           = "LOG_LEVEL"
 	envHttpMaxConcurrency = "HTTP_MAX_CONCURRENCY"
 	envHttpTimeoutSeconds = "HTTP_TIMEOUT_SECONDS"
+	envListenAddress      = "LISTEN_ADDRESS"
+	envInstanceName       = "INSTANCE_NAME"
 )
 
 type Config struct {
@@ -39,6 +41,7 @@ type Config struct {
 	TdarrNodePath      string
 	TdarrStatusPath    string
 	HttpMaxConcurrency int
+	ListenAddress      string
 }
 
 // parseLogLevel maps a string log level to a zerolog.Level. It returns an error
@@ -79,6 +82,7 @@ func getDefaults() Config {
 		TdarrPieStatsPath:  "/api/v2/stats/get-pies",
 		TdarrStatusPath:    "/api/v2/status",
 		HttpMaxConcurrency: 3,
+		ListenAddress:      "0.0.0.0",
 	}
 }
 
@@ -122,6 +126,12 @@ func applyEnvDefaults(getenv func(string) string) (Config, error) {
 		}
 		defaults.HttpTimeoutSeconds = intValue
 	}
+	if v := getenv(envListenAddress); v != "" {
+		defaults.ListenAddress = v
+	}
+	if v := getenv(envInstanceName); v != "" {
+		defaults.InstanceName = v
+	}
 	return defaults, nil
 }
 
@@ -161,6 +171,8 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	httpMaxConcurrency := fs.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
 	httpTimeoutSeconds := fs.Int("http_timeout_seconds", defaults.HttpTimeoutSeconds, "timeout in seconds for http requests to the tdarr instance")
 	versionFlag := fs.Bool("version", false, "print version information and exit")
+	listenAddress := fs.String("listen_address", defaults.ListenAddress, "network interface address for the exporter's http server to listen on, ex: 127.0.0.1 or ::")
+	instanceName := fs.String("instance_name", defaults.InstanceName, "set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
@@ -207,10 +219,15 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 		return Config{}, err
 	}
 
+	name := *instanceName
+	if name == "" {
+		name = urlParsed.Hostname()
+	}
+
 	return Config{
 		url:                *url,
 		UrlParsed:          urlParsed,
-		InstanceName:       urlParsed.Hostname(),
+		InstanceName:       name,
 		ApiKey:             *apiKeyAuth,
 		VerifySsl:          *sslVerify,
 		PrometheusPort:     *promPort,
@@ -223,6 +240,7 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 		TdarrPieStatsPath:  defaults.TdarrPieStatsPath,
 		TdarrStatusPath:    defaults.TdarrStatusPath,
 		HttpMaxConcurrency: *httpMaxConcurrency,
+		ListenAddress:      *listenAddress,
 	}, nil
 }
 

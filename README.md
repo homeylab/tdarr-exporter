@@ -78,6 +78,10 @@ $ ./tdarr-exporter -h
         api token for tdarr instance if authentication is enabled
   -http_max_concurrency int
         maximum number of concurrent http requests to make when requesting per Library stats (default 3)
+  -instance_name string
+        set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host
+  -listen_address string
+        network interface address for the exporter's http server to listen on, ex: 127.0.0.1 or :: (default "0.0.0.0")
   -log_level string
         log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level (default "info")
   -prometheus_path string
@@ -101,11 +105,13 @@ A valid URL for the tdarr instance must be provided and can include protocol (`h
 | `http_max_concurrency` | `HTTP_MAX_CONCURRENCY` | `3`     | Maximum number of concurrent http requests to make when requesting per Library stats. For more information on caching and concurrency see this [section](#caching-and-concurrency) for more. |
 | `log_level`       | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
+| `listen_address`  | `LISTEN_ADDRESS`      | `0.0.0.0`  | Network interface address for the exporter's http server to bind. Set to `127.0.0.1` to only accept local connections (e.g. behind a reverse proxy), or an IPv6 address such as `::`. |
 | `prometheus_port` | `PROMETHEUS_PORT`     | `9090`     | Which port for server to use to serve metrics |
 | `prometheus_path` | `PROMETHEUS_PATH`     | `/metrics` | Which path to serve metrics on. |
+| `instance_name`   | `INSTANCE_NAME`       | url hostname | Overrides the `tdarr_instance` label carried by the exporter's own metrics (`tdarr_*`, `tdarr_exporter_build_info`, and the `promhttp_*` handler counters); the generic `go_*` and `process_*` runtime metrics are unlabeled. Defaults to the url hostname; set it to disambiguate multiple exporters and/or multiple Tdarr instances running on the same host. |
 | `version`         | —                     | `false`    | Print version information and exit. Flag only (`-version`), no environment variable. |
 
-If the URL is a valid URL, the hostname inside the URL will be used to identify the instance in the metrics as `tdarr_instance` label, i.e. `https://tdarr.example.com` will be shown as `tdarr.example.com` in the metrics (if using version `v1.2.0` or later).
+If the URL is a valid URL, the hostname inside the URL will be used to identify the instance in the metrics as `tdarr_instance` label, i.e. `https://tdarr.example.com` will be shown as `tdarr.example.com` in the metrics (if using version `v1.2.0` or later). To override this (for example when two Tdarr instances share a hostname on different ports, or you run multiple exporters), set `instance_name` / `INSTANCE_NAME`.
 
 If using authentication with Tdarr, an API key must be provided. Follow instructions [here](https://docs.tdarr.io/docs/other/authentication) to generate or use an existing API key.
 

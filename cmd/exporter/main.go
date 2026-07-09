@@ -54,8 +54,13 @@ func run() int {
 	// standard Go runtime + process metrics (go_*, process_*)
 	registry.MustRegister(collectors.NewGoCollector())
 	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	// build info metric (tdarr_exporter_build_info)
-	registry.MustRegister(versioncollector.NewCollector("tdarr_exporter"))
+	// build info metric (tdarr_exporter_build_info). Registered through an
+	// instance-labeled registerer so it carries tdarr_instance like the rest of
+	// the exporter's own metrics (go_*/process_* stay unlabeled — generic runtime).
+	prometheus.WrapRegistererWith(
+		prometheus.Labels{"tdarr_instance": userConfig.InstanceName},
+		registry,
+	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
 
 	// http server
 	stopHttpChan := make(chan bool)
@@ -67,7 +72,7 @@ func run() int {
 		TdarrInstance:   userConfig.InstanceName,
 		PrometheusPort:  userConfig.PrometheusPort,
 		PrometheusPath:  userConfig.PrometheusPath,
-		ListenAddress:   "0.0.0.0",
+		ListenAddress:   userConfig.ListenAddress,
 		GracefulTimeout: 30 * time.Second,
 	}
 	httpWg.Add(1)

@@ -4,6 +4,9 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 )
 
 // TestAwaitShutdown verifies the exit-code contract: an OS signal yields 0, a
@@ -29,4 +32,52 @@ func TestAwaitShutdown(t *testing.T) {
 			t.Errorf("awaitShutdown on server error = %d, want 1", got)
 		}
 	})
+}
+
+// TestBuildInfoCarriesInstanceLabel verifies tdarr_exporter_build_info is
+// registered through the tdarr_instance-labeled registerer (mirroring run()),
+// so the exporter's build-info metric is labeled like the rest of its metrics.
+func TestBuildInfoCarriesInstanceLabel(t *testing.T) {
+	t.Parallel()
+
+	const wantInstance = "tdarr-4k"
+	registry := prometheus.NewRegistry()
+	prometheus.WrapRegistererWith(
+		prometheus.Labels{"tdarr_instance": wantInstance},
+		registry,
+	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
+
+	families, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("registry.Gather: %v", err)
+	}
+
+	var found bool
+	for _, fam := range families {
+		if fam.GetName() != "tdarr_exporter_build_info" {
+			continue
+		}
+		found = true
+		metrics := fam.GetMetric()
+		if len(metrics) != 1 {
+			t.Fatalf("tdarr_exporter_build_info: want 1 metric, got %d", len(metrics))
+		}
+		var gotInstance string
+		var hasLabel bool
+		for _, lp := range metrics[0].GetLabel() {
+			if lp.GetName() == "tdarr_instance" {
+				hasLabel = true
+				gotInstance = lp.GetValue()
+			}
+		}
+		if !hasLabel {
+			t.Errorf("tdarr_exporter_build_info: missing tdarr_instance label")
+		}
+		if gotInstance != wantInstance {
+			t.Errorf("tdarr_instance: want %q, got %q", wantInstance, gotInstance)
+		}
+	}
+	if !found {
+		t.Fatal("tdarr_exporter_build_info family not found in gathered metrics")
+	}
 }

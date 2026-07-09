@@ -202,7 +202,6 @@ func TestParseConfigErrors(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), tc.args, envFunc(tc.env))
@@ -248,7 +247,6 @@ func TestParseConfigUrlSchemeDefaulting(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			env := map[string]string{envTdarrUrl: tc.url}
@@ -286,7 +284,6 @@ func TestParseLogLevel(t *testing.T) {
 		{"INFO", zerolog.InfoLevel}, // case-insensitive
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
 			got, err := parseLogLevel(tc.input)
@@ -322,7 +319,6 @@ func TestPrometheusPortValidation(t *testing.T) {
 		{"leading zero accepted (net accepts it too)", "09090", false},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_port", tt.port}, envFunc(nil))
@@ -347,7 +343,6 @@ func TestPrometheusPathValidation(t *testing.T) {
 		{"healthz conflicts with reserved route", "/healthz", true},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConfig(newFS(), []string{"-url", "http://tdarr.test", "-prometheus_path", tt.path}, envFunc(nil))
@@ -367,5 +362,57 @@ func TestVersionFlagShortCircuits(t *testing.T) {
 	}
 	if !cfg.Version {
 		t.Error("cfg.Version: want true")
+	}
+}
+
+func TestListenAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+		want string
+	}{
+		{"default", nil, nil, "0.0.0.0"},
+		{"env override", nil, map[string]string{"LISTEN_ADDRESS": "127.0.0.1"}, "127.0.0.1"},
+		{"flag override", []string{"-listen_address", "::1"}, nil, "::1"},
+		{"flag beats env", []string{"-listen_address", "127.0.0.1"}, map[string]string{"LISTEN_ADDRESS": "0.0.0.0"}, "127.0.0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{"-url", "http://tdarr.test"}, tt.args...)
+			cfg, err := parseConfig(newFS(), args, envFunc(tt.env))
+			if err != nil {
+				t.Fatalf("parseConfig: %v", err)
+			}
+			if cfg.ListenAddress != tt.want {
+				t.Errorf("ListenAddress: want %q, got %q", tt.want, cfg.ListenAddress)
+			}
+		})
+	}
+}
+
+func TestInstanceNameOverride(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		env  map[string]string
+		want string
+	}{
+		{"default is url hostname", nil, nil, "tdarr.test"},
+		{"env override", nil, map[string]string{"INSTANCE_NAME": "tdarr-4k"}, "tdarr-4k"},
+		{"flag override", []string{"-instance_name", "tdarr-anime"}, nil, "tdarr-anime"},
+		{"flag beats env", []string{"-instance_name", "tdarr-anime"}, map[string]string{"INSTANCE_NAME": "tdarr-4k"}, "tdarr-anime"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := append([]string{"-url", "http://tdarr.test:8265"}, tt.args...)
+			cfg, err := parseConfig(newFS(), args, envFunc(tt.env))
+			if err != nil {
+				t.Fatalf("parseConfig: %v", err)
+			}
+			if cfg.InstanceName != tt.want {
+				t.Errorf("InstanceName: want %q, got %q", tt.want, cfg.InstanceName)
+			}
+		})
 	}
 }
