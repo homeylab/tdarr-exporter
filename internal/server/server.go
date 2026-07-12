@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -44,7 +44,7 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 		Msg("Starting HTTP Server")
 
 	srv := http.Server{
-		Addr:    fmt.Sprintf("%s:%s", runConfig.ListenAddress, runConfig.PrometheusPort),
+		Addr:    net.JoinHostPort(runConfig.ListenAddress, runConfig.PrometheusPort),
 		Handler: handlers.Recovery(handlers.RequestLogger(mux)),
 		// Bound header read time so idle half-open connections cannot pin
 		// goroutines indefinitely (slowloris; gosec G112).
