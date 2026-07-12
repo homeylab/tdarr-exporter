@@ -31,7 +31,7 @@ func newMux(runConfig HttpServerConfig, registry *prometheus.Registry) http.Hand
 	mux.Handle("GET "+runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
 	// These hardcoded routes are the "reserved" set that config.go rejects for
 	// prometheus_path; keep the two in sync.
-	mux.Handle("GET /{$}", handlers.IndexHandler())
+	mux.Handle("GET /{$}", handlers.IndexHandler(runConfig.PrometheusPath))
 	mux.Handle("GET /healthz", handlers.HealthzHandler())
 	// Fallback for everything else (gin's old NoRoute behavior).
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func newMux(runConfig HttpServerConfig, registry *prometheus.Registry) http.Hand
 			Msg("Route Not Found")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Route Not Found: Try /metrics"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Route Not Found: Try " + runConfig.PrometheusPath})
 	})
 	return handlers.Recovery(handlers.RequestLogger(mux))
 }
