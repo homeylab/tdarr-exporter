@@ -10,9 +10,9 @@ import (
 )
 
 // collectorMetricNames is the exhaustive list of metric families emitted by
-// TdarrCollector.Collect.  Metrics that come from internal/handlers/metrics.go
-// (tdarr_scrape_duration_seconds) are intentionally excluded so they cannot
-// influence the comparison.
+// TdarrCollector.Collect. The comparison is scoped to this allowlist so that
+// handler-level series registered elsewhere (the promhttp_metric_handler_*
+// counters from internal/handlers/metrics.go) cannot influence it.
 var collectorMetricNames = []string{
 	"tdarr_avg_num_streams",
 	"tdarr_files",
