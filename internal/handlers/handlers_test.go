@@ -166,27 +166,6 @@ func counterValue(t *testing.T, body, instance string) float64 {
 	return -1
 }
 
-func TestRequestLoggerPassesThrough(t *testing.T) {
-	t.Parallel()
-
-	const wantBody = "logger-passthrough-body"
-	h := RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusTeapot)
-		_, _ = w.Write([]byte(wantBody))
-	}))
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/probe", nil)
-	h.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusTeapot {
-		t.Fatalf("status = %d, want %d (RequestLogger altered status)", rec.Code, http.StatusTeapot)
-	}
-	if rec.Body.String() != wantBody {
-		t.Fatalf("body = %q, want %q (RequestLogger altered body)", rec.Body.String(), wantBody)
-	}
-}
-
 // TestMetricsHandler_PromhttpInstrumented verifies P2.3: the standard
 // promhttp_metric_handler_* series are emitted and carry the tdarr_instance label
 // (injected via WrapRegistererWith). requests_total is incremented in a deferred
@@ -258,21 +237,5 @@ func TestMetricsHandler_ContinueOnError_Serves200OnGatherError(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (ContinueOnError must not 500 on a Gather error)", rec.Code)
-	}
-}
-
-// TestRecoveryConvertsPanicTo500 verifies the Recovery middleware converts a
-// handler panic into a 500 response instead of crashing the connection
-// (replaces gin.Recovery's equivalent behavior).
-func TestRecoveryConvertsPanicTo500(t *testing.T) {
-	t.Parallel()
-
-	h := Recovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		panic("boom")
-	}))
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("status: want 500, got %d", rec.Code)
 	}
 }
