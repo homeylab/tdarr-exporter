@@ -48,19 +48,7 @@ func run() int {
 		log.Error().Err(err).Msg("Failed to create Tdarr collector")
 		return 1
 	}
-	registry := prometheus.NewRegistry()
-	// registering a collector uses JIT and first scrape will be slower
-	registry.MustRegister(tdarrCollector)
-	// standard Go runtime + process metrics (go_*, process_*)
-	registry.MustRegister(collectors.NewGoCollector())
-	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	// build info metric (tdarr_exporter_build_info). Registered through an
-	// instance-labeled registerer so it carries tdarr_instance like the rest of
-	// the exporter's own metrics (go_*/process_* stay unlabeled — generic runtime).
-	prometheus.WrapRegistererWith(
-		prometheus.Labels{"tdarr_instance": userConfig.InstanceName},
-		registry,
-	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
+	registry := buildRegistry(userConfig.InstanceName, tdarrCollector)
 
 	// http server
 	stopHttpChan := make(chan bool)
@@ -101,6 +89,22 @@ func run() int {
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")
 	return exitCode
+}
+
+// buildRegistry assembles the Prometheus registry: the Tdarr collector, the
+// standard Go runtime + process collectors, and the build-info metric registered
+// through an instance-labeled registerer so tdarr_exporter_build_info carries
+// tdarr_instance like the exporter's own metrics.
+func buildRegistry(instanceName string, tdarrCollector prometheus.Collector) *prometheus.Registry {
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(tdarrCollector)
+	registry.MustRegister(collectors.NewGoCollector())
+	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.WrapRegistererWith(
+		prometheus.Labels{"tdarr_instance": instanceName},
+		registry,
+	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
+	return registry
 }
 
 // awaitShutdown blocks until either an OS signal or a fatal HTTP server error

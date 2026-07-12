@@ -22,8 +22,11 @@ type HttpServerConfig struct {
 	GracefulTimeout time.Duration
 }
 
-func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool, errChan chan<- error) {
-	defer wg.Done()
+// newMux builds the exporter's HTTP handler: the metrics/index/healthz routes,
+// the catch-all 404, wrapped in the Recovery + RequestLogger middleware. Shared
+// by ServeHttp and the server tests so the real routing/middleware stack is what
+// gets exercised.
+func newMux(runConfig HttpServerConfig, registry *prometheus.Registry) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET "+runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
 	// These hardcoded routes are the "reserved" set that config.go rejects for
@@ -39,6 +42,11 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 		w.WriteHeader(http.StatusNotFound)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Route Not Found: Try /metrics"})
 	})
+	return handlers.Recovery(handlers.RequestLogger(mux))
+}
+
+func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool, errChan chan<- error) {
+	defer wg.Done()
 
 	log.Info().
 		Str("interface", runConfig.ListenAddress).
@@ -47,7 +55,7 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 
 	srv := http.Server{
 		Addr:    net.JoinHostPort(runConfig.ListenAddress, runConfig.PrometheusPort),
-		Handler: handlers.Recovery(handlers.RequestLogger(mux)),
+		Handler: newMux(runConfig, registry),
 		// Bound header read time so idle half-open connections cannot pin
 		// goroutines indefinitely (slowloris; gosec G112).
 		ReadHeaderTimeout: 5 * time.Second,

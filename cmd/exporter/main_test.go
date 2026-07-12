@@ -6,8 +6,14 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 )
+
+// noopCollector is a stub Prometheus collector with no metrics, used to
+// exercise buildRegistry without depending on a real Tdarr collector.
+type noopCollector struct{}
+
+func (noopCollector) Describe(chan<- *prometheus.Desc) {}
+func (noopCollector) Collect(chan<- prometheus.Metric) {}
 
 // TestAwaitShutdown verifies the exit-code contract: an OS signal yields 0, a
 // fatal HTTP server error yields 1. This guards the regression fixed by
@@ -41,11 +47,7 @@ func TestBuildInfoCarriesInstanceLabel(t *testing.T) {
 	t.Parallel()
 
 	const wantInstance = "tdarr-4k"
-	registry := prometheus.NewRegistry()
-	prometheus.WrapRegistererWith(
-		prometheus.Labels{"tdarr_instance": wantInstance},
-		registry,
-	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
+	registry := buildRegistry(wantInstance, noopCollector{})
 
 	families, err := registry.Gather()
 	if err != nil {
