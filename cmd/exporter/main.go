@@ -81,7 +81,7 @@ func run() int {
 	exitCode := awaitShutdown(quitServer, errHttpChan)
 	go func() {
 		sig := <-quitServer
-		log.Error().Str("signal", sig.String()).Msg("Forcing immediate shutdown on signal")
+		log.Warn().Str("signal", sig.String()).Msg("Forcing immediate shutdown on signal")
 		os.Exit(forcedExitCode(sig))
 	}()
 	// Abort any in-flight scrape before tearing down the HTTP server.
@@ -114,6 +114,11 @@ func buildRegistry(instanceName string, tdarrCollector prometheus.Collector) *pr
 // awaitShutdown's exit 1, which means "HTTP server error". The fallback is
 // unreachable for the signals registered above on this unix build (all are
 // syscall.Signal); it exists only to keep the mapping total.
+//
+// These codes (129-143) intentionally exceed os.Exit's documented portable
+// range [0, 125]: mimicking signal death is the whole point, and on the only
+// shipped platforms (linux/amd64, linux/arm64) exit status is 8-bit, so no
+// registered signal wraps mod 256 (max 143).
 func forcedExitCode(sig os.Signal) int {
 	if s, ok := sig.(syscall.Signal); ok {
 		return 128 + int(s)
