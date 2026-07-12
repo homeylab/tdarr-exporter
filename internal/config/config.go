@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -198,13 +200,33 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	if port, err := strconv.ParseUint(*promPort, 10, 16); err != nil || port == 0 {
 		return Config{}, fmt.Errorf("prometheus_port must be an integer between 1 and 65535, got %q", *promPort)
 	}
-	// The http.ServeMux (internal/server/server.go) registers PrometheusPath,
-	// "/{$}" (index) and "/healthz". A PrometheusPath of "/" collides with the
-	// index pattern and "/healthz" duplicates that route; ServeMux panics at
-	// registration on a duplicate pattern. Reject at startup instead.
+	// PrometheusPath is spliced into an http.ServeMux pattern ("GET "+path) at
+	// registration (internal/server/server.go, which also hardcodes "/{$}" for
+	// the index and "/healthz"). ServeMux panics at registration on several
+	// malformed patterns, so validate here to fail cleanly at startup instead
+	// of crashing the ServeHttp goroutine. Keep the reserved list below in sync
+	// with those hardcoded routes.
 	if !strings.HasPrefix(*promPath, "/") {
 		return Config{}, fmt.Errorf("prometheus_path must start with '/', got %q", *promPath)
 	}
+	// '{'/'}' are ServeMux wildcard metacharacters and whitespace splits the
+	// pattern string; any of them makes registration panic (e.g. "/metrics/{")
+	// or silently register a wildcard route (e.g. "/{id}"). None are valid in a
+	// metrics path, so reject them outright.
+	if strings.ContainsFunc(*promPath, func(r rune) bool {
+		return r == '{' || r == '}' || unicode.IsSpace(r)
+	}) {
+		return Config{}, fmt.Errorf("prometheus_path %q must not contain '{', '}', or whitespace", *promPath)
+	}
+	// ServeMux also panics on an unclean pattern path (".", ".." or "//"
+	// segments, e.g. "/metrics//foo" or "/foo/.."). Require a canonical path;
+	// path.Clean also strips a trailing slash, so "/metrics/" is rejected in
+	// favor of "/metrics".
+	if *promPath != path.Clean(*promPath) {
+		return Config{}, fmt.Errorf("prometheus_path %q must be a clean path (no '.', '..', '//', or trailing slash)", *promPath)
+	}
+	// Each built-in route (index at "/", "/healthz") already claims its path; a
+	// PrometheusPath equal to one collides and panics ServeMux at registration.
 	if *promPath == "/" || *promPath == "/healthz" {
 		return Config{}, fmt.Errorf("prometheus_path %q conflicts with a reserved exporter route", *promPath)
 	}
