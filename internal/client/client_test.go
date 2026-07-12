@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/url"
@@ -65,6 +66,88 @@ func TestUnmarshalBody(t *testing.T) {
 				t.Fatalf("decoded Name = %q, want %q", target.Name, tt.wantField)
 			}
 		})
+	}
+}
+
+// TestUnmarshalBody_LogsBodyHeadOnDecodeError verifies the decode-failure
+// diagnostic: a non-JSON body (e.g. an HTML error page from a proxy/auth failure)
+// is debug-logged as body_head so operators can tell it apart from schema drift.
+func TestUnmarshalBody_LogsBodyHeadOnDecodeError(t *testing.T) {
+	t.Parallel()
+
+	var logBuf bytes.Buffer
+	c := &RequestClient{logger: zerolog.New(&logBuf).Level(zerolog.DebugLevel)}
+
+	var target struct {
+		Name string `json:"name"`
+	}
+	body := "<html><body>401 Unauthorized</body></html>"
+	err := c.unmarshalBody(strings.NewReader(body), &target)
+	if err == nil {
+		t.Fatalf("unmarshalBody: expected decode error for non-JSON body, got nil")
+	}
+
+	logged := logBuf.String()
+	if !strings.Contains(logged, "failed to decode response body") {
+		t.Fatalf("expected debug log of decode failure, got %q", logged)
+	}
+	// The head of the offending body must be captured for troubleshooting.
+	if !strings.Contains(logged, "401 Unauthorized") {
+		t.Fatalf("expected body head in log, got %q", logged)
+	}
+}
+
+// TestUnmarshalBody_NoDebugOutputAtInfoLevel verifies that at info level a decode
+// failure still returns the error but emits no debug output (no body_head line).
+// The tee-capture is skipped in this case too, but that is a non-observable perf
+// detail; this asserts only the visible behavior.
+func TestUnmarshalBody_NoDebugOutputAtInfoLevel(t *testing.T) {
+	t.Parallel()
+
+	var logBuf bytes.Buffer
+	c := &RequestClient{logger: zerolog.New(&logBuf).Level(zerolog.InfoLevel)}
+
+	var target struct {
+		Name string `json:"name"`
+	}
+	err := c.unmarshalBody(strings.NewReader("<html>401 Unauthorized</html>"), &target)
+	if err == nil {
+		t.Fatalf("unmarshalBody: expected decode error, got nil")
+	}
+	if logged := logBuf.String(); logged != "" {
+		t.Fatalf("expected no debug output at info level, got %q", logged)
+	}
+}
+
+// TestCappedWriter verifies the writer keeps only the first limit bytes yet always
+// reports a full-length write (so an io.TeeReader driving it never short-writes).
+func TestCappedWriter(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	w := &cappedWriter{buf: &buf, limit: 4}
+
+	n, err := w.Write([]byte("abcdef"))
+	if err != nil {
+		t.Fatalf("Write: unexpected error: %v", err)
+	}
+	if n != 6 {
+		t.Fatalf("Write returned n=%d, want 6 (full input length)", n)
+	}
+	if got := buf.String(); got != "abcd" {
+		t.Fatalf("buffered %q, want %q", got, "abcd")
+	}
+
+	// A second write past the limit is fully discarded but still reports its length.
+	n, err = w.Write([]byte("ghi"))
+	if err != nil {
+		t.Fatalf("Write: unexpected error: %v", err)
+	}
+	if n != 3 {
+		t.Fatalf("Write returned n=%d, want 3", n)
+	}
+	if got := buf.String(); got != "abcd" {
+		t.Fatalf("buffered %q after over-limit write, want %q", got, "abcd")
 	}
 }
 

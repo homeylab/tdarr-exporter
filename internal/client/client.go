@@ -55,11 +55,51 @@ func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, ap
 	}, nil
 }
 
+// maxBodyHeadBytes bounds how much of a failed response body is captured for the
+// decode-failure diagnostic. 2048 matches Kubernetes client-go's
+// maxUnstructuredResponseTextBytes — enough to cover a typical non-JSON error
+// page's identifying head (doctype, title, status banner) without spamming logs.
+const maxBodyHeadBytes = 2048
+
+// cappedWriter keeps only the first limit bytes written to it, discarding the
+// rest. It always reports a full-length write so an io.TeeReader driving it never
+// sees a short write and stalls the read.
+type cappedWriter struct {
+	buf   *bytes.Buffer
+	limit int
+}
+
+func (w *cappedWriter) Write(p []byte) (int, error) {
+	if remaining := w.limit - w.buf.Len(); remaining > 0 {
+		if len(p) > remaining {
+			w.buf.Write(p[:remaining])
+		} else {
+			w.buf.Write(p)
+		}
+	}
+	return len(p), nil
+}
+
 // unmarshalBody decodes a JSON response body into target. A panic inside a
 // scrape (e.g. from a pathological reader) is already converted to tdarr_up=0
 // by the collector's Collect recover, so no recover is needed here.
+//
+// On decode failure it debug-logs the head of the body: the common real failure
+// is a non-JSON response (wrong URL, reverse proxy, auth error → HTML/text page),
+// and its first bytes instantly distinguish that from JSON schema drift. Kept at
+// debug level because the decode error is already logged upstream at error level.
+//
+// The head capture is gated on debug being enabled: when it is off we decode
+// straight from the reader with no extra buffering, so the success path pays
+// nothing in production. When on, a capped tee buffers only the head.
 func (c *RequestClient) unmarshalBody(body io.Reader, target any) error {
-	if err := json.NewDecoder(body).Decode(target); err != nil {
+	var head bytes.Buffer
+	reader := body
+	if c.logger.Debug().Enabled() {
+		reader = io.TeeReader(body, &cappedWriter{buf: &head, limit: maxBodyHeadBytes})
+	}
+	if err := json.NewDecoder(reader).Decode(target); err != nil {
+		c.logger.Debug().Bytes("body_head", head.Bytes()).Msg("failed to decode response body")
 		return fmt.Errorf("failed to decode response body: %w", err)
 	}
 	return nil
