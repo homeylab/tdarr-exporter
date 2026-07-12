@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -42,6 +43,43 @@ func waitForServer(t *testing.T, addr string, deadline time.Duration) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("server at %s did not become reachable within %s", addr, deadline)
+}
+
+// TestListenAddressJoinHostPort pins the contract ServeHttp relies on when it
+// builds http.Server.Addr with net.JoinHostPort: the result is accepted by
+// net.Listen for IPv4, IPv6, and the common defaults. It documents why the
+// naive fmt.Sprintf("%s:%s", host, port) is wrong — that form yields an
+// unparseable "too many colons" address for IPv6 hosts like "::".
+// (ServeHttp's own use of the address is exercised by TestServeHttpLifecycle.)
+func TestListenAddressJoinHostPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		host     string
+		wantAddr string
+	}{
+		{name: "ipv4 loopback", host: "127.0.0.1", wantAddr: "127.0.0.1:0"},
+		{name: "ipv4 unspecified", host: "0.0.0.0", wantAddr: "0.0.0.0:0"},
+		{name: "ipv6 unspecified", host: "::", wantAddr: "[::]:0"},
+		{name: "ipv6 loopback", host: "::1", wantAddr: "[::1]:0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr := net.JoinHostPort(tt.host, "0")
+			if addr != tt.wantAddr {
+				t.Fatalf("net.JoinHostPort(%q, \"0\") = %q, want %q", tt.host, addr, tt.wantAddr)
+			}
+
+			ln, err := net.Listen("tcp", addr)
+			if err != nil {
+				if strings.Contains(tt.host, ":") {
+					t.Skipf("skipping IPv6 bind: environment appears to lack IPv6 support: %v", err)
+				}
+				t.Fatalf("net.Listen(%q) failed: %v", addr, err)
+			}
+			defer func() { _ = ln.Close() }()
+		})
+	}
 }
 
 func TestServeHttpLifecycle(t *testing.T) {
