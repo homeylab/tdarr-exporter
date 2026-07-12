@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"syscall"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,6 +40,54 @@ func TestAwaitShutdown(t *testing.T) {
 		}
 	})
 }
+
+// TestForcedExitCode verifies the force-quit path maps each shutdown signal to
+// its conventional 128+signum exit code, so a double-interrupt is reported as a
+// signal death (e.g. 130 for SIGINT) rather than colliding with awaitShutdown's
+// exit 1 (HTTP server error). The os.Exit call itself is inherently untestable;
+// this guards the arithmetic it feeds.
+func TestForcedExitCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		sig  os.Signal
+		want int
+	}{
+		{"SIGINT", syscall.SIGINT, 130},
+		{"SIGTERM", syscall.SIGTERM, 143},
+		{"SIGHUP", syscall.SIGHUP, 129},
+		{"SIGQUIT", syscall.SIGQUIT, 131},
+		{"os.Interrupt", os.Interrupt, 130},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := forcedExitCode(tc.sig); got != tc.want {
+				t.Errorf("forcedExitCode(%v) = %d, want %d", tc.sig, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestForcedExitCode_NonSyscallSignalFallsBack verifies a signal that is not a
+// syscall.Signal falls back to 1. Unreachable for the registered signals on this
+// unix build, but the mapping must stay total.
+func TestForcedExitCode_NonSyscallSignalFallsBack(t *testing.T) {
+	t.Parallel()
+
+	if got := forcedExitCode(fakeSignal{}); got != 1 {
+		t.Errorf("forcedExitCode(non-syscall signal) = %d, want 1", got)
+	}
+}
+
+// fakeSignal is an os.Signal that is not a syscall.Signal, used to exercise the
+// forcedExitCode fallback branch.
+type fakeSignal struct{}
+
+func (fakeSignal) String() string { return "fake" }
+func (fakeSignal) Signal()        {}
 
 // TestBuildInfoCarriesInstanceLabel verifies tdarr_exporter_build_info is
 // registered through the tdarr_instance-labeled registerer (mirroring run()),
