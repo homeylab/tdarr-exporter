@@ -165,6 +165,6 @@ Run `task --list` to see all available tasks.
 ## Breaking Updates
 | Version | Target Version | Description |
 | ------- | -------------- | ----------- |
-| `v3.0.X` | `v3.1.0` | `v3.1.0` removes the `tdarr_scrape_duration_seconds` metric. It reported the *previous* scrape's duration (the value was set after the response was already written) and duplicated a built-in — use Prometheus's own [`scrape_duration_seconds`](https://prometheus.io/docs/concepts/jobs_instances/#automatically-generated-labels-and-time-series) instead. Removed as a minor because the metric was broken and undocumented; no other metric changes. |
+| `v3.0.X` | `v3.1.0` | Removes the broken `tdarr_scrape_duration_seconds` metric (it reported the *previous* scrape's duration) — use Prometheus's built-in [`scrape_duration_seconds`](https://prometheus.io/docs/concepts/jobs_instances/#automatically-generated-labels-and-time-series). The Grafana dashboard's Scrape Duration panel is updated to use it. |
 | `v2.X.X` | `v3.0.0` | `v3.0.0` aligns all metrics with Prometheus naming/typing best practice. Many metrics are renamed/retyped and the `library_name` label moves to `tdarr_library_info`. See the [`v3.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v3.0.0) for the full migration guide. |
 | `v1.X.X` | `v2.0.0` | `v2.0.0` introduces a considerable refactor of behavior and metrics. See the [`v2.0.0` release notes](https://github.com/homeylab/tdarr-exporter/releases/tag/v2.0.0) for all information. |
