@@ -338,9 +338,18 @@ func TestPrometheusPathValidation(t *testing.T) {
 	}{
 		{"default ok", "/metrics", false},
 		{"custom ok", "/prom", false},
+		{"nested path ok", "/foo/bar", false},
 		{"no leading slash", "metrics", true},
 		{"root conflicts with index route", "/", true},
 		{"healthz conflicts with reserved route", "/healthz", true},
+		{"malformed wildcard open brace", "/metrics/{", true},
+		{"wildcard segment", "/{id}", true},
+		{"anchor pattern", "/{$}", true},
+		{"whitespace in path", "/met rics", true},
+		{"double slash", "/metrics//foo", true},
+		{"dot-dot segment", "/foo/..", true},
+		{"dot segment", "/./", true},
+		{"trailing slash", "/metrics/", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

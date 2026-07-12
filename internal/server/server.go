@@ -26,6 +26,8 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 	defer wg.Done()
 	mux := http.NewServeMux()
 	mux.Handle("GET "+runConfig.PrometheusPath, handlers.MetricsHandler(registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}, runConfig.TdarrInstance))
+	// These hardcoded routes are the "reserved" set that config.go rejects for
+	// prometheus_path; keep the two in sync.
 	mux.Handle("GET /{$}", handlers.IndexHandler())
 	mux.Handle("GET /healthz", handlers.HealthzHandler())
 	// Fallback for everything else (gin's old NoRoute behavior).
