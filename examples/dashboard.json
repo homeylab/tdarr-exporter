@@ -607,7 +607,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "tdarr_scrape_duration_seconds{tdarr_instance=~\"$tdarr_instance\"}",
+              "expr": "scrape_duration_seconds * on (instance, job) group_left (tdarr_instance) group by (instance, job, tdarr_instance) (tdarr_up{tdarr_instance=~\"$tdarr_instance\"})",
               "instant": false,
               "legendFormat": "scrape duration",
               "range": true,

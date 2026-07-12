@@ -103,9 +103,11 @@ func TestMetricsHandler(t *testing.T) {
 	}
 
 	// First scrape. The promhttp_metric_handler_requests_total counter is incremented
-	// inside promhttp's InstrumentMetricHandler after the body is written, so it is
-	// not visible until a later scrape. The scrape_duration gauge is registered
-	// eagerly, so it (and the const label) is present immediately.
+	// inside promhttp's InstrumentMetricHandler after the body is written, so its
+	// count is not visible until a later scrape. But the handler series are all
+	// registered eagerly and pre-seeded to 0 — requests_total/requests_in_flight by
+	// InstrumentMetricHandler, errors_total because opts.Registry is set — so they
+	// (and the const label) are present immediately.
 	rec := doGet()
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -117,13 +119,8 @@ func TestMetricsHandler(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	for _, want := range []string{
-		"tdarr_scrape_duration_seconds",
-		`tdarr_instance="` + instance + `"`,
-	} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("metrics body missing %q\nbody:\n%s", want, body)
-		}
+	if !strings.Contains(body, `tdarr_instance="`+instance+`"`) {
+		t.Fatalf("metrics body missing %q\nbody:\n%s", `tdarr_instance="`+instance+`"`, body)
 	}
 
 	// Second scrape: now the counter from the first request is exposed.
