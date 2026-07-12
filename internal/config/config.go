@@ -209,14 +209,15 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	if !strings.HasPrefix(*promPath, "/") {
 		return Config{}, fmt.Errorf("prometheus_path must start with '/', got %q", *promPath)
 	}
-	// '{'/'}' are ServeMux wildcard metacharacters and whitespace splits the
-	// pattern string; any of them makes registration panic (e.g. "/metrics/{")
-	// or silently register a wildcard route (e.g. "/{id}"). None are valid in a
-	// metrics path, so reject them outright.
-	if strings.ContainsFunc(*promPath, func(r rune) bool {
-		return r == '{' || r == '}' || unicode.IsSpace(r)
-	}) {
-		return Config{}, fmt.Errorf("prometheus_path %q must not contain '{', '}', or whitespace", *promPath)
+	// '{' and '}' are ServeMux wildcard metacharacters: they make registration
+	// panic (e.g. "/metrics/{") or silently register a wildcard route (e.g.
+	// "/{id}"). Neither is valid in a metrics path.
+	if strings.ContainsAny(*promPath, "{}") {
+		return Config{}, fmt.Errorf("prometheus_path %q must not contain '{' or '}'", *promPath)
+	}
+	// Whitespace splits the "GET "+path pattern string, so registration panics.
+	if strings.ContainsFunc(*promPath, unicode.IsSpace) {
+		return Config{}, fmt.Errorf("prometheus_path %q must not contain whitespace", *promPath)
 	}
 	// ServeMux also panics on an unclean pattern path (".", ".." or "//"
 	// segments, e.g. "/metrics//foo" or "/foo/.."). Require a canonical path;
