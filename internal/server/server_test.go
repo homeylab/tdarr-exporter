@@ -260,6 +260,43 @@ func TestStaticHandlers(t *testing.T) {
 	}
 }
 
+// TestCustomPrometheusPathReflectedInRoutes verifies that when prometheus_path
+// is customized, both the landing-page link and the 404 fallback hint point at
+// the configured path rather than a hardcoded '/metrics'.
+func TestCustomPrometheusPathReflectedInRoutes(t *testing.T) {
+	t.Parallel()
+
+	const customPath = "/custom-metrics"
+	mux := newMux(HttpServerConfig{TdarrInstance: "test-instance", PrometheusPath: customPath}, prometheus.NewRegistry())
+
+	tests := []struct {
+		name         string
+		path         string
+		wantStatus   int
+		wantContains string
+	}{
+		{"landing page links to custom path", "/", http.StatusOK, `href='/custom-metrics'`},
+		{"404 hint names custom path", "/does-not-exist", http.StatusNotFound, `"error":"Route Not Found: Try /custom-metrics"`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+			if !strings.Contains(rec.Body.String(), tc.wantContains) {
+				t.Fatalf("body = %q, want it to contain %q", rec.Body.String(), tc.wantContains)
+			}
+		})
+	}
+}
+
 func TestMetricsHandler(t *testing.T) {
 	t.Parallel()
 
