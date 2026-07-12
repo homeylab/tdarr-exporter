@@ -150,6 +150,13 @@ Verified: transcoding a net-shrunk file moves the value up. Corroborated by
 plugin behavior — a pure stream-remover library trends positive, while a
 library that adds tracks (e.g. an AC3 5.1 audio add) trends negative.
 
+Note: `sizeDiff` arrives already converted to GB-scale (e.g. `225.95`), so we
+never see Tdarr's raw byte count. The exporter multiplies back by 1024³ (binary
+GiB), but Tdarr may use decimal GB (1000³) — a ~7% difference we cannot tell
+apart from the value alone. Tdarr's core is closed-source, so this is unverified
+from code; it could be settled by transcoding a file of known size and backing
+out the factor. Until then, treat `size_diff_bytes` as accurate to ~±7%.
+
 ## Stream stats and the bit-rate unit exception
 
 `tdarr_stream_stats_duration_seconds`, `tdarr_stream_stats_bit_rate`, and
