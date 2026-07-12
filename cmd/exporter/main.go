@@ -80,8 +80,9 @@ func run() int {
 	// yields a non-zero exit code.
 	exitCode := awaitShutdown(quitServer, errHttpChan)
 	go func() {
-		<-quitServer
-		log.Fatal().Msg("Killing app on 2nd forced interrupt...")
+		sig := <-quitServer
+		log.Error().Str("signal", sig.String()).Msg("Forcing immediate shutdown on signal")
+		os.Exit(forcedExitCode(sig))
 	}()
 	// Abort any in-flight scrape before tearing down the HTTP server.
 	cancelScrapes()
@@ -105,6 +106,19 @@ func buildRegistry(instanceName string, tdarrCollector prometheus.Collector) *pr
 		registry,
 	).MustRegister(versioncollector.NewCollector("tdarr_exporter"))
 	return registry
+}
+
+// forcedExitCode maps a signal to the conventional 128+signum exit code that
+// shells, Docker, and Kubernetes report for a signal-terminated process (SIGINT
+// -> 130, SIGTERM -> 143). This keeps a force-quit distinguishable from
+// awaitShutdown's exit 1, which means "HTTP server error". The fallback is
+// unreachable for the signals registered above on this unix build (all are
+// syscall.Signal); it exists only to keep the mapping total.
+func forcedExitCode(sig os.Signal) int {
+	if s, ok := sig.(syscall.Signal); ok {
+		return 128 + int(s)
+	}
+	return 1
 }
 
 // awaitShutdown blocks until either an OS signal or a fatal HTTP server error
