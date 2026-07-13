@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/homeylab/tdarr-exporter/internal/client"
 )
@@ -30,6 +31,14 @@ type fakeTdarrAPI struct {
 	// errors maps a request key to an error that should be returned instead of a
 	// response, used to drive tdarr_up=0 / partial-failure paths.
 	errors map[fakeKey]error
+
+	// callsMu guards calls; fetchPies fans requests across worker goroutines, so
+	// call counting must be concurrency-safe even though most tests use
+	// HttpMaxConcurrency=1.
+	callsMu sync.Mutex
+	// calls counts requests per key, used by tests asserting a cache hit made
+	// no pie (or other) API calls on a given scrape.
+	calls map[fakeKey]int
 }
 
 // statErr is returned by the fake to mimic a non-2xx / transport failure from the
@@ -42,7 +51,29 @@ func newFakeTdarrAPI() *fakeTdarrAPI {
 	return &fakeTdarrAPI{
 		responses: make(map[fakeKey][]byte),
 		errors:    make(map[fakeKey]error),
+		calls:     make(map[fakeKey]int),
 	}
+}
+
+// callCount returns how many times key has been requested (POST or GET) so far.
+func (f *fakeTdarrAPI) callCount(key fakeKey) int {
+	f.callsMu.Lock()
+	defer f.callsMu.Unlock()
+	return f.calls[key]
+}
+
+// resetCalls clears the recorded call counts, e.g. between scrapes in a test
+// that asserts on calls made during a specific scrape only.
+func (f *fakeTdarrAPI) resetCalls() {
+	f.callsMu.Lock()
+	defer f.callsMu.Unlock()
+	f.calls = make(map[fakeKey]int)
+}
+
+func (f *fakeTdarrAPI) recordCall(key fakeKey) {
+	f.callsMu.Lock()
+	defer f.callsMu.Unlock()
+	f.calls[key]++
 }
 
 // setResponse registers fixture bytes for a request key.
@@ -82,6 +113,7 @@ func (f *fakeTdarrAPI) DoPostRequest(ctx context.Context, path string, target an
 	if err != nil {
 		return err
 	}
+	f.recordCall(key)
 	if e, ok := f.errors[key]; ok {
 		return e
 	}
@@ -97,6 +129,7 @@ func (f *fakeTdarrAPI) DoRequest(ctx context.Context, path string, target any, q
 		return err
 	}
 	key := fakeKey{path: path}
+	f.recordCall(key)
 	if e, ok := f.errors[key]; ok {
 		return e
 	}

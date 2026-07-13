@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -135,41 +137,48 @@ type TdarrCollector struct {
 	descsList []typedDesc
 }
 
+// libStatsSnapshot bundles everything one fully-successful pie sweep caches.
+// The fields must all correspond to the same scrape; the cache reads and writes
+// a snapshot as one value under a single lock, so a concurrent scrape can never
+// observe a torn combination (e.g. totals from one sweep, stats from another).
+type libStatsSnapshot struct {
+	totals tdarrCacheTotals
+	// stats is nil until the first fully-successful sweep is cached; callers
+	// treat nil as "cache empty" and refetch.
+	stats []*TdarrPieStats
+	// fingerprint is a sorted-by-LibraryId snapshot of the library list at the
+	// time stats was cached, used alongside totals to decide whether a refetch
+	// is needed (see shouldRefetch). Sorted so two fetches of the same library
+	// set compare equal regardless of the order Tdarr returns them in.
+	fingerprint []TdarrLibraryInfo
+}
+
 // Cache to store library stats and reduce excessive API calls
 // Mutex added to reduce chance of running into errors (from race condition) from misconfiguration or manual testing
 // i.e getting scraped twice by two different prometheus instances
 type TdarrLibStatsCache struct {
-	mu           sync.RWMutex
-	totals       tdarrCacheTotals
-	libraryStats []*TdarrPieStats
+	mu   sync.RWMutex
+	snap libStatsSnapshot
 }
 
 func NewTdarrLibStatsCache() *TdarrLibStatsCache {
-	return &TdarrLibStatsCache{
-		totals:       tdarrCacheTotals{},
-		libraryStats: nil,
-	}
+	return &TdarrLibStatsCache{}
 }
 
-// Read returns the cached totals and library stats as a consistent pair under a
-// single lock. libraryStats is nil until the first fully-successful sweep is
-// cached (callers treat nil as "cache empty" and refetch). Returning both
-// together prevents a torn read where totals and stats come from different
-// scrapes.
-func (c *TdarrLibStatsCache) Read() (tdarrCacheTotals, []*TdarrPieStats) {
+// Read returns the cached snapshot under a single lock. snap.stats is nil until
+// the first fully-successful sweep is cached.
+func (c *TdarrLibStatsCache) Read() libStatsSnapshot {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.totals, c.libraryStats
+	return c.snap
 }
 
-// Write stores the totals and library stats together under a single lock, so
-// the two fields — which must correspond — are never observed as a torn pair by
-// a concurrent Read. Only a fully-successful pie sweep is written (see collect()).
-func (c *TdarrLibStatsCache) Write(totals tdarrCacheTotals, stats []*TdarrPieStats) {
+// Write stores a snapshot under a single lock. Only a fully-successful pie
+// sweep is written (see collect()).
+func (c *TdarrLibStatsCache) Write(snap libStatsSnapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.totals = totals
-	c.libraryStats = stats
+	c.snap = snap
 }
 
 // collector
@@ -574,24 +583,42 @@ func totalsFromMetric(metric *TdarrMetric) tdarrCacheTotals {
 	}
 }
 
+// libraryFingerprint builds a sorted-by-LibraryId copy of libs for use as a cache
+// comparison key. It copies before sorting so the caller's slice — which fetchPies
+// also consumes, in the order Tdarr returned it — is never reordered as a side effect.
+func libraryFingerprint(libs []TdarrLibraryInfo) []TdarrLibraryInfo {
+	fp := make([]TdarrLibraryInfo, len(libs))
+	copy(fp, libs)
+	sort.Slice(fp, func(i, j int) bool { return fp[i].LibraryId < fp[j].LibraryId })
+	return fp
+}
+
 // shouldRefetch decides whether library pie stats must be re-fetched. It returns
-// true when the cache is empty (libStatsNil) or any of the 10 cached totals differs
-// from the current metric. tdarrCacheTotals is all-int and thus comparable, so the
+// true when the cache is empty (cached.stats nil), any of the 10 cached totals
+// differs from the current metric, or the cached library-list fingerprint differs
+// from the current one. tdarrCacheTotals is all-int and thus comparable, so the
 // struct != comparison is equivalent to the prior field-by-field OR chain.
 //
 // Invalidation is deliberately GLOBAL (all-or-nothing across every library), not
 // per-library, and this is forced by the Tdarr API's shape — do not "optimize" it
-// to a per-library cache. The only cheap signal Tdarr exposes is the general-stats
-// document (StatisticsJSONDB, ~ms), and it is aggregate-only: it carries no
-// per-library breakdown. Per-library data lives solely in the get-pies call, which
+// to a per-library cache. Per-library data lives solely in the get-pies call, which
 // is the expensive per-library fan-out the cache exists to skip (seconds across all
-// libraries). So there is no cheap "did library X change?" probe: checking one
+// libraries); there is no cheap "did library X change?" probe, since checking one
 // library would cost the same fetch the cache is trying to avoid. A per-library
 // cache is therefore not viable, and with it the sync.Map that concurrent
 // per-library cache writes would need is moot — the whole-slice cache guarded by a
 // single RWMutex, written by one drain goroutine, is the correct shape here.
-func shouldRefetch(cached tdarrCacheTotals, libStatsNil bool, metric *TdarrMetric) bool {
-	return libStatsNil || cached != totalsFromMetric(metric)
+//
+// The invalidation signal has two parts, both cheap relative to the get-pies
+// fan-out: the general-stats document (StatisticsJSONDB, ~ms) supplies the 10
+// totals, and the library-list document (LibrarySettingsJSONDB, ~ms in latency,
+// but non-trivial in bandwidth — ~15KB per library, see docs/metrics-internals.md)
+// supplies the fingerprint. The totals alone miss a library rename or a newly
+// added zero-file library (neither moves any of the 10 counts); the fingerprint
+// catches both, since it changes whenever a library's id/name set changes. Either
+// signal changing triggers a refetch — they cover different drift.
+func shouldRefetch(cached libStatsSnapshot, metric *TdarrMetric, currentFingerprint []TdarrLibraryInfo) bool {
+	return cached.stats == nil || cached.totals != totalsFromMetric(metric) || !slices.Equal(cached.fingerprint, currentFingerprint)
 }
 
 func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metric) (bool, error) {
@@ -641,45 +668,59 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 
 	// supports only api versions: v2.24.01+
 	c.logger.Debug().Str("path", c.pieStatsPath).Msg("Fetching library pie stats")
+	// Fetch the current library list on EVERY scrape, not just cache misses. This is
+	// a single cheap cruddb call (~ms in latency) used purely as an invalidation
+	// signal (see shouldRefetch); a failure here hard-fails the scrape exactly like
+	// the general-stats fetch above — there is no fallback, since a stale/partial
+	// library list would make both the cache decision and any resulting pie fetch
+	// unreliable.
+	getLibsPayload := getGeneralReqPayload("library")
+	allLibs := []TdarrLibraryInfo{}
+	if err := c.httpReqHelper(ctx, c.statsPath, getLibsPayload, &allLibs); err != nil {
+		return false, fmt.Errorf("get library details: %w", err)
+	}
+	fingerprint := libraryFingerprint(allLibs)
+
 	// already have total file count from general stats (`metric.TotalFileCount`)
 	// check cache for all libraries data
 	// this won't block other reads when checking
-	cacheTotals, cachedStats := c.statsCache.Read()
-	// Refetch if the cache is empty (first run) or any of the 10 totals changed.
-	// Beyond the three top-level counts, the seven per-bucket queue fields
-	// (holdQueue/transcodeQueue/… on TdarrMetric) catch state transitions the totals miss
-	// (e.g. files queued but not yet transcoded). Their Tdarr JSON source (table0Count–table6Count)
-	// and bucket meanings are documented on TdarrMetric in tdarr_models.go. Older Tdarr versions
-	// omit those fields; they decode to 0, so 0==0 never triggers a spurious refetch.
-	shouldCollect := shouldRefetch(cacheTotals, cachedStats == nil, metric)
+	cached := c.statsCache.Read()
+	// Refetch if the cache is empty (first run), any of the 10 totals changed, or the
+	// library-list fingerprint changed. Beyond the three top-level counts, the seven
+	// per-bucket queue fields (holdQueue/transcodeQueue/… on TdarrMetric) catch state
+	// transitions the totals miss (e.g. files queued but not yet transcoded). Their
+	// Tdarr JSON source (table0Count–table6Count) and bucket meanings are documented
+	// on TdarrMetric in tdarr_models.go. Older Tdarr versions omit those fields; they
+	// decode to 0, so 0==0 never triggers a spurious refetch. The fingerprint (sorted
+	// library id/name pairs) catches a library rename or a new zero-file library —
+	// drift the 10 totals alone cannot see, since neither moves any of them.
+	shouldCollect := shouldRefetch(cached, metric, fingerprint)
 	if shouldCollect {
-		c.logger.Debug().Msg("Stats totals mismatch - re-fetching library pie stats")
+		c.logger.Debug().Msg("Stats totals or library fingerprint mismatch - re-fetching library pie stats")
 	}
-	// if counts are the same use cache
+	// if counts and fingerprint are unchanged, use cache
 	if !shouldCollect {
-		c.logger.Debug().Msg("Using cached library stats - api totals matches cached values")
-		pieData = cachedStats
-	} else { // fetch new data and update cache
-		getLibsPayload := getGeneralReqPayload("library")
-		allLibs := []TdarrLibraryInfo{}
-		err := c.httpReqHelper(ctx, c.statsPath, getLibsPayload, &allLibs)
-		if err != nil {
-			return false, fmt.Errorf("get library details: %w", err)
-		}
-
+		c.logger.Debug().Msg("Using cached library stats - api totals and library fingerprint match cached values")
+		pieData = cached.stats
+	} else { // fetch new data and update cache; reuse the library list already fetched above
 		pieData, partialFail = c.fetchPies(ctx, allLibs)
 		// Cache invariant: only a fully successful pie sweep may be cached.
 		// Caching a partial result would let the next scrape serve incomplete
 		// data from cache with tdarr_up=1 (partial failure is scoped to this
 		// scrape only), silently dropping the failed library's series until the
-		// totals next change. Skipping both writes keeps the cache stale/nil,
-		// so shouldRefetch() triggers a full refetch on the next scrape.
+		// totals or fingerprint next change. Skipping the write keeps the cache
+		// stale/nil, so shouldRefetch() triggers a full refetch on the next scrape.
 		if partialFail {
 			c.logger.Warn().Msg("Partial library pie fetch failure - cache not updated, will re-fetch next scrape")
 		} else {
 			c.logger.Debug().Msg("All library stats gathered - setting cache")
-			// Store totals and stats together so a concurrent scrape never reads a torn pair.
-			c.statsCache.Write(totalsFromMetric(metric), pieData)
+			// Store the whole snapshot in one Write so a concurrent scrape never
+			// reads a torn combination of totals/stats/fingerprint.
+			c.statsCache.Write(libStatsSnapshot{
+				totals:      totalsFromMetric(metric),
+				stats:       pieData,
+				fingerprint: fingerprint,
+			})
 		}
 	}
 
