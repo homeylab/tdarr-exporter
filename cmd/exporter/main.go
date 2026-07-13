@@ -47,7 +47,7 @@ func run() int {
 	registry := buildRegistry(userConfig.InstanceName, tdarrCollector)
 
 	// http server
-	stopHttpChan := make(chan bool)
+	stopHttpChan := make(chan struct{})
 	// Buffered with one slot per potential sender (ListenAndServe error,
 	// Shutdown error) so the server goroutine never blocks sending, even if
 	// both fire after main has stopped selecting on errChan.
@@ -85,7 +85,7 @@ func run() int {
 	}()
 	// Abort any in-flight scrape before tearing down the HTTP server.
 	cancelScrapes()
-	stopHttpChan <- true
+	stopHttpChan <- struct{}{}
 	httpWg.Wait()
 	log.Info().Msg("Gracefully shutdown tdarr exporter")
 	return exitCode

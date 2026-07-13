@@ -88,7 +88,7 @@ func TestServeHttpLifecycle(t *testing.T) {
 	addr := net.JoinHostPort("127.0.0.1", port)
 
 	wg := &sync.WaitGroup{}
-	stopChan := make(chan bool)
+	stopChan := make(chan struct{})
 	errChan := make(chan error, 1)
 	cfg := HttpServerConfig{
 		TdarrInstance:   "lifecycle",
@@ -122,7 +122,7 @@ func TestServeHttpLifecycle(t *testing.T) {
 
 	// Trigger graceful shutdown and assert the WaitGroup completes (i.e.
 	// ServeHttp returned via wg.Done, not os.Exit).
-	stopChan <- true
+	stopChan <- struct{}{}
 
 	done := make(chan struct{})
 	go func() {
@@ -158,7 +158,7 @@ func TestServeHttpListenErrorDeliveredOnChannel(t *testing.T) {
 	}
 
 	wg := &sync.WaitGroup{}
-	stopChan := make(chan bool, 1)
+	stopChan := make(chan struct{}, 1)
 	errChan := make(chan error, 1)
 	cfg := HttpServerConfig{
 		TdarrInstance:   "listen-error",
@@ -183,7 +183,7 @@ func TestServeHttpListenErrorDeliveredOnChannel(t *testing.T) {
 	// ServeHttp is still blocked on stopChan after the listen error (matching
 	// production wiring where main sends stop after receiving the error).
 	// Release it and confirm clean return.
-	stopChan <- true
+	stopChan <- struct{}{}
 
 	done := make(chan struct{})
 	go func() {
@@ -221,7 +221,7 @@ func TestServeHttpShutdownErrorSecondSendDoesNotBlock(t *testing.T) {
 	addr := net.JoinHostPort("127.0.0.1", port)
 
 	wg := &sync.WaitGroup{}
-	stopChan := make(chan bool)
+	stopChan := make(chan struct{})
 	// Mirror production wiring (cmd/exporter/main.go) and pre-fill one slot to
 	// simulate an earlier undrained send.
 	errChan := make(chan error, 2)
@@ -256,7 +256,7 @@ func TestServeHttpShutdownErrorSecondSendDoesNotBlock(t *testing.T) {
 	}()
 	<-bc.entered
 
-	stopChan <- true
+	stopChan <- struct{}{}
 
 	done := make(chan struct{})
 	go func() {

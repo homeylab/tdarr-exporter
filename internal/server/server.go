@@ -49,7 +49,7 @@ func newMux(runConfig HttpServerConfig, registry *prometheus.Registry) http.Hand
 	return handlers.Recovery(handlers.RequestLogger(mux))
 }
 
-func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan bool, errChan chan<- error) {
+func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig HttpServerConfig, stopChan chan struct{}, errChan chan<- error) {
 	defer wg.Done()
 
 	log.Info().
