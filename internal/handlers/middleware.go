@@ -75,6 +75,7 @@ func Recovery(next http.Handler) http.Handler {
 		recorder := newResponseRecorder(w)
 		defer func() {
 			if rec := recover(); rec != nil {
+				//nolint:errorlint // recover() returns the exact value panicked with; net/http panics with this sentinel unwrapped, so == is the idiom (net/http itself compares this way).
 				if rec == http.ErrAbortHandler {
 					// stdlib's sanctioned connection-abort signal; net/http
 					// handles it, so let it continue unwinding.

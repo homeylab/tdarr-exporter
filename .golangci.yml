@@ -1,0 +1,10 @@
+version: "2"
+
+# Curated on top of golangci-lint's default (standard) linter set.
+linters:
+  enable:
+    - copyloopvar # flags obsolete per-iteration loop-variable copies (Go 1.22+)
+    - errorlint   # catches ==/type-assert on wrapped errors (use errors.Is/As)
+    - misspell    # catches common English misspellings in comments/strings
+    - nolintlint  # keeps //nolint directives honest (specific + explained)
+    - unconvert   # flags redundant type conversions
