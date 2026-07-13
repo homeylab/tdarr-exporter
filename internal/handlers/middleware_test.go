@@ -41,7 +41,7 @@ func TestRequestLogger_ForwardsResponseUnchanged(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			h := RequestLogger(http.HandlerFunc(tc.handler))
+			h := RequestLogger(tc.handler)
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/probe", nil)
 			h.ServeHTTP(rec, req)
