@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"sync"
@@ -59,10 +60,15 @@ func ServeHttp(wg *sync.WaitGroup, registry *prometheus.Registry, runConfig Http
 		// Bound header read time so idle half-open connections cannot pin
 		// goroutines indefinitely (slowloris; gosec G112).
 		ReadHeaderTimeout: 5 * time.Second,
+		// Reap idle keep-alive connections. WriteTimeout stays 0 (unlimited)
+		// on purpose: it would cap total response time, and scrape duration is
+		// unbounded by design (lazy per-scrape collection against a possibly
+		// slow Tdarr instance).
+		IdleTimeout: 120 * time.Second,
 	}
 
 	go func() {
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			// Propagate to the caller instead of os.Exit so the graceful
 			// shutdown path in main can run.
 			log.Error().

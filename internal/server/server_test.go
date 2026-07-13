@@ -197,6 +197,94 @@ func TestServeHttpListenErrorDeliveredOnChannel(t *testing.T) {
 	}
 }
 
+// blockingCollector parks Collect until release is closed, holding a /metrics
+// request active so srv.Shutdown cannot finish before its deadline. entered
+// signals that the scrape (and thus the request) is in flight.
+type blockingCollector struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingCollector) Describe(chan<- *prometheus.Desc) {}
+func (b *blockingCollector) Collect(chan<- prometheus.Metric) {
+	close(b.entered)
+	<-b.release
+}
+
+// TestServeHttpShutdownErrorSecondSendDoesNotBlock pins the errChan capacity
+// contract: with one slot per sender (cap 2, matching main's wiring), ServeHttp
+// must still return when a Shutdown error is sent while an earlier error
+// already sits undrained in the channel. With cap 1 the second send would
+// block forever and the WaitGroup would never complete.
+func TestServeHttpShutdownErrorSecondSendDoesNotBlock(t *testing.T) {
+	port := freePort(t)
+	addr := net.JoinHostPort("127.0.0.1", port)
+
+	wg := &sync.WaitGroup{}
+	stopChan := make(chan bool)
+	// Mirror production wiring (cmd/exporter/main.go) and pre-fill one slot to
+	// simulate an earlier undrained send.
+	errChan := make(chan error, 2)
+	errChan <- fmt.Errorf("simulated earlier undrained error")
+
+	bc := &blockingCollector{entered: make(chan struct{}), release: make(chan struct{})}
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(bc)
+
+	cfg := HttpServerConfig{
+		TdarrInstance:  "double-error",
+		ListenAddress:  "127.0.0.1",
+		PrometheusPort: port,
+		PrometheusPath: "/metrics",
+		// Short deadline so Shutdown gives up on the parked request quickly.
+		GracefulTimeout: 100 * time.Millisecond,
+	}
+
+	wg.Add(1)
+	go ServeHttp(wg, registry, cfg, stopChan, errChan)
+	waitForServer(t, addr, 2*time.Second)
+
+	// Park a scrape inside the handler so the connection stays active across
+	// Shutdown. Release it at the end so the client goroutine can exit.
+	scrapeDone := make(chan struct{})
+	go func() {
+		defer close(scrapeDone)
+		resp, err := http.Get(fmt.Sprintf("http://%s/metrics", addr))
+		if err == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	<-bc.entered
+
+	stopChan <- true
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("ServeHttp did not return: Shutdown-error send blocked on an undrained errChan")
+	}
+
+	// Both errors must be present: the pre-filled one and the Shutdown
+	// deadline error.
+	<-errChan
+	select {
+	case err := <-errChan:
+		if err == nil {
+			t.Fatal("expected a non-nil Shutdown error as the second channel entry")
+		}
+	default:
+		t.Fatal("Shutdown error was not delivered as the second channel entry")
+	}
+
+	close(bc.release)
+	<-scrapeDone
+}
+
 func TestStaticHandlers(t *testing.T) {
 	t.Parallel()
 
