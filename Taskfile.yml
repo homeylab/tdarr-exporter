@@ -37,7 +37,7 @@ tasks:
       - air
 
   dev:docker:
-    desc: Build image, run detached, curl /metrics once, then tear down
+    desc: Build local image and run it in the foreground; Ctrl-C stops and removes the container
     deps:
       - task: docker:build:local
     cmds:
@@ -135,7 +135,7 @@ tasks:
           --no-cache .
 
   docker:build:latest:
-    desc: Build multi-arch image (linux/amd64,linux/arm64) and PUSH to registry with :test and :latest tags
+    desc: Build multi-arch image (linux/amd64,linux/arm64) with :test and :latest tags, without pushing
     cmds:
       - task: docker:buildx-setup
       - docker buildx build
