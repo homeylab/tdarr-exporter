@@ -43,11 +43,7 @@ func run() int {
 	defer cancelScrapes()
 
 	// prometheus set up
-	tdarrCollector, err := collector.NewTdarrCollector(scrapeCtx, userConfig)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to create Tdarr collector")
-		return 1
-	}
+	tdarrCollector := collector.NewTdarrCollector(scrapeCtx, userConfig)
 	registry := buildRegistry(userConfig.InstanceName, tdarrCollector)
 
 	// http server

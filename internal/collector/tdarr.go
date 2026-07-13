@@ -185,20 +185,14 @@ func (c *TdarrLibStatsCache) Write(snap libStatsSnapshot) {
 //
 // NewTdarrCollector builds the shared HTTP client once from runConfig and wires it
 // into both the top-level collector and the embedded node collector. The client is
-// surfaced as a tdarrAPI; the error from client.NewRequestClient is propagated so the
-// composition root (main) can fail fast on a bad URL.
-func NewTdarrCollector(ctx context.Context, runConfig config.Config) (*TdarrCollector, error) {
-	api, err := client.NewRequestClient(runConfig.UrlParsed, runConfig.VerifySsl, runConfig.HttpTimeoutSeconds, runConfig.ApiKey)
-	if err != nil {
-		log.Error().
-			Err(err).Msg("Failed to create http request client for Tdarr, ensure proper URL is provided")
-		return nil, err
-	}
+// surfaced as a tdarrAPI.
+func NewTdarrCollector(ctx context.Context, runConfig config.Config) *TdarrCollector {
+	api := client.NewRequestClient(runConfig.UrlParsed, runConfig.VerifySsl, runConfig.HttpTimeoutSeconds, runConfig.ApiKey)
 	c := newTdarrCollectorWithAPI(runConfig, api)
 	// Wire the shutdown-cancellable context from the composition root so a scrape
 	// in flight when the process is terminating aborts instead of running to completion.
 	c.baseCtx = ctx
-	return c, nil
+	return c
 }
 
 // newTdarrCollectorWithAPI is the test-injection seam: it builds a fully wired

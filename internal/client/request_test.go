@@ -23,11 +23,7 @@ func newTestClient(t *testing.T, serverURL, apiKey string) *RequestClient {
 	if err != nil {
 		t.Fatalf("url.Parse(%q): %v", serverURL, err)
 	}
-	c, err := NewRequestClient(u, false, 5, apiKey)
-	if err != nil {
-		t.Fatalf("NewRequestClient: %v", err)
-	}
-	return c
+	return NewRequestClient(u, false, 5, apiKey)
 }
 
 // TestDoRequest_HappyPath verifies a GET to a path: the server sees method GET
