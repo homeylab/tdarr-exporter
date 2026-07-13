@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // TestRequestLogger_ForwardsResponseUnchanged verifies RequestLogger is
@@ -53,6 +57,44 @@ func TestRequestLogger_ForwardsResponseUnchanged(t *testing.T) {
 				t.Fatalf("body = %q, want %q", rec.Body.String(), tc.wantBody)
 			}
 		})
+	}
+}
+
+// TestRequestLogger_PanicStillLogsAccessLine verifies the access log fires even
+// when the wrapped handler panics, by driving the real production composition
+// Recovery(RequestLogger(h)) so the panic actually unwinds through both
+// middlewares exactly as it would in production.
+//
+// This mutates the package-global log.Logger to capture output (matching the
+// only precedent for capturing zerolog output in this repo, see
+// internal/client/client_test.go and internal/collector/tdarr_test.go, both of
+// which inject a logger rather than touch the global — RequestLogger has no
+// injectable logger seam, so the global is the only capture point here).
+// Deliberately NOT t.Parallel(): go test runs all non-parallel top-level tests
+// to completion before any parallel-batch tests in this package resume
+// concurrently, so this global mutation cannot race with the t.Parallel()
+// tests elsewhere in this file as long as it stays non-parallel itself.
+func TestRequestLogger_PanicStillLogsAccessLine(t *testing.T) {
+	orig := log.Logger
+	defer func() { log.Logger = orig }()
+
+	var buf bytes.Buffer
+	log.Logger = zerolog.New(&buf).Level(zerolog.DebugLevel)
+
+	h := Recovery(RequestLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom-access-log")
+	})))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panics", nil)
+	h.ServeHTTP(rec, req)
+
+	logged := buf.String()
+	if !strings.Contains(logged, "Incoming request") {
+		t.Fatalf("access log missing after panic; buffer = %q", logged)
+	}
+	if !strings.Contains(logged, "/panics") {
+		t.Fatalf("access log missing request_uri; buffer = %q", logged)
 	}
 }
 

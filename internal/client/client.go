@@ -33,7 +33,7 @@ type QueryParams = url.Values
 //   - timeoutSeconds: HTTP client timeout; use config.HttpTimeoutSeconds (default 15).
 //
 // The global http.DefaultTransport is never mutated; a fresh clone is created per call.
-func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, apiKeyAuth string) (*RequestClient, error) {
+func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, apiKeyAuth string) *RequestClient {
 	baseTransport := http.DefaultTransport.(*http.Transport).Clone()
 	baseTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verifySsl}
 
@@ -52,7 +52,7 @@ func NewRequestClient(parsedUrl *url.URL, verifySsl bool, timeoutSeconds int, ap
 		URL:    *parsedUrl,
 		apiKey: apiKeyAuth,
 		logger: log.Logger,
-	}, nil
+	}
 }
 
 // maxBodyHeadBytes bounds how much of a failed response body is captured for the

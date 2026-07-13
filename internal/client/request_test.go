@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/rs/zerolog"
 )
 
 // payloadTarget is a small struct the request methods unmarshal JSON into.
@@ -23,11 +25,7 @@ func newTestClient(t *testing.T, serverURL, apiKey string) *RequestClient {
 	if err != nil {
 		t.Fatalf("url.Parse(%q): %v", serverURL, err)
 	}
-	c, err := NewRequestClient(u, false, 5, apiKey)
-	if err != nil {
-		t.Fatalf("NewRequestClient: %v", err)
-	}
-	return c
+	return NewRequestClient(u, false, 5, apiKey)
 }
 
 // TestDoRequest_HappyPath verifies a GET to a path: the server sees method GET
@@ -164,6 +162,40 @@ func TestDoRequest_UnmarshalError(t *testing.T) {
 	var target payloadTarget
 	if err := c.DoRequest(context.Background(), "/api/v2/status", &target); err == nil {
 		t.Fatal("DoRequest: want error for invalid JSON, got nil")
+	}
+}
+
+// TestDoRequest_ConnectionFailure verifies that a network-level failure (the
+// server having gone away) surfaces as a non-nil error from DoRequest and
+// leaves target untouched, rather than a decode error or a zero-valued success.
+//
+// Built directly (bypassing NewRequestClient/NewClientTransport, matching the
+// direct-construction style already used in client_test.go) so the request
+// goes out over the plain http.DefaultTransport with no retry-with-backoff
+// wrapper: NewRequestClient's transport retries a failed dial with real
+// (1s, 3s) backoff and offers no seam to inject a fake timer through the
+// client package's public surface, which would make this test take ~4s of
+// real wall-clock time for no additional coverage (the retry/backoff behavior
+// itself is already covered deterministically in transport_test.go via
+// WithBackoff/WithAfter).
+func TestDoRequest_ConnectionFailure(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv.Close() // closed before any request is made: connection refused, deterministically
+
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("url.Parse(%q): %v", srv.URL, err)
+	}
+	c := &RequestClient{URL: *u, logger: zerolog.Nop()}
+
+	target := payloadTarget{Name: "unchanged", Count: -1}
+	if err := c.DoRequest(context.Background(), "/api/v2/status", &target); err == nil {
+		t.Fatal("DoRequest: want error for a closed server connection, got nil")
+	}
+	if target.Name != "unchanged" || target.Count != -1 {
+		t.Errorf("target: want unmodified {unchanged -1}, got %+v", target)
 	}
 }
 
