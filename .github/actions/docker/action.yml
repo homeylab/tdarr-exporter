@@ -9,27 +9,22 @@ description: Creates a Docker image
 inputs:
   dockerhub_username:
     description: Dockerhub username
-    type: string
     required: false
     default: none
   dockerhub_token:
     description: Dockerhub token
-    type: string
     required: false
     default: none
   push:
     description: Push Images to docker hub
-    type: boolean
     required: false
     default: true
   latest:
     description: Update latest tag
-    type: boolean
     required: false
     default: true
   version:
     description: Semver version to tag, e.g. v2.2.0; empty for non-release builds
-    type: string
     required: false
     default: ""
 
