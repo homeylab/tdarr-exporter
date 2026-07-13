@@ -96,8 +96,10 @@ type TdarrCollector struct {
 	// a context cancelled on shutdown so in-flight scrapes abort promptly; tests and
 	// the WithAPI constructor default it to context.Background().
 	baseCtx context.Context
-	// logger defaults to the package-global log.Logger and is shared with the node
-	// collector at construction. Injected so tests can silence or capture logs.
+	// logger defaults to the package-global log.Logger. The node collector gets its
+	// own copy of that value at construction (zerolog.Logger is a value type), so
+	// reassigning this field afterwards — as tests do to capture logs — does not
+	// affect node-collector output.
 	logger                zerolog.Logger
 	statsCache            *TdarrLibStatsCache
 	unknownStatusMu       sync.Mutex

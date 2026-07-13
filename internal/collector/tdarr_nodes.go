@@ -99,7 +99,10 @@ type TdarrNodeCollector struct {
 	nodePath string
 	api      tdarrAPI // shared with the parent TdarrCollector (same base URL)
 	metrics  *TdarrNodeMetrics
-	logger   zerolog.Logger // shared with the parent TdarrCollector
+	// logger is a construction-time copy of the parent TdarrCollector's logger
+	// (zerolog.Logger is a value type; later reassignment of the parent's field
+	// does not reach here).
+	logger zerolog.Logger
 }
 
 func NewTdarrNodeMetrics(runConfig config.Config) *TdarrNodeMetrics {
