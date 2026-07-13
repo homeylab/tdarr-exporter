@@ -454,8 +454,9 @@ func (c *TdarrCollector) getLibStats(ctx context.Context, wg *sync.WaitGroup, in
 		// Defensive skip: never emit a library series with an empty id or name.
 		// The synthetic aggregate sentinel has been removed; use sum() across
 		// per-library series in dashboards/queries instead. Tdarr's cruddb
-		// response always populates _id and name for real libraries, so this
-		// branch should never fire — log loudly if it does, and flag the scrape
+		// response has populated _id and name in all observed responses, but
+		// nothing guarantees it (cruddb is a generic DB endpoint with no
+		// response schema), so log loudly if this fires and flag the scrape
 		// partial so the dropped series surfaces as tdarr_up=0 instead of
 		// silently vanishing.
 		if pieMetric.libraryId == "" || pieMetric.libraryName == "" {
