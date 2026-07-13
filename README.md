@@ -45,6 +45,8 @@ Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everyt
 2. Executable binary
 3. Helm chart (K8)
 
+`tdarr-exporter` shuts down gracefully on `SIGINT`, `SIGTERM`, `SIGQUIT`, and `SIGHUP` (a second signal forces an immediate exit). There is no config file to reload, so `SIGHUP` is treated the same as the others — a graceful shutdown, exit code 0 — rather than the reload-on-hangup convention some daemons use.
+
 ### Binary
 Each tagged release will include executable binaries under the `assets` section of the release notes. This can be downloaded and run directly, see [configuration](#configuration) section for more details on run options.
 
@@ -78,6 +80,8 @@ $ ./tdarr-exporter -h
         api token for tdarr instance if authentication is enabled
   -http_max_concurrency int
         maximum number of concurrent http requests to make when requesting per Library stats (default 3)
+  -http_timeout_seconds int
+        total time budget in seconds for an http request to the tdarr instance, including transport-level retries and backoff (a low value can silently truncate retries) (default 15)
   -instance_name string
         set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host
   -listen_address string
@@ -103,6 +107,7 @@ A valid URL for the tdarr instance must be provided and can include protocol (`h
 | `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
 | `api_key`         | `TDARR_API_KEY`       | `NONE`     | API token for tdarr instance if authentication is enabled. |
 | `http_max_concurrency` | `HTTP_MAX_CONCURRENCY` | `3`     | Maximum number of concurrent http requests to make when requesting per Library stats. For more information on caching and concurrency see this [section](#caching-and-concurrency) for more. |
+| `http_timeout_seconds` | `HTTP_TIMEOUT_SECONDS` | `15`     | Total time budget, in seconds, for a single http request to the tdarr instance — this is the whole exchange, including transport-level retries and their backoff (currently 1s then 3s, 2 retries). A value too low for your instance can silently truncate those retries rather than give up cleanly. |
 | `log_level`       | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
 | `listen_address`  | `LISTEN_ADDRESS`      | `0.0.0.0`  | Network interface address for the exporter's http server to bind. Set to `127.0.0.1` to only accept local connections (e.g. behind a reverse proxy), or an IPv6 address such as `::`. |
@@ -120,10 +125,11 @@ Caching and concurrency is only applicable if Tdarr instance is version `2.24.01
 
 The Tdarr library stats API introduced in that version calculates stats only when requested and an API call has to be made individually for each library. This can be a time consuming operation for some larger setups or certain hardware causing latency when requesting individual library statistics.
 
-To reduce number of API calls made, caching will be utilized if the below counts have not changed since the last scrape:
-- total file count
-- total transcode count (broken down by category: `success`, `error`)
-- total health check count
+To reduce number of API calls made, per-library stats are cached and reused when nothing has changed since the last scrape. Two cheap signals are checked on every scrape:
+- the general stats totals (total file count, transcode counts by `success`/`error`, health check count, and per-status queue sizes)
+- the library list itself — adding, removing, or renaming a library invalidates the cache
+
+If either signal changed, all per-library stats are re-fetched. See [docs/metrics-internals.md](docs/metrics-internals.md#stats-cache-invalidation) for the full mechanics and known edge cases.
 
 Consider increasing the `http_max_concurrency` property if you have a large number of libraries or want to speed up metrics collection. You can try increasing this number to be closer to your number of Tdarr libraries to reduce the time it takes to collect all the stats from different libraries. The max value of this property is `num of libraries + 1`. It is recommended to increase this cautiously and put use a reasonable value if you have a very large number of libraries. You can also consider increasing scrape interval time as well to make less API calls overall if needed.
 

@@ -122,6 +122,72 @@ So the per-library sum exceeds the global total by exactly the lifetime events
 of files that have since been deleted: kept by the per-library pies, dropped
 from the global aggregate.
 
+## Stats cache invalidation
+
+Per-library pie stats (`tdarr_library_*`) are expensive to collect — one
+`get-pies` call per library, fanned out across `HTTP_MAX_CONCURRENCY` workers —
+so a scrape reuses the previous sweep's results (`TdarrLibStatsCache`) unless an
+invalidation signal says something changed. See `shouldRefetch` in
+`internal/collector/tdarr.go` for the code; this section covers the *why* and
+the trade-offs.
+
+### The two-part signal
+
+Invalidation compares two things against the cached sweep, on every scrape:
+
+- **10 numeric totals** from the general-stats document (`StatisticsJSONDB`):
+  the three top-level counts plus the seven `table0Count`–`table6Count` queue
+  buckets. Cheap (~ms), but aggregate-only — it carries no per-library
+  breakdown and cannot see a change that doesn't move any of the ten numbers.
+- **A library-list fingerprint**: a sorted-by-id copy of the library list
+  (`LibrarySettingsJSONDB`, id + name pairs), fetched fresh every scrape and
+  compared with the fingerprint stored alongside the totals at the last cache
+  write. This catches drift the totals miss entirely — a library rename, or a
+  newly added library with zero files (nothing to transcode yet, so none of
+  the ten totals move).
+
+Either signal differing triggers a full refetch of every library's pie stats,
+matching the cache's existing all-or-nothing (not per-library) invalidation —
+see the `shouldRefetch` doc comment for why a per-library cache isn't viable
+given the Tdarr API's shape.
+
+### Bandwidth cost
+
+The library-list call is cheap in latency but not in bandwidth: measured live
+against a 7-library Tdarr instance, the response was 104,532 bytes — roughly
+**15 KB per library**. Fetching it every scrape (rather than only on a cache
+miss) adds that payload to every scrape regardless of whether anything
+changed: ~102 KB/scrape for 7 libraries, which is ~590 MB/day at a 15s scrape
+interval. This is a deliberate trade against staleness — see below. The payload
+scales with library count (each library contributes its full settings document),
+not file count, so it stays flat as libraries fill up with media.
+
+### Residual staleness (still self-heals)
+
+The two-part signal closes the rename/new-library gap but is not exhaustive.
+The following changes move no numeric total and leave the library-list
+fingerprint identical (same ids, same names), so they do not trigger a refetch
+on their own:
+
+- **Cross-library file moves that stay in the same status bucket** — e.g.
+  moving a fully-transcoded file from one library's folder to another's. Both
+  libraries' `totalFiles` counts change, but that only reaches the *global*
+  totals (which are also unaffected here, since the file's overall status
+  bucket didn't change), not the fingerprint.
+- **Offsetting add+delete across libraries** — a file added to one library and
+  removed from another in the same window can leave every one of the 10
+  global totals net unchanged.
+- **Same-bucket rescans that shift codec/resolution distributions** — e.g. a
+  library rescan that reclassifies files' detected video codec without
+  changing transcode/health-check status counts moves the per-library pie
+  slices but none of the 10 totals.
+
+All three self-heal on the next scrape where a totals-visible event occurs
+(any transcode, health check, or file add/delete that moves one of the ten
+numbers) — the staleness window is bounded by how long an instance goes
+between such events, not unbounded. This is the same accepted trade-off as
+before the fingerprint was added, just narrowed to fewer cases.
+
 ## Counter vs gauge typing
 
 This divergence drives the metric typing, and the two scopes are typed

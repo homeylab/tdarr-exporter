@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -674,7 +675,7 @@ func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
 	if up := upValueFromFamilies(mfs1); up != 0.0 {
 		t.Errorf("scrape 1 tdarr_up: want 0.0, got %v", up)
 	}
-	if _, stats := c.statsCache.Read(); stats != nil {
+	if c.statsCache.Read().stats != nil {
 		t.Fatal("cache was written despite partial pie failure; partial data must not be cached")
 	}
 
@@ -693,7 +694,7 @@ func TestCollect_PartialPieFailure_DoesNotPoisonCache(t *testing.T) {
 	if got := libraryFilesSeriesCount(mfs2); got != 2 {
 		t.Errorf("scrape 2 tdarr_library_files series: want 2 (lib1+lib2), got %d", got)
 	}
-	if _, stats := c.statsCache.Read(); stats == nil {
+	if c.statsCache.Read().stats == nil {
 		t.Error("cache not written after fully successful scrape")
 	}
 }
@@ -709,32 +710,177 @@ func libraryFilesSeriesCount(mfs []*dto.MetricFamily) int {
 	return 0
 }
 
+// libraryInfoHasSeries returns true if tdarr_library_info carries a series with
+// the given library_id/library_name label pair.
+func libraryInfoHasSeries(mfs []*dto.MetricFamily, libID, libName string) bool {
+	for _, mf := range mfs {
+		if mf.GetName() != "tdarr_library_info" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			labels := map[string]string{}
+			for _, lp := range m.GetLabel() {
+				labels[lp.GetName()] = lp.GetValue()
+			}
+			if labels["library_id"] == libID && labels["library_name"] == libName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// TestCollect_LibraryFingerprint_TriggersRefetch verifies that a library-list
+// change invisible to the 10 numeric totals — a rename, or a new zero-file
+// library — still triggers a pie refetch. Before the library-list fingerprint
+// was added to the cache invalidation signal, shouldRefetch keyed only on the
+// totals, so neither case would be observed until unrelated activity next
+// changed a total (see docs/metrics-internals.md).
+func TestCollect_LibraryFingerprint_TriggersRefetch(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		newLibs     []TdarrLibraryInfo
+		wantLibID   string
+		wantLibName string
+	}{
+		{
+			name:        "library renamed, totals unchanged",
+			newLibs:     []TdarrLibraryInfo{{LibraryId: "lib1", Name: "Renamed Library"}},
+			wantLibID:   "lib1",
+			wantLibName: "Renamed Library",
+		},
+		{
+			name: "new zero-file library appears, totals unchanged",
+			newLibs: []TdarrLibraryInfo{
+				{LibraryId: "lib1", Name: "Library One"},
+				{LibraryId: "lib2", Name: "New Empty Library"},
+			},
+			wantLibID:   "lib2",
+			wantLibName: "New Empty Library",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			api := newSuccessFakeAPI(cfg)
+			c := newTdarrCollectorWithAPI(cfg, api)
+
+			// Scrape 1: populate the cache off the default single-library fixture
+			// (lib1 / "Library One"). The general-stats fixture (validStatsBody)
+			// is untouched throughout, so the 10 totals never change.
+			reg1 := prometheus.NewRegistry()
+			reg1.MustRegister(c)
+			if _, err := reg1.Gather(); err != nil {
+				t.Fatalf("scrape 1 gather: %v", err)
+			}
+
+			// Swap in the mutated library list and register a pie fixture for any
+			// library id introduced by this case.
+			libsBody, _ := json.Marshal(tc.newLibs)
+			api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, libsBody)
+			for _, lib := range tc.newLibs {
+				pieKey := fakeKey{path: cfg.TdarrPieStatsPath, disc: lib.LibraryId}
+				if _, ok := api.responses[pieKey]; !ok {
+					api.setResponse(pieKey, validPieBody())
+				}
+			}
+
+			// Scrape 2: totals unchanged, library list changed -> must refetch and
+			// emit the new/renamed series.
+			reg2 := prometheus.NewRegistry()
+			reg2.MustRegister(c)
+			mfs2, err := reg2.Gather()
+			if err != nil {
+				t.Fatalf("scrape 2 gather: %v", err)
+			}
+			if up := upValueFromFamilies(mfs2); up != 1.0 {
+				t.Errorf("scrape 2 tdarr_up: want 1.0, got %v", up)
+			}
+			if !libraryInfoHasSeries(mfs2, tc.wantLibID, tc.wantLibName) {
+				t.Errorf("scrape 2: tdarr_library_info missing series {library_id=%q, library_name=%q}", tc.wantLibID, tc.wantLibName)
+			}
+		})
+	}
+}
+
+// TestCollect_UnchangedLibraries_CacheHit_NoPieCalls verifies that when neither
+// the 10 totals nor the library list change between scrapes, the second scrape
+// serves pie stats entirely from cache and makes NO get-pies API calls.
+func TestCollect_UnchangedLibraries_CacheHit_NoPieCalls(t *testing.T) {
+	t.Parallel()
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	c := newTdarrCollectorWithAPI(cfg, api)
+	pieKey := fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib1"}
+
+	// Scrape 1: cache miss, populates the cache (and calls the pie endpoint once).
+	reg1 := prometheus.NewRegistry()
+	reg1.MustRegister(c)
+	if _, err := reg1.Gather(); err != nil {
+		t.Fatalf("scrape 1 gather: %v", err)
+	}
+	if got := api.callCount(pieKey); got != 1 {
+		t.Fatalf("scrape 1 pie calls: want 1, got %d", got)
+	}
+	api.resetCalls()
+
+	// Scrape 2: nothing changed (same totals, same library list) -> cache hit,
+	// so fetchPies must not run at all.
+	reg2 := prometheus.NewRegistry()
+	reg2.MustRegister(c)
+	mfs2, err := reg2.Gather()
+	if err != nil {
+		t.Fatalf("scrape 2 gather: %v", err)
+	}
+	if up := upValueFromFamilies(mfs2); up != 1.0 {
+		t.Errorf("scrape 2 tdarr_up: want 1.0, got %v", up)
+	}
+	if got := api.callCount(pieKey); got != 0 {
+		t.Errorf("scrape 2 pie calls: want 0 (cache hit), got %d", got)
+	}
+	// The library-list call itself is expected every scrape (it is the cheap
+	// invalidation signal) — only the expensive pie fan-out is skipped.
+	if got := api.callCount(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}); got != 1 {
+		t.Errorf("scrape 2 library-list calls: want 1 (fetched every scrape), got %d", got)
+	}
+}
+
 // TestLibStatsCache_ReadWritePairing verifies Read always returns the exact
-// totals/stats pair the last Write stored, sequentially. This is the baseline
-// invariant check for the single-lock Read/Write API replacing the four
+// snapshot the last Write stored, sequentially. This is the baseline invariant
+// check for the single-lock snapshot Read/Write API replacing the four
 // separately-locked getters/setters.
 func TestLibStatsCache_ReadWritePairing(t *testing.T) {
 	c := NewTdarrLibStatsCache()
-	// empty cache: stats nil (refetch signal), zero totals
-	if tot, stats := c.Read(); stats != nil || tot != (tdarrCacheTotals{}) {
-		t.Fatalf("empty cache: want zero totals + nil stats, got %+v / %v", tot, stats)
+	// empty cache: stats nil (refetch signal), zero totals, nil fingerprint
+	if got := c.Read(); got.stats != nil || got.totals != (tdarrCacheTotals{}) || got.fingerprint != nil {
+		t.Fatalf("empty cache: want zero snapshot, got %+v", got)
 	}
-	totals := tdarrCacheTotals{totalFileCount: 42}
-	stats := []*TdarrPieStats{{libraryId: "lib1"}}
-	c.Write(totals, stats)
-	gotT, gotS := c.Read()
-	if gotT != totals {
-		t.Errorf("totals: want %+v, got %+v", totals, gotT)
+	snap := libStatsSnapshot{
+		totals:      tdarrCacheTotals{totalFileCount: 42},
+		stats:       []*TdarrPieStats{{libraryId: "lib1"}},
+		fingerprint: []TdarrLibraryInfo{{LibraryId: "lib1", Name: "Library One"}},
 	}
-	if len(gotS) != 1 || gotS[0].libraryId != "lib1" {
-		t.Errorf("stats: want [lib1], got %v", gotS)
+	c.Write(snap)
+	got := c.Read()
+	if got.totals != snap.totals {
+		t.Errorf("totals: want %+v, got %+v", snap.totals, got.totals)
+	}
+	if len(got.stats) != 1 || got.stats[0].libraryId != "lib1" {
+		t.Errorf("stats: want [lib1], got %v", got.stats)
+	}
+	if !slices.Equal(got.fingerprint, snap.fingerprint) {
+		t.Errorf("fingerprint: want %v, got %v", snap.fingerprint, got.fingerprint)
 	}
 }
 
 // TestLibStatsCache_ReadWritePairing_Concurrent races N writers against N
-// readers under -race. Each writer stores a totals/stats pair whose values
-// are derived from the same index, so any Read that observed a torn pair
-// (totals from one Write, stats from another) would show a mismatched index.
+// readers under -race. Each writer stores a snapshot whose field values are all
+// derived from the same index, so any Read that observed a torn snapshot
+// (fields from different Writes) would show a mismatched index.
 func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
 	c := NewTdarrLibStatsCache()
 	const n = 100
@@ -744,25 +890,30 @@ func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
 	for i := 0; i < n; i++ {
 		go func() {
 			defer wg.Done()
-			c.Write(
-				tdarrCacheTotals{totalFileCount: i},
-				[]*TdarrPieStats{{libraryId: fmt.Sprintf("lib%d", i)}},
-			)
+			libId := fmt.Sprintf("lib%d", i)
+			c.Write(libStatsSnapshot{
+				totals:      tdarrCacheTotals{totalFileCount: i},
+				stats:       []*TdarrPieStats{{libraryId: libId}},
+				fingerprint: []TdarrLibraryInfo{{LibraryId: libId}},
+			})
 		}()
 		go func() {
 			defer wg.Done()
-			tot, stats := c.Read()
-			if stats == nil {
-				return // cache not yet written; not a torn pair
+			got := c.Read()
+			if got.stats == nil {
+				return // cache not yet written; not a torn snapshot
 			}
-			id := strings.TrimPrefix(stats[0].libraryId, "lib")
+			id := strings.TrimPrefix(got.stats[0].libraryId, "lib")
 			want, err := strconv.Atoi(id)
 			if err != nil {
-				t.Errorf("unexpected libraryId format %q: %v", stats[0].libraryId, err)
+				t.Errorf("unexpected libraryId format %q: %v", got.stats[0].libraryId, err)
 				return
 			}
-			if tot.totalFileCount != want {
-				t.Errorf("torn pair: totals.totalFileCount=%d does not match stats libraryId=%q", tot.totalFileCount, stats[0].libraryId)
+			if got.totals.totalFileCount != want {
+				t.Errorf("torn snapshot: totals.totalFileCount=%d does not match stats libraryId=%q", got.totals.totalFileCount, got.stats[0].libraryId)
+			}
+			if len(got.fingerprint) != 1 || got.fingerprint[0].LibraryId != got.stats[0].libraryId {
+				t.Errorf("torn snapshot: fingerprint=%v does not match stats libraryId=%q", got.fingerprint, got.stats[0].libraryId)
 			}
 		}()
 	}

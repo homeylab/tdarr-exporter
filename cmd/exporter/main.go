@@ -69,6 +69,8 @@ func run() int {
 
 	// graceful shutdown
 	quitServer := make(chan os.Signal, 1)
+	// SIGHUP has nothing to reload here (no config file to re-read), so it is
+	// treated the same as the other signals below: a graceful shutdown, exit 0.
 	signal.Notify(
 		quitServer,
 		os.Interrupt,

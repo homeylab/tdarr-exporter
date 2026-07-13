@@ -29,7 +29,7 @@ COPY . .
 RUN go build \
     # -trimpath: strip absolute build paths for reproducible builds
     -trimpath \
-    # ldlflags: `-w -s` disable debugging and `pprof` for minimal binary,
+    # ldflags: `-w -s` strip the DWARF debug info and symbol table for a smaller binary
     -ldflags "-w -s -X github.com/prometheus/common/version.Version=${VERSION} -X github.com/prometheus/common/version.Revision=${REVISION} -X github.com/prometheus/common/version.BuildDate=${BUILDTIME}" \
     -o exporter /build/cmd/exporter/.
 

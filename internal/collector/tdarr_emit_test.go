@@ -149,6 +149,15 @@ func TestShouldRefetch(t *testing.T) {
 	}
 	matchingCache := totalsFromMetric(base)
 
+	// matchingFingerprint/otherFingerprint model the library-list side of the
+	// invalidation signal: same set vs. a renamed/added library.
+	matchingFingerprint := []TdarrLibraryInfo{{LibraryId: "lib1", Name: "Library One"}}
+	renamedFingerprint := []TdarrLibraryInfo{{LibraryId: "lib1", Name: "Renamed Library"}}
+	newLibraryFingerprint := []TdarrLibraryInfo{
+		{LibraryId: "lib1", Name: "Library One"},
+		{LibraryId: "lib2", Name: "New Empty Library"},
+	}
+
 	// mutate returns a copy of base with one field changed, to prove every field
 	// participates in the refetch decision.
 	mutate := func(f func(m *TdarrMetric)) *TdarrMetric {
@@ -157,82 +166,114 @@ func TestShouldRefetch(t *testing.T) {
 		return &cp
 	}
 
+	// populatedStats marks the cache as non-empty; shouldRefetch only checks
+	// stats for nil-ness, never its contents.
+	populatedStats := []*TdarrPieStats{{libraryId: "lib1"}}
+	// matchingSnap is the "nothing changed" cached snapshot most cases start from.
+	matchingSnap := libStatsSnapshot{
+		totals:      matchingCache,
+		stats:       populatedStats,
+		fingerprint: matchingFingerprint,
+	}
+
 	tests := []struct {
-		name        string
-		cached      tdarrCacheTotals
-		libStatsNil bool
-		metric      *TdarrMetric
-		want        bool
+		name               string
+		cached             libStatsSnapshot
+		metric             *TdarrMetric
+		currentFingerprint []TdarrLibraryInfo
+		want               bool
 	}{
 		{
-			name:        "empty cache (libStatsNil) forces refetch even when totals match",
-			cached:      matchingCache,
-			libStatsNil: true,
-			metric:      base,
-			want:        true,
+			name: "empty cache (nil stats) forces refetch even when totals and fingerprint match",
+			cached: libStatsSnapshot{
+				totals:      matchingCache,
+				stats:       nil,
+				fingerprint: matchingFingerprint,
+			},
+			metric:             base,
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "totals match and cache populated -> no refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      base,
-			want:        false,
+			name:               "totals and fingerprint match, cache populated -> no refetch",
+			cached:             matchingSnap,
+			metric:             base,
+			currentFingerprint: matchingFingerprint,
+			want:               false,
 		},
 		{
-			name:        "zero cache vs zero metric -> no refetch (graceful degradation)",
-			cached:      tdarrCacheTotals{},
-			libStatsNil: false,
-			metric:      &TdarrMetric{},
-			want:        false,
+			name: "zero totals vs zero metric, nil fingerprints -> no refetch (graceful degradation)",
+			cached: libStatsSnapshot{
+				totals:      tdarrCacheTotals{},
+				stats:       populatedStats,
+				fingerprint: nil,
+			},
+			metric:             &TdarrMetric{},
+			currentFingerprint: nil,
+			want:               false,
 		},
 		{
-			name:        "totalFileCount changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.TotalFileCount = 101 }),
-			want:        true,
+			name:               "totalFileCount changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.TotalFileCount = 101 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "totalTranscodeCount changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.TotalTranscodeCount = 41 }),
-			want:        true,
+			name:               "totalTranscodeCount changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.TotalTranscodeCount = 41 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "totalHealthCheckCount changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.TotalHealthCheckCount = 31 }),
-			want:        true,
+			name:               "totalHealthCheckCount changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.TotalHealthCheckCount = 31 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "table0Count (holdQueue) changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.HoldQueue = 99 }),
-			want:        true,
+			name:               "table0Count (holdQueue) changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.HoldQueue = 99 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "table1Count (transcodeQueue) changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.TranscodeQueue = 99 }),
-			want:        true,
+			name:               "table1Count (transcodeQueue) changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.TranscodeQueue = 99 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
 		},
 		{
-			name:        "table6Count (healthCheckFailed) changed -> refetch",
-			cached:      matchingCache,
-			libStatsNil: false,
-			metric:      mutate(func(m *TdarrMetric) { m.HealthCheckFailed = 99 }),
-			want:        true,
+			name:               "table6Count (healthCheckFailed) changed -> refetch",
+			cached:             matchingSnap,
+			metric:             mutate(func(m *TdarrMetric) { m.HealthCheckFailed = 99 }),
+			currentFingerprint: matchingFingerprint,
+			want:               true,
+		},
+		{
+			name:               "library renamed, totals unchanged -> refetch",
+			cached:             matchingSnap,
+			metric:             base,
+			currentFingerprint: renamedFingerprint,
+			want:               true,
+		},
+		{
+			name:               "new library appears, totals unchanged -> refetch",
+			cached:             matchingSnap,
+			metric:             base,
+			currentFingerprint: newLibraryFingerprint,
+			want:               true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := shouldRefetch(tc.cached, tc.libStatsNil, tc.metric); got != tc.want {
+			if got := shouldRefetch(tc.cached, tc.metric, tc.currentFingerprint); got != tc.want {
 				t.Errorf("shouldRefetch = %v, want %v", got, tc.want)
 			}
 		})
@@ -267,6 +308,45 @@ func TestTotalsFromMetric(t *testing.T) {
 	}
 	if got := totalsFromMetric(metric); got != want {
 		t.Errorf("totalsFromMetric mismatch:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+// TestLibraryFingerprint verifies libraryFingerprint sorts by LibraryId (so two
+// fetches of the same library set compare equal via slices.Equal regardless of
+// API response order) and does not mutate the caller's slice — fetchPies consumes
+// that same slice afterward, in Tdarr's original order.
+func TestLibraryFingerprint(t *testing.T) {
+	t.Parallel()
+
+	libs := []TdarrLibraryInfo{
+		{LibraryId: "lib3", Name: "Three"},
+		{LibraryId: "lib1", Name: "One"},
+		{LibraryId: "lib2", Name: "Two"},
+	}
+	original := append([]TdarrLibraryInfo(nil), libs...)
+
+	got := libraryFingerprint(libs)
+
+	want := []TdarrLibraryInfo{
+		{LibraryId: "lib1", Name: "One"},
+		{LibraryId: "lib2", Name: "Two"},
+		{LibraryId: "lib3", Name: "Three"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("libraryFingerprint length = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("libraryFingerprint[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+
+	// The input slice must be untouched (fetchPies iterates it next, in the
+	// original order Tdarr returned).
+	for i := range original {
+		if libs[i] != original[i] {
+			t.Errorf("libraryFingerprint mutated input at index %d: got %+v, want %+v", i, libs[i], original[i])
+		}
 	}
 }
 
