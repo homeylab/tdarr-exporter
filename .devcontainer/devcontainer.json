@@ -6,7 +6,7 @@
     "image": "mcr.microsoft.com/devcontainers/go:2.1-bookworm",
     "features": {
             "ghcr.io/devcontainers/features/go:1": {
-                "version": "1.26.4"
+                "version": "1.26.5"
             }
     },
 
