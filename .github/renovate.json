@@ -21,5 +21,17 @@
       "groupSlug": "minor-patch"
     }
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Bump the Go base image tag in Taskfile.yml (kept in sync with Dockerfile's BASE_IMAGE_TAG build arg)",
+      "managerFilePatterns": ["/^Taskfile\\.yml$/"],
+      "matchStrings": [
+        "BASE_IMAGE_TAG:\\s*['\"]?(?<currentValue>[\\w.-]+)['\"]?"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "golang"
+    }
+  ],
   "timezone": "UTC"
 }

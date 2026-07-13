@@ -7,7 +7,9 @@ dotenv: ['.local/local.env']
 vars:
   # Build args for Dockerfile
   BASE_IMAGE: golang
-  BASE_IMAGE_TAG: 1.26.3-alpine
+  # keep in sync with Dockerfile BASE_IMAGE_TAG; renovate bumps this via the
+  # custom regex manager in .github/renovate.json
+  BASE_IMAGE_TAG: 1.26.5-alpine
   RUN_IMAGE: gcr.io/distroless/static
   RUN_IMAGE_TAG: nonroot
 
