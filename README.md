@@ -45,6 +45,8 @@ Inspired by exportarr and qbittorrent-exporter projects. I wanted to have everyt
 2. Executable binary
 3. Helm chart (K8)
 
+`tdarr-exporter` shuts down gracefully on `SIGINT`, `SIGTERM`, `SIGQUIT`, and `SIGHUP` (a second signal forces an immediate exit). There is no config file to reload, so `SIGHUP` is treated the same as the others — a graceful shutdown, exit code 0 — rather than the reload-on-hangup convention some daemons use.
+
 ### Binary
 Each tagged release will include executable binaries under the `assets` section of the release notes. This can be downloaded and run directly, see [configuration](#configuration) section for more details on run options.
 
