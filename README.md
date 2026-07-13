@@ -125,10 +125,11 @@ Caching and concurrency is only applicable if Tdarr instance is version `2.24.01
 
 The Tdarr library stats API introduced in that version calculates stats only when requested and an API call has to be made individually for each library. This can be a time consuming operation for some larger setups or certain hardware causing latency when requesting individual library statistics.
 
-To reduce number of API calls made, caching will be utilized if the below counts have not changed since the last scrape:
-- total file count
-- total transcode count (broken down by category: `success`, `error`)
-- total health check count
+To reduce number of API calls made, per-library stats are cached and reused when nothing has changed since the last scrape. Two cheap signals are checked on every scrape:
+- the general stats totals (total file count, transcode counts by `success`/`error`, health check count, and per-status queue sizes)
+- the library list itself — adding, removing, or renaming a library invalidates the cache
+
+If either signal changed, all per-library stats are re-fetched. See [docs/metrics-internals.md](docs/metrics-internals.md#stats-cache-invalidation) for the full mechanics and known edge cases.
 
 Consider increasing the `http_max_concurrency` property if you have a large number of libraries or want to speed up metrics collection. You can try increasing this number to be closer to your number of Tdarr libraries to reduce the time it takes to collect all the stats from different libraries. The max value of this property is `num of libraries + 1`. It is recommended to increase this cautiously and put use a reasonable value if you have a very large number of libraries. You can also consider increasing scrape interval time as well to make less API calls overall if needed.
 
