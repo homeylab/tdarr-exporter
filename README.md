@@ -80,6 +80,8 @@ $ ./tdarr-exporter -h
         api token for tdarr instance if authentication is enabled
   -http_max_concurrency int
         maximum number of concurrent http requests to make when requesting per Library stats (default 3)
+  -http_timeout_seconds int
+        total time budget in seconds for an http request to the tdarr instance, including transport-level retries and backoff (a low value can silently truncate retries) (default 15)
   -instance_name string
         set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host
   -listen_address string
@@ -105,6 +107,7 @@ A valid URL for the tdarr instance must be provided and can include protocol (`h
 | `url`             | `TDARR_URL`           | `NONE`     | This is a required property and must be provided. If no protocol is provided (`http/https`), defaults to using `https`. Examples: `tdarr.example.com`, `http://tdarr.example.com`, `http://tdarr.localdomain:8266`. |
 | `api_key`         | `TDARR_API_KEY`       | `NONE`     | API token for tdarr instance if authentication is enabled. |
 | `http_max_concurrency` | `HTTP_MAX_CONCURRENCY` | `3`     | Maximum number of concurrent http requests to make when requesting per Library stats. For more information on caching and concurrency see this [section](#caching-and-concurrency) for more. |
+| `http_timeout_seconds` | `HTTP_TIMEOUT_SECONDS` | `15`     | Total time budget, in seconds, for a single http request to the tdarr instance — this is the whole exchange, including transport-level retries and their backoff (currently 1s then 3s, 2 retries). A value too low for your instance can silently truncate those retries rather than give up cleanly. |
 | `log_level`       | `LOG_LEVEL`           | `info`     | Log level to use: `debug`, `info`, `warn`, `error`. |
 | `verify_ssl`      | `VERIFY_SSL`          | `true`     | Whether or not to verify ssl certificates. |
 | `listen_address`  | `LISTEN_ADDRESS`      | `0.0.0.0`  | Network interface address for the exporter's http server to bind. Set to `127.0.0.1` to only accept local connections (e.g. behind a reverse proxy), or an IPv6 address such as `::`. |

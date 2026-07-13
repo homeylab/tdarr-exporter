@@ -183,7 +183,7 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	promPath := fs.String("prometheus_path", defaults.PrometheusPath, "path to use for prometheus exporter")
 	logLevel := fs.String("log_level", defaults.LogLevel, "log level to use, see link for possible values: https://pkg.go.dev/github.com/rs/zerolog#Level")
 	httpMaxConcurrency := fs.Int("http_max_concurrency", defaults.HttpMaxConcurrency, "maximum number of concurrent http requests to make when requesting per Library stats")
-	httpTimeoutSeconds := fs.Int("http_timeout_seconds", defaults.HttpTimeoutSeconds, "timeout in seconds for http requests to the tdarr instance")
+	httpTimeoutSeconds := fs.Int("http_timeout_seconds", defaults.HttpTimeoutSeconds, "total time budget in seconds for an http request to the tdarr instance, including transport-level retries and backoff (a low value can silently truncate retries)")
 	versionFlag := fs.Bool("version", false, "print version information and exit")
 	listenAddress := fs.String("listen_address", defaults.ListenAddress, "network interface address for the exporter's http server to listen on, ex: 127.0.0.1 or ::")
 	instanceName := fs.String("instance_name", defaults.InstanceName, "set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host")
