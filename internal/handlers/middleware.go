@@ -52,18 +52,29 @@ func (r *responseRecorder) Unwrap() http.ResponseWriter {
 }
 
 // RequestLogger debug-logs each request with method, URI, proto, status and duration.
+//
+// The log call is deferred so a panicking handler still produces an access-log
+// line (Recovery, which wraps RequestLogger from the outside, owns the actual
+// recover()/500 conversion; this defer just rides the same unwind, including
+// for http.ErrAbortHandler panics that re-panic through Recovery).
+//
+// CAVEAT: on panic, the logged status is the recorder's value at unwind
+// time (200 unless the handler already called WriteHeader/Write before
+// panicking) — NOT the 500 Recovery's own outer recorder ends up writing.
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := newResponseRecorder(w)
 		t := time.Now()
+		defer func() {
+			log.Debug().
+				Str("method", r.Method).
+				Str("request_uri", r.RequestURI).
+				Str("proto", r.Proto).
+				Int("status", rec.status).
+				Float64("duration_seconds", time.Since(t).Seconds()).
+				Msg("Incoming request")
+		}()
 		next.ServeHTTP(rec, r)
-		log.Debug().
-			Str("method", r.Method).
-			Str("request_uri", r.RequestURI).
-			Str("proto", r.Proto).
-			Int("status", rec.status).
-			Float64("duration_seconds", time.Since(t).Seconds()).
-			Msg("Incoming request")
 	})
 }
 
