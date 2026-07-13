@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"flag"
+	"io"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -196,6 +198,12 @@ func TestParseConfigErrors(t *testing.T) {
 			env:  map[string]string{envTdarrUrl: "https://exa mple.com/\x7f"},
 		},
 		{
+			// url.Parse accepts "https://" but the host is empty; must fail at
+			// startup, not at scrape time.
+			name: "host-less url",
+			env:  map[string]string{envTdarrUrl: "https://"},
+		},
+		{
 			name: "unknown log level",
 			env:  map[string]string{envTdarrUrl: "https://x.com", envLogLevel: "verbose"},
 		},
@@ -210,6 +218,38 @@ func TestParseConfigErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestParseConfigFlagParseErrorTagging locks the error classification NewConfig
+// relies on for exit codes: flag syntax errors are tagged errFlagParse (exit 2),
+// -h/-help passes through as flag.ErrHelp untagged (exit 0).
+func TestParseConfigFlagParseErrorTagging(t *testing.T) {
+	t.Parallel()
+
+	env := map[string]string{envTdarrUrl: "https://x.com"}
+
+	t.Run("unknown flag tagged errFlagParse", func(t *testing.T) {
+		t.Parallel()
+		fs := newFS()
+		fs.SetOutput(io.Discard) // silence stdlib's usage print in test output
+		_, err := parseConfig(fs, []string{"-definitely_not_a_flag"}, envFunc(env))
+		if !errors.Is(err, errFlagParse) {
+			t.Fatalf("err = %v, want errors.Is(err, errFlagParse)", err)
+		}
+	})
+
+	t.Run("help passes through as flag.ErrHelp untagged", func(t *testing.T) {
+		t.Parallel()
+		fs := newFS()
+		fs.SetOutput(io.Discard)
+		_, err := parseConfig(fs, []string{"-h"}, envFunc(env))
+		if !errors.Is(err, flag.ErrHelp) {
+			t.Fatalf("err = %v, want errors.Is(err, flag.ErrHelp)", err)
+		}
+		if errors.Is(err, errFlagParse) {
+			t.Fatalf("help must not be tagged as a flag syntax error: %v", err)
+		}
+	})
 }
 
 func TestParseConfigUrlSchemeDefaulting(t *testing.T) {

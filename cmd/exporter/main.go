@@ -52,9 +52,10 @@ func run() int {
 
 	// http server
 	stopHttpChan := make(chan bool)
-	// Buffered so the server goroutine never blocks sending an error (e.g. a
-	// late Shutdown error after main has stopped selecting on errChan).
-	errHttpChan := make(chan error, 1)
+	// Buffered with one slot per potential sender (ListenAndServe error,
+	// Shutdown error) so the server goroutine never blocks sending, even if
+	// both fire after main has stopped selecting on errChan.
+	errHttpChan := make(chan error, 2)
 	httpWg := &sync.WaitGroup{}
 	httpServerConfig := server.HttpServerConfig{
 		TdarrInstance:   userConfig.InstanceName,

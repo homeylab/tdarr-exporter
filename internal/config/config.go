@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -13,6 +14,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+// errFlagParse marks errors from flag parsing itself (unknown flag, bad value
+// syntax) as opposed to semantic validation errors. NewConfig maps it to exit
+// code 2, matching the stdlib flag package's ExitOnError behavior.
+var errFlagParse = errors.New("invalid command line arguments")
 
 const (
 	envTdarrUrl           = "TDARR_URL"
@@ -151,6 +157,12 @@ func parseUrl(urlString string) (*url.URL, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid url provided - failed to parse %q: %w", urlString, err)
 	}
+	// url.Parse accepts host-less URLs like "https://"; without a host every
+	// outbound request would fail at scrape time (and InstanceName would
+	// default to empty), so fail startup instead.
+	if parsed.Hostname() == "" {
+		return nil, fmt.Errorf("invalid url provided - missing host in %q", urlString)
+	}
 	return parsed, nil
 }
 
@@ -177,7 +189,12 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 	instanceName := fs.String("instance_name", defaults.InstanceName, "set to customize the tdarr_instance label (defaults to the url hostname); helpful when running multiple exporters and/or multiple tdarr instances on one host")
 
 	if err := fs.Parse(args); err != nil {
-		return Config{}, err
+		if errors.Is(err, flag.ErrHelp) {
+			return Config{}, err
+		}
+		// Tag flag syntax errors so NewConfig can exit 2 (the stdlib/GNU
+		// usage-error convention) instead of 1 like semantic config errors.
+		return Config{}, fmt.Errorf("%w: %w", errFlagParse, err)
 	}
 
 	if *versionFlag {
@@ -272,9 +289,23 @@ func parseConfig(fs *flag.FlagSet, args []string, getenv func(string) string) (C
 // side effects (log level mutation, fatal on error, startup logging) that must
 // not live in the testable core.
 func NewConfig() Config {
-	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	// ContinueOnError (not ExitOnError) so parse outcomes surface here as
+	// errors and each maps to the right exit path below: help -> 0, flag
+	// syntax error -> 2 (stdlib convention), semantic config error -> 1.
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	cfg, err := parseConfig(fs, os.Args[1:], os.Getenv)
 	if err != nil {
+		// -h/-help: usage was already printed by fs.Parse; that's a successful
+		// outcome, not a config failure.
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
+		// Flag syntax errors: fs.Parse already printed the offending flag and
+		// usage to stderr, so don't log the same thing again — just exit 2
+		// like the stdlib's ExitOnError would.
+		if errors.Is(err, errFlagParse) {
+			os.Exit(2)
+		}
 		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
