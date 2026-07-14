@@ -1,5 +1,50 @@
 # Changelog
 
+## [3.1.0](https://github.com/homeylab/tdarr-exporter/compare/v3.0.0...v3.1.0) (2026-07-13)
+
+
+### Features
+
+* add instance_name flag / INSTANCE_NAME env var ([c4d015b](https://github.com/homeylab/tdarr-exporter/commit/c4d015bec0d71e51cb868ccdfa63e3ca4af4088c))
+* add listen_address flag / LISTEN_ADDRESS env var ([55c3c50](https://github.com/homeylab/tdarr-exporter/commit/55c3c50a0bdd0a02f1ad090690342e521a9c31fe))
+* add response status to request log; harden Recovery middleware ([4e67ede](https://github.com/homeylab/tdarr-exporter/commit/4e67edebdcd5fd8248229ba1192f4d4866e26a43))
+* add response status to request log; harden Recovery middleware ([1e0af7d](https://github.com/homeylab/tdarr-exporter/commit/1e0af7d2c54dbb534d4beddbb633252851061312))
+* configurable listen_address and instance_name ([8862843](https://github.com/homeylab/tdarr-exporter/commit/88628437722c4276efd86d697a100ee834684664))
+* label tdarr_exporter_build_info with tdarr_instance ([967d02d](https://github.com/homeylab/tdarr-exporter/commit/967d02d0aa2f244d25343453ddef86891dc388ad))
+* remove tdarr_scrape_duration_seconds metric ([b09301d](https://github.com/homeylab/tdarr-exporter/commit/b09301d97f656df1c79e7aaba4c1d1189ac9bf79))
+* remove tdarr_scrape_duration_seconds metric ([20a5764](https://github.com/homeylab/tdarr-exporter/commit/20a5764ded269dc26b3b2a16601990d3b3b8a7a8))
+
+
+### Bug Fixes
+
+* abort retry backoff when request context is cancelled ([d29c25f](https://github.com/homeylab/tdarr-exporter/commit/d29c25fcc272f929422d2e01b8dc18cce9f1837a))
+* abort retry backoff when request context is cancelled ([47b7972](https://github.com/homeylab/tdarr-exporter/commit/47b797262b474466e88691271879f375279b5efd))
+* bracket IPv6 listen_address with net.JoinHostPort ([82a4b88](https://github.com/homeylab/tdarr-exporter/commit/82a4b887f8e3dd3e184d3f9262663a82b1b73647))
+* bracket IPv6 listen_address with net.JoinHostPort ([9b68497](https://github.com/homeylab/tdarr-exporter/commit/9b684972e9d288c403517d10614b61fcce66a59a))
+* **deps:** update minor & patch updates ([fd7ecdf](https://github.com/homeylab/tdarr-exporter/commit/fd7ecdff4ea3835bd65f90e05570b502b8e4188c))
+* **deps:** update minor & patch updates ([85c5959](https://github.com/homeylab/tdarr-exporter/commit/85c59597dc6d0783aeb0a648d4b7db6b5a56d470))
+* do not cache partial library pie results ([2a320b4](https://github.com/homeylab/tdarr-exporter/commit/2a320b4171e3504414e329146228de70c1348316))
+* do not serve partial pie results from cache; scope partial-failure to one scrape ([e0ffa31](https://github.com/homeylab/tdarr-exporter/commit/e0ffa315466ccad13621c31bb7987be3c1f468e3))
+* exit 128+signum on force-quit instead of 1 ([fb65fdf](https://github.com/homeylab/tdarr-exporter/commit/fb65fdf935aa50da40934dcf83464d31b2201421))
+* exit 128+signum on force-quit instead of 1 ([c37f54f](https://github.com/homeylab/tdarr-exporter/commit/c37f54f5f12f60a0dba5bbd5c049667ad693896c))
+* exit codes, config validation, and dead-code cleanup ([14e2a94](https://github.com/homeylab/tdarr-exporter/commit/14e2a94371ca5811b45027c9ff8937d713ffe009))
+* exit non-zero when shutdown is caused by an HTTP server error ([68faacb](https://github.com/homeylab/tdarr-exporter/commit/68faacb4cf885ba7ddafe6f7063b1102d9f68215))
+* invalidate stats cache when library list changes ([f0461aa](https://github.com/homeylab/tdarr-exporter/commit/f0461aae4061c535be3f690d42d3159cff69bc0d))
+* invalidate stats cache when library list changes ([c875eb0](https://github.com/homeylab/tdarr-exporter/commit/c875eb050e8e5d9306b14dd7e298c5f1331a1a92))
+* link landing page and 404 hint to configured prometheus_path ([02affdc](https://github.com/homeylab/tdarr-exporter/commit/02affdc480434b82a06cc84162824b51d915bba2))
+* link landing page and 404 hint to configured prometheus_path ([aac83ff](https://github.com/homeylab/tdarr-exporter/commit/aac83ff198d9223b2594d611cfd3c1786b657a59))
+* reject malformed prometheus_path before ServeMux registration ([edee50c](https://github.com/homeylab/tdarr-exporter/commit/edee50c4d248ae89736ccf05e0d30ef4fc3dff92))
+* reject malformed prometheus_path before ServeMux registration ([1da99e5](https://github.com/homeylab/tdarr-exporter/commit/1da99e5674bcdc71a0f573ff58bc8d644cde9ed8))
+* reject non-canonical prometheus_port and correct route-conflict comment ([d078646](https://github.com/homeylab/tdarr-exporter/commit/d07864678b0b8c08586b2ebcbae0d4160713bb50))
+* restore response-body diagnostic on decode failure ([0e085e9](https://github.com/homeylab/tdarr-exporter/commit/0e085e9b9ff32b95fa3b777f7b3ce6acedefba65))
+* restore response-body diagnostic on decode failure ([ee0f9ba](https://github.com/homeylab/tdarr-exporter/commit/ee0f9ba1a8f3c32fbb1a3fc584a4d9918d5a4b96))
+* scope partial-failure signal to a single scrape ([ce4eed8](https://github.com/homeylab/tdarr-exporter/commit/ce4eed8668d0fef9104e33e38041a1fe850fba3b))
+* startup validation and shutdown-path hardening ([ff3281f](https://github.com/homeylab/tdarr-exporter/commit/ff3281f0679085ca8d0961bc134ec2d6cf47b42f))
+* startup validation and shutdown-path hardening ([d80f50b](https://github.com/homeylab/tdarr-exporter/commit/d80f50b0fcb3671532891cd1450881bf5d6b71b4))
+* store cache totals and stats as one atomic pair ([b2c2611](https://github.com/homeylab/tdarr-exporter/commit/b2c26111569b2c39cddb16feed285f1aa8273ca8))
+* use strconv.ParseUint for prometheus_port validation ([11a6be8](https://github.com/homeylab/tdarr-exporter/commit/11a6be8fd2f4f72c07b0a4752652b1fe52148713))
+* validate prometheus_port/prometheus_path, register -version as a real flag ([3491969](https://github.com/homeylab/tdarr-exporter/commit/34919699c1798db82c81b57fdea5b86ad7c745c7))
+
 ## [3.0.0](https://github.com/homeylab/tdarr-exporter/compare/v2.1.0...v3.0.0) (2026-06-13)
 
 
