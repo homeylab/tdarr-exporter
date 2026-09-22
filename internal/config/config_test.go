@@ -415,6 +415,7 @@ func TestVersionFlagShortCircuits(t *testing.T) {
 }
 
 func TestListenAddress(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		args []string
@@ -428,6 +429,7 @@ func TestListenAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := append([]string{"-url", "http://tdarr.test"}, tt.args...)
 			cfg, err := parseConfig(newFS(), args, envFunc(tt.env))
 			if err != nil {
@@ -441,6 +443,7 @@ func TestListenAddress(t *testing.T) {
 }
 
 func TestInstanceNameOverride(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		args []string
@@ -454,6 +457,7 @@ func TestInstanceNameOverride(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := append([]string{"-url", "http://tdarr.test:8265"}, tt.args...)
 			cfg, err := parseConfig(newFS(), args, envFunc(tt.env))
 			if err != nil {

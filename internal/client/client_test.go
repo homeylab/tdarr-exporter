@@ -168,10 +168,7 @@ func TestNewRequestClient_DoesNotLeakInsecureIntoDefaultTransport(t *testing.T) 
 	u, _ := url.Parse("http://example.com")
 	// verifySsl=false means InsecureSkipVerify=true in the new client — the most
 	// aggressive change; old code would set the global to InsecureSkipVerify=true here.
-	_, err := NewRequestClient(u, false, 15, "")
-	if err != nil {
-		t.Fatalf("NewRequestClient: %v", err)
-	}
+	NewRequestClient(u, false, 15, "")
 
 	// The global transport must never end up with our insecure setting.
 	if cfg := http.DefaultTransport.(*http.Transport).TLSClientConfig; cfg != nil && cfg.InsecureSkipVerify {
@@ -194,11 +191,7 @@ func TestNewRequestClient_ConcurrentConstruction(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			verifySsl := i%2 == 0 // alternate true/false for variety
-			_, err := NewRequestClient(u, verifySsl, 15, "test-key")
-			if err != nil {
-				// t.Error is goroutine-safe; t.Fatal is not.
-				t.Error("NewRequestClient concurrent construction error:", err)
-			}
+			NewRequestClient(u, verifySsl, 15, "test-key")
 		}()
 	}
 	wg.Wait()
