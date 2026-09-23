@@ -19,15 +19,15 @@ type TdarrPieDataRequest struct {
 }
 
 type TdarrPieSlice struct {
-	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Name  string  `json:"name"`
+	Value float64 `json:"value"`
 }
 
 // core metrics
 type TdarrMetric struct {
-	TotalFileCount        int              `json:"totalFileCount"`
-	TotalTranscodeCount   int              `json:"totalTranscodeCount"`
-	TotalHealthCheckCount int              `json:"totalHealthCheckCount"`
+	TotalFileCount        float64          `json:"totalFileCount"`
+	TotalTranscodeCount   float64          `json:"totalTranscodeCount"`
+	TotalHealthCheckCount float64          `json:"totalHealthCheckCount"`
 	SizeDiff              float64          `json:"sizeDiff"`
 	TdarrScore            string           `json:"tdarrScore"`
 	HealthCheckScore      string           `json:"healthCheckScore"`
@@ -39,23 +39,23 @@ type TdarrMetric struct {
 	// table4=Health check queue, table5=Health check healthy, table6=Health check error+cancelled.
 	// Older Tdarr versions may omit these fields; Go's JSON decoder defaults them to 0,
 	// which means 0==0 comparisons never trigger spurious refetches (graceful degradation).
-	HoldQueue          int `json:"table0Count"`
-	TranscodeQueue     int `json:"table1Count"`
-	TranscodeSuccess   int `json:"table2Count"` // includes "not required" per Tdarr UI grouping
-	TranscodeFailed    int `json:"table3Count"` // includes "cancelled"
-	HealthCheckQueue   int `json:"table4Count"`
-	HealthCheckSuccess int `json:"table5Count"`
-	HealthCheckFailed  int `json:"table6Count"` // includes "cancelled"
+	HoldQueue          float64 `json:"table0Count"`
+	TranscodeQueue     float64 `json:"table1Count"`
+	TranscodeSuccess   float64 `json:"table2Count"` // includes "not required" per Tdarr UI grouping
+	TranscodeFailed    float64 `json:"table3Count"` // includes "cancelled"
+	HealthCheckQueue   float64 `json:"table4Count"`
+	HealthCheckSuccess float64 `json:"table5Count"`
+	HealthCheckFailed  float64 `json:"table6Count"` // includes "cancelled"
 }
 
 // TdarrServerStatus decodes GET /api/v2/status. Only the fields surfaced as
 // metrics/labels are mapped; isProduction/buildDate are intentionally omitted.
 // uptime is Tdarr's Node.js process.uptime(), i.e. seconds.
 type TdarrServerStatus struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Os      string `json:"os"`
-	Uptime  int64  `json:"uptime"`
+	Status  string  `json:"status"`
+	Version string  `json:"version"`
+	Os      string  `json:"os"`
+	Uptime  float64 `json:"uptime"`
 }
 
 // new api `api/v2/stats/get-pies` support
@@ -70,17 +70,17 @@ type TdarrPieStats struct {
 	libraryId   string
 	// NormalizedTranscodes maps cleaned transcode status labels to counts.
 	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
-	NormalizedTranscodes map[string]int
+	NormalizedTranscodes map[string]float64
 	// NormalizedHealthChecks maps cleaned health check status labels to counts.
 	// Populated by normalizePieStatuses after fetch; covers the full known enum (zeros included).
-	NormalizedHealthChecks map[string]int
+	NormalizedHealthChecks map[string]float64
 }
 
 type TdarrPieStat struct {
-	TotalFiles            int                 `json:"totalFiles"`
-	TotalTranscodeCount   int                 `json:"totalTranscodeCount"`
+	TotalFiles            float64             `json:"totalFiles"`
+	TotalTranscodeCount   float64             `json:"totalTranscodeCount"`
 	SizeDiff              float64             `json:"sizeDiff"`
-	TotalHealthCheckCount int                 `json:"totalHealthCheckCount"`
+	TotalHealthCheckCount float64             `json:"totalHealthCheckCount"`
 	Status                TdarrPieStatusSlice `json:"status"`
 	Video                 TdarrPieVideoSlice  `json:"video"`
 	Audio                 TdarrPieVideoSlice  `json:"audio"`
@@ -98,9 +98,9 @@ type TdarrPieVideoSlice struct {
 }
 
 type TdarrStreamStatsObj struct {
-	Average int64 `json:"average"`
-	Highest int64 `json:"highest"`
-	Total   int64 `json:"total"`
+	Average float64 `json:"average"`
+	Highest float64 `json:"highest"`
+	Total   float64 `json:"total"`
 }
 
 type TdarrStreamStats struct {
@@ -111,9 +111,9 @@ type TdarrStreamStats struct {
 
 type TdarrResourceStats struct {
 	Process struct {
-		Uptime      int64  `json:"uptime"`
-		HeapUsedMb  string `json:"heapUsedMB"`
-		HeapTotalMb string `json:"heapTotalMB"`
+		Uptime      float64 `json:"uptime"`
+		HeapUsedMb  string  `json:"heapUsedMB"`
+		HeapTotalMb string  `json:"heapTotalMB"`
 	} `json:"process"`
 	Os struct {
 		CpuPercent string `json:"cpuPerc"`
@@ -130,27 +130,27 @@ type TdarrNode struct {
 	WorkerLimits    TdarrNodeJobs               `json:"workerLimits"`
 	GpuSelect       string                      `json:"gpuSelect"`
 	Paused          bool                        `json:"nodePaused"`
-	Priority        int                         `json:"priority"`
+	Priority        float64                     `json:"priority"`
 	Workers         map[string]TdarrNodeWorkers `json:"workers"`
 	ResourceStats   TdarrResourceStats          `json:"resStats"`
 	QueueLengths    TdarrNodeJobs               `json:"queueLengths"`
-	MaxGpuWorkers   int                         `json:"maxGpuWorkers"`
+	MaxGpuWorkers   float64                     `json:"maxGpuWorkers"`
 	ScheduleEnabled bool                        `json:"scheduleEnabled"`
 	AllowGpuDoCpu   bool                        `json:"allowGpuDoCpu"`
 }
 
 type TdarrNodeConfig struct {
-	ServerIp   string `json:"serverIP"`
-	ServerPort string `json:"serverPort"`
-	Priority   int    `json:"priority"`
-	Pid        int    `json:"processPid"`
+	ServerIp   string  `json:"serverIP"`
+	ServerPort string  `json:"serverPort"`
+	Priority   float64 `json:"priority"`
+	Pid        float64 `json:"processPid"`
 }
 
 type TdarrNodeJobs struct {
-	HealthCheckCpu int `json:"healthcheckcpu"`
-	HealthCheckGpu int `json:"healthcheckgpu"`
-	TranscodeCpu   int `json:"transcodecpu"`
-	TranscodeGpu   int `json:"transcodegpu"`
+	HealthCheckCpu float64 `json:"healthcheckcpu"`
+	HealthCheckGpu float64 `json:"healthcheckgpu"`
+	TranscodeCpu   float64 `json:"transcodecpu"`
+	TranscodeGpu   float64 `json:"transcodegpu"`
 }
 
 type TdarrNodeWorkers struct {
@@ -161,40 +161,40 @@ type TdarrNodeWorkers struct {
 	File               string  `json:"file"`
 	OriginalfileSizeGb float64 `json:"originalfileSizeInGbytes"`
 	Percentage         float64 `json:"percentage"`
-	Fps                int     `json:"fps"`
+	Fps                float64 `json:"fps"`
 	Eta                string  `json:"ETA"`
 	Status             string  `json:"status"`
-	StatusTs           int64   `json:"statusTs"`
+	StatusTs           float64 `json:"statusTs"`
 	Job                struct {
-		Version   string `json:"version"`
-		StartTime int64  `json:"start"`
-		Type      string `json:"type"`
-		JobId     string `json:"jobId"`
+		Version   string  `json:"version"`
+		StartTime float64 `json:"start"`
+		Type      string  `json:"type"`
+		JobId     string  `json:"jobId"`
 	} `json:"job"`
 	Process struct {
-		Connected bool   `json:"connected"`
-		Pid       int    `json:"pid"`
-		CliType   string `json:"cliType"`
+		Connected bool    `json:"connected"`
+		Pid       float64 `json:"pid"`
+		CliType   string  `json:"cliType"`
 	} `json:"process"`
 	LastPluginDetails struct {
 		Source         string `json:"source"`
 		Id             string `json:"id"`
 		PositionNumber string `json:"number"`
 	} `json:"lastPluginDetails"`
-	StartTime        int64   `json:"startTime"` // start time of current processing step (plugin or flow step)
+	StartTime        float64 `json:"startTime"` // start time of current processing step (plugin or flow step)
 	OutputFileSizeGb float64 `json:"outputFileSizeInGbytes"`
 	EstSizeGb        float64 `json:"estSize"`
 }
 
 type tdarrCacheTotals struct {
-	totalFileCount        int
-	totalTranscodeCount   int
-	totalHealthCheckCount int
-	holdQueue             int
-	transcodeQueue        int
-	transcodeSuccess      int
-	transcodeFailed       int
-	healthCheckQueue      int
-	healthCheckSuccess    int
-	healthCheckFailed     int
+	totalFileCount        float64
+	totalTranscodeCount   float64
+	totalHealthCheckCount float64
+	holdQueue             float64
+	transcodeQueue        float64
+	transcodeSuccess      float64
+	transcodeFailed       float64
+	healthCheckQueue      float64
+	healthCheckSuccess    float64
+	healthCheckFailed     float64
 }

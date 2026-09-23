@@ -592,8 +592,9 @@ func libraryFingerprint(libs []TdarrLibraryInfo) []TdarrLibraryInfo {
 // shouldRefetch decides whether library pie stats must be re-fetched. It returns
 // true when the cache is empty (cached.stats nil), any of the 10 cached totals
 // differs from the current metric, or the cached library-list fingerprint differs
-// from the current one. tdarrCacheTotals is all-int and thus comparable, so the
-// struct != comparison is equivalent to the prior field-by-field OR chain.
+// from the current one. tdarrCacheTotals is all-float64 and thus comparable (JSON
+// cannot encode NaN, so == is reliable), so the struct != comparison is
+// equivalent to the prior field-by-field OR chain.
 //
 // Invalidation is deliberately GLOBAL (all-or-nothing across every library), not
 // per-library, and this is forced by the Tdarr API's shape — do not "optimize" it
@@ -640,9 +641,9 @@ func (c *TdarrCollector) collect(ctx context.Context, ch chan<- prometheus.Metri
 		return false, err
 	}
 
-	c.logger.Debug().Int("totalFiles", metric.TotalFileCount).
-		Int("totalTranscodes", metric.TotalTranscodeCount).
-		Int("totalHealthChecks", metric.TotalHealthCheckCount).
+	c.logger.Debug().Float64("totalFiles", metric.TotalFileCount).
+		Float64("totalTranscodes", metric.TotalTranscodeCount).
+		Float64("totalHealthChecks", metric.TotalHealthCheckCount).
 		Msg("General stats totals")
 
 	// get metrics data
@@ -838,7 +839,9 @@ func (c *TdarrCollector) emitNodeMetrics(ch chan<- prometheus.Metric, nodeData m
 		// node identity info
 		ch <- m.nodeInfo.mustNewConstMetric(1,
 			node.Id, node.Name, node.GpuSelect,
-			strconv.Itoa(node.Config.Pid), strconv.Itoa(node.Priority),
+			// 'f' with -1 precision: "290" not "2.9e+02"; a fractional value stays visible.
+			strconv.FormatFloat(node.Config.Pid, 'f', -1, 64),
+			strconv.FormatFloat(node.Priority, 'f', -1, 64),
 			strconv.FormatBool(node.AllowGpuDoCpu),
 		)
 

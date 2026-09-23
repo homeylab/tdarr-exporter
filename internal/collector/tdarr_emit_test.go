@@ -375,8 +375,8 @@ func TestEmitPieMetrics(t *testing.T) {
 				Containers: []TdarrPieSlice{{Name: "M4A", Value: 6}},
 			},
 		},
-		NormalizedTranscodes:   map[string]int{"success": 5, "queued": 0},
-		NormalizedHealthChecks: map[string]int{"success": 3},
+		NormalizedTranscodes:   map[string]float64{"success": 5, "queued": 0},
+		NormalizedHealthChecks: map[string]float64{"success": 3},
 	}
 
 	samples := collectSamples(t, func(ch chan<- prometheus.Metric) {
@@ -480,9 +480,9 @@ func TestEmitNodeMetrics(t *testing.T) {
 		Name: "BusyNode",
 		ResourceStats: TdarrResourceStats{
 			Process: struct {
-				Uptime      int64  `json:"uptime"`
-				HeapUsedMb  string `json:"heapUsedMB"`
-				HeapTotalMb string `json:"heapTotalMB"`
+				Uptime      float64 `json:"uptime"`
+				HeapUsedMb  string  `json:"heapUsedMB"`
+				HeapTotalMb string  `json:"heapTotalMB"`
 			}{Uptime: 3600, HeapUsedMb: "128.5", HeapTotalMb: "256.0"},
 			Os: struct {
 				CpuPercent string `json:"cpuPerc"`
@@ -511,9 +511,9 @@ func TestEmitNodeMetrics(t *testing.T) {
 		Name: "IdleNode",
 		ResourceStats: TdarrResourceStats{
 			Process: struct {
-				Uptime      int64  `json:"uptime"`
-				HeapUsedMb  string `json:"heapUsedMB"`
-				HeapTotalMb string `json:"heapTotalMB"`
+				Uptime      float64 `json:"uptime"`
+				HeapUsedMb  string  `json:"heapUsedMB"`
+				HeapTotalMb string  `json:"heapTotalMB"`
 			}{Uptime: 10, HeapUsedMb: "not-a-number", HeapTotalMb: "64.0"},
 			Os: struct {
 				CpuPercent string `json:"cpuPerc"`
@@ -614,6 +614,47 @@ func TestEmitNodeMetrics(t *testing.T) {
 	// sanity: every node emits worker_limit and queue_length for the four known dims.
 	if !hasName(samples, "tdarr_node_worker_limit") || !hasName(samples, "tdarr_node_queue_length") {
 		t.Error("expected per-type worker_limit and queue_length series")
+	}
+}
+
+// TestEmitNodeMetrics_NumericLabelFormatting pins how float64 wire values render
+// in the node_pid/node_priority labels: plain decimal (never exponent notation,
+// which 'g' formatting would produce for pids >= 1e6), and a fractional value
+// passes through visibly rather than being truncated.
+func TestEmitNodeMetrics_NumericLabelFormatting(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name         string
+		pid          float64
+		priority     float64
+		wantPid      string
+		wantPriority string
+	}{
+		{"typical", 290, 0, "290", "0"},
+		{"large pid stays decimal", 1234567, 1, "1234567", "1"},
+		{"negative priority", 4000000, -1, "4000000", "-1"},
+		{"fractional passes through", 290.5, 0.5, "290.5", "0.5"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := newTestConfig(t)
+			c := newTdarrCollectorWithAPI(cfg, newSuccessFakeAPI(cfg))
+			node := TdarrNode{
+				Id:       "node-1",
+				Name:     "Node",
+				Priority: tc.priority,
+				Config:   TdarrNodeConfig{Pid: tc.pid},
+			}
+			samples := collectSamples(t, func(ch chan<- prometheus.Metric) {
+				c.emitNodeMetrics(ch, map[string]TdarrNode{"node-1": node})
+			})
+			info := findOne(t, samples, "tdarr_node_info", map[string]string{"node_id": "node-1"})
+			if info.labels["node_pid"] != tc.wantPid || info.labels["node_priority"] != tc.wantPriority {
+				t.Errorf("labels node_pid=%q node_priority=%q, want %q %q",
+					info.labels["node_pid"], info.labels["node_priority"], tc.wantPid, tc.wantPriority)
+			}
+		})
 	}
 }
 
