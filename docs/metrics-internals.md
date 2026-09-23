@@ -276,6 +276,42 @@ and rejected: the scan frame matches neither the Flow nor the Classic filter,
 so the worker would vanish entirely for one scrape — worse than briefly showing
 in the wrong section. Visibility beats section purity.
 
+## Numbers may arrive float-encoded (`847.0`)
+
+Some Tdarr instances send whole numbers in float notation — `847.0` instead of
+`847` — field by field, even mixed within one response (#126):
+
+```json
+{ "totalFileCount": 2431, "totalTranscodeCount": 847.0, "totalHealthCheckCount": 1468.0 }
+```
+
+Other instances on the **same Tdarr version** (2.87.01) send plain integers
+everywhere, so the encoding is instance-specific, not version-specific. The
+Tdarr-side cause is **unverified**. A plausible mechanism: Tdarr v2 stores its
+data in SQLite, whose JSON output renders a REAL-typed value as `847.0` (Node's
+`JSON.stringify` cannot produce that text), so a field that was ever written as
+a float on a given install keeps printing that way.
+
+Go's `encoding/json` refuses `847.0` for an `int` field, which fails the whole
+response decode — the exporter then emits only `tdarr_up=0`. So **every numeric
+wire field in `tdarr_models.go` is `float64`**, including ones that are
+semantically counts, pids, or timestamps. `float64` is exact for integers up to
+2^53 (the largest values here are epoch-ms timestamps, ~1.8e12), and Prometheus
+stores every sample as float64 anyway.
+
+- **Do not retype these fields to `int`**, and type new numeric wire fields as
+  `float64`. A field that is an integer on every instance you can test may still
+  arrive float-encoded elsewhere.
+- A genuinely fractional value (e.g. `847.5`) passes through to the metric
+  unchanged rather than being truncated — an odd value like that points at an
+  upstream problem the user should see.
+- `node_pid` / `node_priority` labels are formatted with
+  `strconv.FormatFloat(x, 'f', -1, 64)` — `'f'`, not `'g'`, so a large pid never
+  renders in exponent form.
+
+Regression coverage: `TestCollect_Golden_FloatEncodedIntegers` serves every
+golden fixture with all integers float-encoded and requires identical output.
+
 ## Removed: worker process id
 
 `tdarr_node_worker_pid` was removed because newer Tdarr API versions no longer

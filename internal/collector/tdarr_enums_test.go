@@ -165,7 +165,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 				continue
 			}
 			if val != 0 {
-				t.Errorf("result[%q] = %d, want 0", k, val)
+				t.Errorf("result[%q] = %v, want 0", k, val)
 			}
 		}
 	})
@@ -180,13 +180,13 @@ func TestNormalizeStatusSlice(t *testing.T) {
 		result := normalizeStatusSlice(raw, knownForTest, identityCleaner, "transcode", "lib1", nil)
 
 		if result["queued"] != 10 {
-			t.Errorf("result[queued] = %d, want 10", result["queued"])
+			t.Errorf("result[queued] = %v, want 10", result["queued"])
 		}
 		if result["success"] != 5 {
-			t.Errorf("result[success] = %d, want 5", result["success"])
+			t.Errorf("result[success] = %v, want 5", result["success"])
 		}
 		if result["error"] != 0 {
-			t.Errorf("result[error] = %d, want 0 (absent in raw)", result["error"])
+			t.Errorf("result[error] = %v, want 0 (absent in raw)", result["error"])
 		}
 	})
 
@@ -202,7 +202,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 		}
 		result := normalizeStatusSlice(raw, knownWithError, cleanTranscodeLabel, "transcode", "lib1", nil)
 		if result["error"] != 7 {
-			t.Errorf("result[error] = %d, want 7 after label cleaning", result["error"])
+			t.Errorf("result[error] = %v, want 7 after label cleaning", result["error"])
 		}
 	})
 
@@ -219,7 +219,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 
 		// Observable effect 1: the unknown status is present in result with its real value.
 		if result["futurestatus"] != 3 {
-			t.Errorf("result[futurestatus] = %d, want 3 (unknown status should not be discarded)", result["futurestatus"])
+			t.Errorf("result[futurestatus] = %v, want 3 (unknown status should not be discarded)", result["futurestatus"])
 		}
 		// Observable effect 2: unknownCounter was invoked exactly once with the right args.
 		if len(counterCalls) != 1 {
@@ -242,7 +242,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 
 		for k := range knownForTest {
 			if result[k] != 0 {
-				t.Errorf("result[%q] = %d, want 0 (known status absent from raw should be 0)", k, result[k])
+				t.Errorf("result[%q] = %v, want 0 (known status absent from raw should be 0)", k, result[k])
 			}
 		}
 	})
@@ -255,7 +255,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 		// Must not panic even when unknownCounter is nil.
 		result := normalizeStatusSlice(raw, knownForTest, identityCleaner, "transcode", "lib1", nil)
 		if result["mysterystatus"] != 1 {
-			t.Errorf("result[mysterystatus] = %d, want 1", result["mysterystatus"])
+			t.Errorf("result[mysterystatus] = %v, want 1", result["mysterystatus"])
 		}
 	})
 
@@ -273,10 +273,10 @@ func TestNormalizeStatusSlice(t *testing.T) {
 			t.Errorf("unknownCounter calls: want 2, got %d", callCount)
 		}
 		if result["alpha"] != 2 {
-			t.Errorf("result[alpha] = %d, want 2", result["alpha"])
+			t.Errorf("result[alpha] = %v, want 2", result["alpha"])
 		}
 		if result["beta"] != 5 {
-			t.Errorf("result[beta] = %d, want 5", result["beta"])
+			t.Errorf("result[beta] = %v, want 5", result["beta"])
 		}
 	})
 
@@ -299,7 +299,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 		if unknownCalls != 0 {
 			t.Errorf("unknownCounter calls: want 0 (all known), got %d", unknownCalls)
 		}
-		want := map[string]int{
+		want := map[string]float64{
 			"not required": 100,
 			"error":        4,
 			"queued":       8,
@@ -310,7 +310,7 @@ func TestNormalizeStatusSlice(t *testing.T) {
 		}
 		for k, wantVal := range want {
 			if result[k] != wantVal {
-				t.Errorf("result[%q] = %d, want %d", k, result[k], wantVal)
+				t.Errorf("result[%q] = %v, want %v", k, result[k], wantVal)
 			}
 		}
 	})
@@ -331,16 +331,16 @@ func TestNormalizeStatusSlice(t *testing.T) {
 			t.Errorf("unknownCounter calls: want 0 (all known), got %d", unknownCalls)
 		}
 		if result["queued"] != 3 {
-			t.Errorf("result[queued] = %d, want 3", result["queued"])
+			t.Errorf("result[queued] = %v, want 3", result["queued"])
 		}
 		if result["error"] != 1 {
-			t.Errorf("result[error] = %d, want 1", result["error"])
+			t.Errorf("result[error] = %v, want 1", result["error"])
 		}
 		if result["success"] != 50 {
-			t.Errorf("result[success] = %d, want 50", result["success"])
+			t.Errorf("result[success] = %v, want 50", result["success"])
 		}
 		if result["cancelled"] != 0 {
-			t.Errorf("result[cancelled] = %d, want 0 (absent in raw)", result["cancelled"])
+			t.Errorf("result[cancelled] = %v, want 0 (absent in raw)", result["cancelled"])
 		}
 	})
 }

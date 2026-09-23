@@ -101,8 +101,8 @@ func normalizeStatusSlice(
 	kind string,
 	libraryId string,
 	unknownCounter func(kind, status string),
-) map[string]int {
-	result := make(map[string]int, len(known))
+) map[string]float64 {
+	result := make(map[string]float64, len(known))
 
 	// Pre-populate all known statuses with 0.
 	for k := range known {

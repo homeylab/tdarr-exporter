@@ -314,6 +314,32 @@ func TestCollect_PartialPieFailure_UpEquals0(t *testing.T) {
 	}
 }
 
+// TestCollect_FractionalCountPassesThrough verifies a genuinely fractional value
+// from Tdarr is emitted as-is (not truncated) and does not fail the scrape. Counts
+// should be whole numbers; surfacing an odd value lets users spot an upstream
+// problem instead of the exporter silently normalizing it (issue #126).
+func TestCollect_FractionalCountPassesThrough(t *testing.T) {
+	cfg := newTestConfig(t)
+	api := newSuccessFakeAPI(cfg)
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"},
+		[]byte(`{"totalFileCount":10,"totalTranscodeCount":847.5,"totalHealthCheckCount":1,"tdarrScore":"0","healthCheckScore":"0"}`))
+	c := newTdarrCollectorWithAPI(cfg, api)
+
+	mfs := gatherMetricFamilies(t, c)
+	if upValueFromFamilies(mfs) != 1.0 {
+		t.Fatalf("tdarr_up: want 1.0, got %v", upValueFromFamilies(mfs))
+	}
+	for _, mf := range mfs {
+		if mf.GetName() == "tdarr_transcodes_completed" {
+			if got := mf.GetMetric()[0].GetGauge().GetValue(); got != 847.5 {
+				t.Errorf("tdarr_transcodes_completed = %v, want 847.5", got)
+			}
+			return
+		}
+	}
+	t.Error("tdarr_transcodes_completed not emitted")
+}
+
 // TestCollect_ConsecutiveScrapes_PartialFlagResets is a critical regression test verifying
 // that the partial-failure signal is scoped to a single scrape. Since collect() returns a
 // local partial-failure bool per call (rather than storing it on a shared collector field),
@@ -892,7 +918,7 @@ func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
 			defer wg.Done()
 			libId := fmt.Sprintf("lib%d", i)
 			c.Write(libStatsSnapshot{
-				totals:      tdarrCacheTotals{totalFileCount: i},
+				totals:      tdarrCacheTotals{totalFileCount: float64(i)},
 				stats:       []*TdarrPieStats{{libraryId: libId}},
 				fingerprint: []TdarrLibraryInfo{{LibraryId: libId}},
 			})
@@ -909,8 +935,8 @@ func TestLibStatsCache_ReadWritePairing_Concurrent(t *testing.T) {
 				t.Errorf("unexpected libraryId format %q: %v", got.stats[0].libraryId, err)
 				return
 			}
-			if got.totals.totalFileCount != want {
-				t.Errorf("torn snapshot: totals.totalFileCount=%d does not match stats libraryId=%q", got.totals.totalFileCount, got.stats[0].libraryId)
+			if got.totals.totalFileCount != float64(want) {
+				t.Errorf("torn snapshot: totals.totalFileCount=%v does not match stats libraryId=%q", got.totals.totalFileCount, got.stats[0].libraryId)
 			}
 			if len(got.fingerprint) != 1 || got.fingerprint[0].LibraryId != got.stats[0].libraryId {
 				t.Errorf("torn snapshot: fingerprint=%v does not match stats libraryId=%q", got.fingerprint, got.stats[0].libraryId)

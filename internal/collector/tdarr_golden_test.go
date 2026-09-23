@@ -1,8 +1,11 @@
 package collector
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/homeylab/tdarr-exporter/internal/config"
@@ -113,13 +116,20 @@ func newGoldenTestConfig(t *testing.T) config.Config {
 //   - GET  /api/v2/get-nodes                                → nodes.json
 func newGoldenFakeAPI(t *testing.T, cfg config.Config) *fakeTdarrAPI {
 	t.Helper()
+	return newGoldenFakeAPIFrom(t, cfg, func(name string) []byte { return readFixture(t, name) })
+}
+
+// newGoldenFakeAPIFrom is newGoldenFakeAPI with a caller-supplied fixture loader,
+// so a test can serve transformed variants of the same fixtures.
+func newGoldenFakeAPIFrom(t *testing.T, cfg config.Config, load func(name string) []byte) *fakeTdarrAPI {
+	t.Helper()
 	api := newFakeTdarrAPI()
-	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, readFixture(t, "general_stats.json"))
-	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, readFixture(t, "library_list.json"))
-	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-video-01"}, readFixture(t, "pie_stats_lib_video_01.json"))
-	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-audio-01"}, readFixture(t, "pie_stats_lib_audio_01.json"))
-	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, readFixture(t, "nodes.json"))
-	api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, readFixture(t, "server_status.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "StatisticsJSONDB"}, load("general_stats.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrStatsPath, disc: "LibrarySettingsJSONDB"}, load("library_list.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-video-01"}, load("pie_stats_lib_video_01.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrPieStatsPath, disc: "lib-audio-01"}, load("pie_stats_lib_audio_01.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrNodePath}, load("nodes.json"))
+	api.setResponse(fakeKey{path: cfg.TdarrStatusPath}, load("server_status.json"))
 	return api
 }
 
@@ -152,4 +162,71 @@ func TestCollect_Golden_FullFixture(t *testing.T) {
 	if err := testutil.CollectAndCompare(collector, expectedFile, collectorMetricNames...); err != nil {
 		t.Errorf("metric output mismatch:\n%v", err)
 	}
+}
+
+// TestCollect_Golden_FloatEncodedIntegers is the issue #126 regression: some
+// Tdarr instances encode integral numbers as floats ("847.0" instead of "847"),
+// field by field. Serving every fixture with all integral numbers float-encoded
+// must produce exactly the same output as the integer-encoded golden fixture.
+func TestCollect_Golden_FloatEncodedIntegers(t *testing.T) {
+	cfg := newGoldenTestConfig(t)
+	converted := 0
+	api := newGoldenFakeAPIFrom(t, cfg, func(name string) []byte {
+		body, n := floatEncodeIntegers(t, readFixture(t, name))
+		converted += n
+		return body
+	})
+	// Guard against a vacuous pass if the transform ever stops matching.
+	if converted == 0 {
+		t.Fatal("floatEncodeIntegers converted no numbers; fixtures not exercised")
+	}
+	collector := newTdarrCollectorWithAPI(cfg, api)
+
+	expectedFile, err := os.Open("testdata/expected_output.txt")
+	if err != nil {
+		t.Fatalf("open expected output: %v", err)
+	}
+	defer func() { _ = expectedFile.Close() }()
+
+	if err := testutil.CollectAndCompare(collector, expectedFile, collectorMetricNames...); err != nil {
+		t.Errorf("metric output mismatch with float-encoded integers:\n%v", err)
+	}
+}
+
+// floatEncodeIntegers rewrites every integral JSON number in body as a float
+// literal (847 → 847.0), leaving strings and non-integral numbers untouched.
+// It returns the rewritten body and how many numbers it converted.
+func floatEncodeIntegers(t *testing.T, body []byte) ([]byte, int) {
+	t.Helper()
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		t.Fatalf("decode fixture: %v", err)
+	}
+	converted := 0
+	var walk func(any) any
+	walk = func(v any) any {
+		switch x := v.(type) {
+		case map[string]any:
+			for k, e := range x {
+				x[k] = walk(e)
+			}
+		case []any:
+			for i, e := range x {
+				x[i] = walk(e)
+			}
+		case json.Number:
+			if !strings.ContainsAny(string(x), ".eE") {
+				converted++
+				return json.Number(string(x) + ".0")
+			}
+		}
+		return v
+	}
+	out, err := json.Marshal(walk(v))
+	if err != nil {
+		t.Fatalf("re-encode fixture: %v", err)
+	}
+	return out, converted
 }
